@@ -312,7 +312,7 @@ export function SettingsPanel({
                 <div className="settings-card settings-exit-card">
                   <div className="settings-row">
                     <div className="settings-row-copy">
-                      <strong>{currentLoc ? `${currentLoc.country} · ${currentLoc.city}` : tr("验证出口")}</strong>
+                      <strong>{currentLoc ? `${currentLoc.country} · ${currentLoc.city}` : tr("当前出口")}</strong>
                       <small className="settings-exit-meta">
                         {currentLoc ? (
                           <>
@@ -321,7 +321,7 @@ export function SettingsPanel({
                             <span>{new Date(currentLoc.checked_at).toLocaleTimeString(document.documentElement.lang, { hour: "2-digit", minute: "2-digit" })}</span>
                             {probe && <span className="settings-ok-pill"><Check size={12} />{tr("验证通过")}</span>}
                           </>
-                        ) : tr("通过当前节点查询 IP 和位置")}
+                        ) : tr("尚未检查")}
                       </small>
                     </div>
                     <div className="settings-row-control">
@@ -432,13 +432,11 @@ export function SettingsPanel({
               <>
                 <div className="section-title">
                   <h3>{tr("时区与语言")}</h3>
-                  <p>{tr("这些设置作用于 Cage 内的系统、CLI 和浏览器。")}</p>
                 </div>
                 <div className="settings-card">
                   <label className="settings-row settings-switch-row">
                     <span className="settings-row-copy">
                       <strong>{tr("跟随出口 IP 的时区")}</strong>
-                      <small>{probe && draft.auto_timezone ? probe.timezone : tr("在启动或应用设置时重新查询，不会静默重启正在运行的任务。")}</small>
                     </span>
                     <span className="settings-row-inline">
                       {draft.auto_timezone && (
@@ -623,7 +621,6 @@ export function SettingsPanel({
                   {typeof current.reuse_claude_login === "boolean" && <label className="settings-row settings-switch-row" title={tr("每次授权使用独立的浏览器会话。关闭后可复用登录状态。")}>
                     <span className="settings-row-copy">
                       <strong>{tr("使用无痕标签页登录 Claude")}</strong>
-                      <small>{tr("每次授权使用独立的浏览器会话。关闭后可复用登录状态。")}</small>
                     </span>
                     <input type="checkbox" role="switch" checked={!draft.reuse_claude_login}
                       onChange={(event) => update("reuse_claude_login", !event.target.checked)} />
@@ -631,7 +628,6 @@ export function SettingsPanel({
                   {typeof current.balanced_display === "boolean" && <label className="settings-row settings-switch-row" title={tr("降低浏览器和 Claude Desktop 的清晰度，Linux 环境同时减少 Claude Desktop 的动效。下次启动环境时生效。")}>
                     <span className="settings-row-copy">
                       <strong>{tr("优先流畅")}</strong>
-                      <small>{tr("下次启动环境时生效。")}</small>
                     </span>
                     <input type="checkbox" role="switch" checked={draft.balanced_display}
                       onChange={(event) => update("balanced_display", event.target.checked)} />
@@ -639,7 +635,6 @@ export function SettingsPanel({
                   {typeof current.project_file_cache === "boolean" && <label className="settings-row settings-switch-row" title={tr("减少读取项目文件时与本机的往返。在本机上所做的改动最多 20 秒后在环境中可见，也可以在项目栏点“刷新项目文件”立即同步。下次启动环境时生效。")}>
                     <span className="settings-row-copy">
                       <strong>{tr("项目文件缓存")}</strong>
-                      <small>{tr("下次启动环境时生效。")}</small>
                     </span>
                     <input type="checkbox" role="switch" checked={draft.project_file_cache}
                       onChange={(event) => update("project_file_cache", event.target.checked)} />
@@ -712,7 +707,6 @@ export function SettingsPanel({
               <>
                 <div className="section-title">
                   <h3>{tr("环境与恢复")}</h3>
-                  <p>{isRemoteClient() ? tr("项目位于云端，Cage 中的改动会直接保存到云端文件。") : tr("所有项目共用一个 Cage 环境")}</p>
                 </div>
                 <div className="settings-card">
                   <div className="settings-row">

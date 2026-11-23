@@ -54,12 +54,10 @@ export function ExitPolicyFields({
     <>
       <div className="section-title">
         <h3>{tr("IP 变化规则")}</h3>
-        <p>{tr("中国大陆出口禁止放行；静态 IP 和不限地区也必须确认出口国家。")}</p>
       </div>
       <label className="toggle-row">
         <span>
           <strong>{tr("静态 IP")}</strong>
-          <small>{tr("绑定当前最终出口节点；同一节点的 IPv4 地址变化时暂停外网。")}</small>
         </span>
         <input
           type="checkbox"
@@ -181,12 +179,6 @@ export function ExitPolicyFields({
           </small>
         </div>
       )}
-      <p className="footnote">
-        {tr("出口规则按最终出口节点保存，切换节点时自动恢复；首次使用的节点检测后绑定。仅更换中转、重检或重启会保留该节点的基准。命中大陆网段、定位为中国大陆、无法确认出口地区或超出保存范围时暂停外网，离线终端和文件仍可使用。")}
-      </p>
-      <p className="field-help">
-        {tr("范围依据 IP 数据库的近似定位。后台约每 30 秒采样，不能代替代理自身的分流约束。")}
-      </p>
     </>
   );
 }

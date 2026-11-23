@@ -65,7 +65,7 @@ export function BrowserVaultBar({ tab, vault, onManage, ready, menu = false }) {
     {candidate && <div className="vault-save" role="region" aria-label={tr("保存网站密码")}>
       <div><strong>{candidate.update ? tr("更新此账号的密码？") : tr("保存此账号密码？")}</strong>
         <span>{candidate.origin} · {candidate.username || tr("未填写用户名")}</span>
-        <small>{tr("请确认网站登录成功后保存。")}</small></div>
+        </div>
       <div className="vault-actions">
         <button className="primary" disabled={busy} onClick={() => run({ action: "save", candidate: candidate.id }, tr("密码已保存"))}>{candidate.update ? tr("更新密码") : tr("保存密码")}</button>
         <button disabled={busy} onClick={() => run({ action: "dismiss", candidate: candidate.id }, "")}>{tr("暂不保存")}</button>
@@ -73,8 +73,7 @@ export function BrowserVaultBar({ tab, vault, onManage, ready, menu = false }) {
       </div>
     </div>}
     {open && <div className="vault-picker" role="region" aria-label={tr("当前网站的密码")}>
-      <p>{state.origin && state.tab === tab.id ? state.origin : tr("在 HTTPS 网站的登录页选择账号填充")}</p>
-      {!ready ? <p>{tr("启动环境后可填写网站密码。")}</p> : !state.available ? <p>{state.message || tr("正在连接浏览器密码功能…")}</p> :
+      {!ready ? <p>{tr("请先启动环境")}</p> : !state.available ? <p>{state.message || tr("正在连接浏览器密码功能…")}</p> :
         entries.length ? entries.map(entry => <button className="vault-account-choice" key={entry.id} disabled={busy}
           onClick={() => run({ action: "fill", tab: tab.id, id: entry.id, document: state.document }, tr("已填写，请在网页中提交登录"))}>
           <span>{entry.username || tr("未填写用户名")}</span><span>{tr("填入账号密码")}</span>
@@ -127,7 +126,7 @@ export function PasswordVaultSettings({ onConfirm, onDirty }) {
   const askReveal = (entry, mode) => { setRevealed(null); setAccountPassword(""); setVerify({ entry, mode }); setError(""); };
   const entries = store.entries.filter(entry => `${entry.origin} ${entry.username}`.toLowerCase().includes(search.toLowerCase()));
   return <section className="vault-settings">
-    <div className="section-title"><h3>{tr("密码保险箱")}</h3><p>{tr("账号密码加密保存在这台设备，随 Cage 一起解锁和锁定。")}</p></div>
+    <div className="section-title"><h3>{tr("密码保险箱")}</h3></div>
     <div className="vault-note"><ShieldCheck size={17} /><span>{tr("查看或复制密码需要再次验证 Cage 账户密码。填充后由你提交登录。")}</span></div>
     {error && <p className="account-error" role="alert">{tr(error)}</p>}
     {message && <p role="status">{message}</p>}
@@ -149,7 +148,7 @@ export function PasswordVaultSettings({ onConfirm, onDirty }) {
       <div className="vault-actions"><button className="primary" disabled={busy} type="submit">{verify.mode === "copy" ? tr("验证并复制") : tr("验证并查看")}</button>
         <button type="button" disabled={busy} onClick={() => { setVerify(null); setAccountPassword(""); }}>{tr("取消验证")}</button></div>
     </form>}
-    {loading ? <p>{tr("正在读取密码保险箱…")}</p> : !entries.length ? <div className="vault-empty"><KeyRound size={24} /><p>{search ? tr("没有找到匹配的账号") : tr("还没有保存密码")}</p><small>{tr("网页登录后可以确认保存，也可以手动添加。")}</small></div> :
+    {loading ? <p>{tr("正在读取密码保险箱…")}</p> : !entries.length ? <div className="vault-empty"><KeyRound size={24} /><p>{search ? tr("没有找到匹配的账号") : tr("还没有保存密码")}</p></div> :
       <div className="vault-list">{entries.map(entry => <article className="vault-entry" key={entry.id}>
         <div><strong>{entry.origin}</strong><span>{entry.username || tr("未填写用户名")}</span></div>
         {revealed?.id === entry.id && <div className="vault-revealed"><output aria-label={tr("已保存的网站密码")}>{revealed.password}</output><button onClick={() => setRevealed(null)}>{tr("隐藏密码")}</button></div>}
@@ -162,6 +161,6 @@ export function PasswordVaultSettings({ onConfirm, onDirty }) {
       </article>)}</div>}
     {store.blocked.length > 0 && <section className="vault-blocked"><h4>{tr("不再提示保存的网站")}</h4>{store.blocked.map(origin => <div key={origin}><span>{origin}</span><button disabled={busy} onClick={() => run({ action: "unblock", origin }, tr("已恢复此网站的保存提示"))}>{tr("恢复提示")}</button></div>)}</section>}
     {/* After the list loads; shown earlier, the list would push it down. */}
-    {!loading && <p className="footnote">{tr("目前支持 HTTPS 顶层网页的常见登录表单。密码不会同步到其他设备；备份时需同时保留本地账户文件与密码库。")}</p>}
+    {!loading && null}
   </section>;
 }

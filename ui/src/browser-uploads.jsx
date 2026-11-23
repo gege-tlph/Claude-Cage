@@ -91,10 +91,6 @@ export function BrowserUploads({ requests = [], onStatus }) {
       footer={<button onClick={cancel}>{tr("取消上传")}</button>}
     >
       <div className="modal-body browser-upload-body">
-        <p>
-          {tr("选择要上传的图片、视频或文档。仅传递所选文件，目标网页或应用负责处理附件。")}
-        </p>
-        <p className="field-help">{tr("支持的格式自动清理定位、时区等元数据。无法安全清理时，可在设置→通用中明确开启“允许未支持格式原样传递”；原样文件可能保留元数据。")}</p>
         {nativeAvailable() ? <button className="primary" disabled={Boolean(progress)} onClick={() => void choose()}>{tr("选择本机文件")}</button> : <label className="field">
           {tr("选择本机文件")}
           <input

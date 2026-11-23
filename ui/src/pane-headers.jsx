@@ -225,7 +225,7 @@ export function BrowserHeader({ vault, onManageVault, tab, tabs, metadata, ready
     </div>
     </div>
     {cookiesOpen && <BrowserCookies key={`${tab.id}:${tab.url}`} tab={tab} onClose={() => { setCookiesOpen(false); toolsTrigger.current?.focus(); }} />}
-    {tab.incognito && <p className="browser-private-note">{tab.login ? tr("本次授权使用独立的无痕会话，授权结束后清理。") : tr("无痕会话 · 关闭全部无痕标签后清理网站数据；下载和主动保存的收藏会保留。")}</p>}
+    {tab.incognito && null}
     {menu}
     {busy && <div className="progress-line" />}
   </header>;

@@ -93,7 +93,7 @@ export function AboutSettings() {
       <div><dt>{tr("软件版本")}</dt><dd>{loading ? tr("正在读取…") : build?.version || tr("未知")}</dd></div>
       <div><dt>{tr("构建提交")}</dt><dd>{build?.commit ? <code title={build.commit}>{build.commit.slice(0, 12)}</code> : loading ? tr("正在读取…") : tr("未记录")}</dd></div>
     </dl>
-    {build?.modified && <p className="footnote">{tr("此构建包含未提交的修改，提交核对仅反映已记录的提交。")}</p>}
+    {build?.modified && <p className="footnote">{tr("此构建包含未提交的修改")}</p>}
     <div className="about-check-actions">
       <button className="secondary-button" onClick={check} disabled={busy || coolingDown}>
         {busy ? <LoaderCircle size={15} className="spin" /> : <RefreshCw size={15} />}
@@ -101,7 +101,6 @@ export function AboutSettings() {
       </button>
       {result?.checkedAt && <span className="footnote">{tr("检查时间：")}{new Date(result.checkedAt).toLocaleString(activeInterfaceLanguage())}</span>}
     </div>
-    <p className="footnote">{tr("优先通过主机网络与系统代理检查主分支提交和最新发行版，包含预发行版；主机连接失败时尝试 Cage 所选代理。检查后可前往发布页下载。")}</p>
     {busy && <p role="status">{tr("正在核对源码提交与发行版…")}</p>}
     {error && <p className="error-message" role="alert">{localizeBackendMessage(error, tr)}</p>}
     <div className="about-results" aria-live="polite" aria-busy={busy}>

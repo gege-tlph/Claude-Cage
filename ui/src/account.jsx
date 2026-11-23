@@ -297,13 +297,6 @@ export function AccountGate({ children }) {
               ? tr("欢迎回来，{0}", (account.username))
               : tr("正在连接 Cage")}
         </h1>
-        <p className="account-entry-intro">
-          {creating
-            ? isRemoteClient() ? tr("在云端创建账户，保护这台主机上的工作与登录状态。") : tr("先注册用户名和密码，再选择客机系统并安装环境。")
-            : account
-              ? account.trusted_local ? tr("本机工作区") : tr("输入密码，继续你的工作。")
-              : isRemoteClient() ? tr("正在读取云端账户…") : tr("正在读取本机账户…")}
-        </p>
         {account?.background_running && (
           <div className="account-background">
             <i />
@@ -311,7 +304,7 @@ export function AccountGate({ children }) {
           </div>
         )}
         {account?.trusted_local && <div className="account-trust-choice">
-          <p>{localDesktop() ? tr("使用当前系统用户的本机信任凭据进入工作区。") : tr("请回到受信任的桌面设置账户密码，再从此处登录。")}</p>
+          <p>{!localDesktop() && tr("请回到受信任的桌面设置账户密码，再从此处登录。")}</p>
           {localDesktop() && <button className="quiet-button" disabled={busy} onClick={() => enterTrusted("resume")}>{busy ? tr("正在进入…") : tr("重新进入本机工作区")}</button>}
         </div>}
         {account?.trusted_local && error && <p className="account-error" role="alert">{tr(error)}</p>}
@@ -363,7 +356,7 @@ export function AccountGate({ children }) {
               {(localDesktop() || (creating && deviceSupport?.supported && deviceSupport.device_status)) && (
                 <label className="account-device-option check-line">
                   <input type="checkbox" checked={rememberThisDevice} onChange={(e) => setRememberLogin(e.target.checked)} />
-                  <span><strong>{localDesktop() ? tr("记住我") : tr("记住登录")}</strong><small>{localDesktop() ? tr("信任此电脑，下次用当前系统用户打开时直接进入。手动锁定仍需验证。") : tr("下次打开直接进入。手动锁定后仍需验证。")}</small></span>
+                  <span><strong>{localDesktop() ? tr("记住我") : tr("记住登录")}</strong></span>
                 </label>
               )}
               {!creating && deviceSupport?.supported && credentialPresent(deviceSupport.device_status?.biometric) && account.devices?.biometric && (
@@ -400,9 +393,7 @@ export function AccountGate({ children }) {
           {isRemoteClient() ? tr("账户资料保存在当前云端主机") : tr("账户资料仅保存在这台设备上")}
         </p>
         {account && !account.trusted_local && <p className="account-recovery-note">
-          {creating
-            ? tr("注册后会生成恢复密钥。请保存到密码管理器，忘记密码时可用它恢复。")
-            : account?.recovery_ready ? tr("忘记密码时，可使用已保存的恢复密钥重置。") : tr("此账户尚未设置恢复密钥。能登录时，请到「设置 → 账户」补设。")}
+          {!creating && !account?.recovery_ready && tr("此账户尚未设置恢复密钥。能登录时，请到「设置 → 账户」补设。")}
         </p>}
       </section>
       {nativeAvailable() && (
@@ -425,7 +416,7 @@ function RecoveryKeyScreen() {
   return <main className="account-gate">
     <section className="account-entry account-recovery" aria-label={tr("保存恢复密钥")}>
       <h1>{recovery.reset ? tr("密码已重置") : tr("保存你的恢复密钥")}</h1>
-      <p className="account-entry-intro">{recovery.reset && tr("请保存新的恢复密钥。")}{tr("账户：")}{recovery.username}{tr("。这份密钥可以重置密码并访问原有资料，请存入密码管理器或安全的离线位置，不要分享给他人。")}</p>
+      <p className="account-entry-intro">{recovery.reset && tr("请保存新的恢复密钥。")}{tr("账户：")}{recovery.username}</p>
       <label className="account-field">{tr("恢复密钥")}<textarea aria-label={tr("恢复密钥")} readOnly value={recovery.key} rows={4} spellCheck={false} autoComplete="off" onFocus={(event) => event.target.select()} /></label>
       <div className="account-recovery-actions">
         <button className="quiet-button" onClick={async () => {
@@ -464,7 +455,6 @@ function AccountRecovery({ onBack, onReset }) {
   return <main className="account-gate">
     <section className="account-entry account-recovery" aria-label={tr("恢复账户")}>
       <h1>{tr("使用恢复密钥重置密码")}</h1>
-      <p className="account-entry-intro">{tr("为") + " "}{account.username}{" " + tr("设置新密码，原来的资料和 Claude 登录状态会保留。")}</p>
       {account.recovery_ready ? <form onSubmit={async (event) => {
         event.preventDefault();
         if (busy) return;
@@ -782,9 +772,6 @@ export function AccountSettings({ busy: environmentBusy, onDirty, onConfirm }) {
       {passwordOpen && <Modal title={account.trusted_local ? tr("设置账户密码") : tr("修改密码")} onClose={closePassword}>
         <form className="account-password-dialog" onSubmit={(event) => save(event, true)}>
           <fieldset disabled={busy || environmentBusy}>
-            <p className="field-help">
-              {tr("修改密码不会清除 Claude 的登录状态。忘记密码时，可在登录页使用已保存的恢复密钥重置。")}
-            </p>
             {!account.trusted_local && <PasswordField label={tr("当前密码")} value={oldPassword} onChange={setOldPassword} />}
             <PasswordField label={tr("新密码")} value={password} onChange={setPassword} autoComplete="new-password" />
             <PasswordField label={tr("确认新密码")} value={confirmation} onChange={setConfirmation} autoComplete="new-password" />

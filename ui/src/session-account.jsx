@@ -56,8 +56,8 @@ export function SessionAccount({ id, request, onChanged, compact = false, defaul
     </button>}
     {open && <div className="session-account-options">
       {view.unopened
-        ?<p>{tr("原账号：")}{session.account_label || session.account_id}{tr("。可直接使用同组其他账号继续此会话，原账号历史保留不动。")}</p>
-        :<p>{tr("当前账号：")}{session.account_label || session.account_id}{tr("。会话重连会保持此账号。")}</p>}
+        ?<p>{tr("原账号：")}{session.account_label || session.account_id}</p>
+        :<p>{tr("当前账号：")}{session.account_label || session.account_id}</p>}
       {session.account_failure && <p role="status">{failures[session.account_failure] || tr("本轮发生错误，原会话已保留")}</p>}
       {sw && <p role="status">{sw.phase==="completed"?tr("已接续至"):tr("接续目标：")}{sw.target_label}{sw.error && ` · ${sw.error}`}</p>}
       <label>{tr("此会话切换授权")}<InlineSelect aria-label={tr("此会话切换授权")} disabled={busy || switching} value={view.switch_policy} onValueChange={policy=>change({action:"policy",policy})}>
@@ -67,8 +67,7 @@ export function SessionAccount({ id, request, onChanged, compact = false, defaul
         <label>{tr("接续账号")}<InlineSelect aria-label={tr("接续账号")} value={target} disabled={busy || !view.candidates.length} onValueChange={value=>{setTarget(value);setConfirmed(false);pending.current=null;}}>
           {view.candidates.length?view.candidates.map(a=><option key={a.id} value={a.id}>{a.label}</option>):<option value="">{tr("无可用账号")}</option>}
         </InlineSelect></label>
-        {!view.candidates.length && <p>{tr("在账号设置中，将允许共享会话历史的账号设为同一接续分组。")}</p>}
-        <p>{tr("目标账号将基于历史副本继续处理，原账号会话保留不动，缓存可能重建。执行中的工具、后台任务和未确认结果会阻止切换。")}</p>
+        {!view.candidates.length && null}
         <label className="check-line"><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)} />{tr("允许将此会话历史交给所选账号")}</label>
         <label className="check-line"><input type="checkbox" checked={continueTask} onChange={e=>{setContinueTask(e.target.checked);pending.current=null;}} />{tr("恢复后继续未完成的任务")}</label>
         <button type="button" disabled={busy || !target || !confirmed} onClick={()=>{

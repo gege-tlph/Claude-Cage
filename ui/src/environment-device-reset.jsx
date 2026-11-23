@@ -232,9 +232,6 @@ export function EnvironmentDeviceReset({ status, onConfirm, onOpenProxy }) {
   return (
     <section className="environment-device-reset" aria-label={tr("一键换机与指纹重置")} aria-busy={working || loading}>
       <h4>{tr("一键换机与指纹重置")}</h4>
-      <p className="field-help">
-        {tr("替换客机硬件标识、系统指纹与应用资料以切断与旧环境的关联。宿主机项目文件夹、代理配置和密码保险箱永久保留。")}
-      </p>
 
       {info && !info.supported && (
         <p className="field-help">{info.unsupported_reason || tr("当前连接方式不支持直接换机。")}</p>
@@ -265,7 +262,6 @@ export function EnvironmentDeviceReset({ status, onConfirm, onOpenProxy }) {
                 />
                 <strong>{tr("快速换机（原地重置）")}</strong>
               </span>
-              <small>{tr("保留系统盘与已装开发工具链，约 10–30 秒。轮换虚拟硬件与系统指纹，并按下方勾选清理应用资料；Linux 用户名不变。")}</small>
             </label>
             <label className={`device-reset-mode${mode === "rebuild" ? " selected" : ""}`}>
               <span className="device-reset-mode-head">
@@ -279,7 +275,6 @@ export function EnvironmentDeviceReset({ status, onConfirm, onOpenProxy }) {
                 />
                 <strong>{tr("彻底换新机（模板重建）")}</strong>
               </span>
-              <small>{tr("从本地缓存的基础镜像重建全新客机，零残留。连同 Linux 账户名、主目录、系统盘与全部指纹一起焕然一新。")}</small>
             </label>
           </div>
 
@@ -330,7 +325,6 @@ export function EnvironmentDeviceReset({ status, onConfirm, onOpenProxy }) {
           {mode === "rebuild" && (
             <details className="guest-profile-options">
               <summary>{tr("自定义新机名称与设备配置")}</summary>
-              <p>{tr("留空将自动全随机生成一组全新的主机名、账户名、音频型号和显示尺寸；也可以手动指定或先点击下方按钮预览。")}</p>
               <fieldset disabled={busy}>
                 {customTextFields.map(([key, label, placeholder, maxLength]) => (
                   <label key={key}>
@@ -454,9 +448,6 @@ export function EnvironmentDeviceReset({ status, onConfirm, onOpenProxy }) {
             />
             <span>
               <strong>{tr("彻底清理旧数据（不可恢复）")}</strong>
-              <small>
-                {tr("默认保留旧环境归档或恢复批次以便随时回滚；勾选后仅在新环境验证就绪后立即删除旧数据释放空间，失败会自动回滚。")}
-              </small>
             </span>
           </label>
 
@@ -537,7 +528,6 @@ export function EnvironmentDeviceReset({ status, onConfirm, onOpenProxy }) {
             (info.recovery_batches && info.recovery_batches.length > 0)) && (
             <div className="cache-recovery" aria-label={tr("旧环境归档与恢复")}>
               <h4>{tr("旧环境归档与恢复")}</h4>
-              <p className="field-help">{tr("归档保留在本地磁盘且不会自动删除；确认新机稳定后可手动删除以释放空间。")}</p>
               {(info.archives || []).map((archive) => (
                 <div className="setting-summary-row" key={archive.id}>
                   <span>

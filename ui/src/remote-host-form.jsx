@@ -155,7 +155,6 @@ export function HostForm({ initial, platform, onSaved, onClose }) {
                 autoComplete="off"
                 spellCheck="false"
               />
-              <small>{tr("填写绝对路径。密钥留在本机，不上传到云端。")}</small>
             </label>
           )}
           {form.auth.kind === "agent" && (
@@ -178,11 +177,6 @@ export function HostForm({ initial, platform, onSaved, onClose }) {
                 autoComplete="off"
                 spellCheck="false"
               />
-              <small>
-                {platform === "windows"
-                  ? tr("留空时使用 SSH_AUTH_SOCK 或 Windows OpenSSH agent。使用其他 agent 时，填写以 \\\\.\\pipe\\ 开头的命名管道。")
-                  : tr("留空时使用 SSH_AUTH_SOCK。密码管理器提供独立 agent 时，填写其套接字的绝对路径。")}
-              </small>
             </label>
           )}
           <details>
@@ -196,7 +190,6 @@ export function HostForm({ initial, platform, onSaved, onClose }) {
                   placeholder="cage"
                   spellCheck="false"
                 />
-                <small>{tr("默认使用 cage，也可填写云端程序的绝对路径。")}</small>
               </label>
               <label>
                 {tr("Cage 配置文件")}
@@ -208,7 +201,6 @@ export function HostForm({ initial, platform, onSaved, onClose }) {
                   placeholder={form.platform === "windows" ? tr("例如 C:\\ProgramData\\Cage Remote\\config.json") : tr("默认使用云端账户的 ~/.claude-cage/config.json")}
                   spellCheck="false"
                 />
-                <small>{tr("自定义时填写云端绝对路径。")}</small>
               </label>
             </div>
           </details>

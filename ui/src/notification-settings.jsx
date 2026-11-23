@@ -192,7 +192,6 @@ export function NotificationSettings({ onUpdated }) {
     <section className="notification-settings" aria-label={tr("通知")}>
       <div className="section-title">
         <h3>{tr("通知")}</h3>
-        <p>{tr("在终端中的 Claude Code 完成回复或等待确认时发送系统通知，点击通知可回到对应终端。修改后立即生效，无需重启环境。")}</p>
       </div>
 
       {systemStatus && (
@@ -217,17 +216,6 @@ export function NotificationSettings({ onUpdated }) {
                         ? tr("系统通知服务不可用")
                         : tr("当前运行方式暂不支持系统通知")}
               </strong>
-              <p>
-                {permission === "authorized" || permission === "provisional"
-                  ? tr("Cage 可以直接通过系统通知中心提醒你。")
-                  : permission === "not_determined"
-                    ? tr("授权后，切到其他应用时也能及时收到 Claude Code 完成提醒。")
-                    : permission === "denied"
-                      ? tr("请在系统设置中为 Cage 打开通知权限，返回后状态会自动刷新。")
-                      : permission === "unavailable"
-                        ? tr("未检测到系统通知服务，请确认桌面环境已开启通知后重试。")
-                        : tr("请使用 Cage 桌面应用以获得完整的系统通知与点击回跳体验。")}
-              </p>
             </div>
           </div>
           <div className="notification-permission-actions">
@@ -249,9 +237,6 @@ export function NotificationSettings({ onUpdated }) {
       <div className="notification-row">
         <div className="notification-row-copy">
           <strong>{tr("回合完成通知")}</strong>
-          <small>
-            {tr("Claude Code 结束本轮回复时提醒。选择「仅未聚焦时」会在切换到其他应用或查看其他标签时通知，正在看该终端时不打扰；取消或 API 出错结束时不发送。")}
-          </small>
         </div>
         <div className="notification-row-control">
           <InlineSelect
@@ -272,7 +257,6 @@ export function NotificationSettings({ onUpdated }) {
       <div className="notification-row">
         <div className="notification-row-copy">
           <strong>{tr("等待确认通知")}</strong>
-          <small>{tr("终端中的 Claude Code 等待你批准权限或操作时发送系统通知。")}</small>
         </div>
         <div className="notification-row-control">
           <InlineSelect
@@ -293,7 +277,6 @@ export function NotificationSettings({ onUpdated }) {
       {soundSupported && <label className="toggle-row">
         <span>
           <strong>{tr("通知提示音")}</strong>
-          <small>{tr("发出系统通知时播放系统默认提示音。关闭后仅显示静默横幅。")}</small>
         </span>
         <input
           role="switch"

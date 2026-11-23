@@ -1942,7 +1942,6 @@ function App() {
                         onFallback={(text, message) => setTransfer({ text, message })} />}
                       {!status.ready && <div className="view-overlay">
                         <RefreshCw /><h3>{tr("浏览器连接暂时不可用")}</h3>
-                        <p>{tr("环境和终端仍可运行；恢复浏览器不会停止现有终端。")}</p>
                         <button className="primary" disabled={busy} onClick={() => startEnvironment({})}>{tr("恢复浏览器")}</button>
                       </div>}
                       {status.ready && !splitReady && <div className="view-overlay">{tr("正在调整浏览器布局…")}</div>}
@@ -2012,8 +2011,8 @@ function App() {
                       <SafetyMessage message={busy
                         ? localizeBackendMessage(status.job.message, tr)
                         : !status.ready
-                          ? status.environment_update_error || "浏览器连接尚未就绪，可以恢复连接或继续使用终端。"
-                          : tr("{0}。终端与本地文件仍可使用。", tr(network.label))} />
+                          ? status.environment_update_error || "浏览器连接暂时不可用"
+                          : tr(network.label)} />
                     </p>
                   )}
                   {!running && (
@@ -2106,7 +2105,6 @@ function App() {
                   {status.project_error && (
                     <div className="start-error" role="alert">
                       <strong>{tr("部分项目文件夹尚未连接")}</strong>
-                      <p>{tr("环境和浏览器可继续使用。")}</p>
                       {status.project_errors?.length ? (
                         <ul className="project-connection-errors">
                           {status.project_errors.map(({ path, message, recovery }) => (
@@ -2125,7 +2123,6 @@ function App() {
                   {status.abandoned_guests?.length > 0 && (
                     <div className="start-error" role="status">
                       <strong>{status.abandoned_guests.map(name => ({ macos: "macOS", windows: "Windows", ubuntu: "Ubuntu" })[name] || name).join(" / ")}{" " + tr("客机已不再支持")}</strong>
-                      <p>{tr("原有客机数据仍原样保留在磁盘上，未做任何改动；如不再需要，可以手动删除。")}</p>
                       {status.abandoned_environment && !running && status.local_vm_storage && !isRemoteClient() && (
                         <button
                           className="text-button"

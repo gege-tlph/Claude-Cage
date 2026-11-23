@@ -93,9 +93,6 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
     <section className="remote-link-settings" aria-label={tr("远程连接")}>
       <div className="section-title">
         <h3>{tr("远程连接")}</h3>
-        <p>
-          {tr("手机配对后可以打开远程浏览器和 Claude Desktop，也可以继续 Claude Code 会话、处理工具审批。")}
-        </p>
       </div>
       <section className="remote-pair-card" aria-label={tr("手机配对")}>
         <h4>{paired ? tr("手机已配对") : tr("用手机连接 Cage")}</h4>
@@ -119,13 +116,11 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
           </p>
         )}
         {paired ? (
-          <p role="status">{tr("在手机上点「重新连接」即可打开工作台。")}</p>
+          null
         ) : (
-          <p className="remote-pair-instruction">
-            {tr("打开手机 Cage，选择「连接电脑」，用「扫码连接」扫描二维码，或选择「使用配对码」粘贴电脑上复制的配对码。")}
-          </p>
+          null
         )}
-        {paired && power?.active && <p className="note">{tr("远程待机已请求主机保持运行，屏幕可正常熄灭。移除配对或结束后台服务后恢复原系统休眠策略。")}</p>}
+        {paired && power?.active && <p className="note">{tr("主机保持唤醒中")}</p>}
         {paired && power?.error && <p role="alert">{tr("主机防休眠未生效：")}{tr(power.error)}</p>}
         {code && (
           <div className="remote-pair-code">
@@ -135,7 +130,6 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
               width="320"
               height="320"
             />
-            <p className="field-help">{tr("二维码约两分钟有效，过期后可刷新。")}</p>
           </div>
         )}
         {!code && !paired && (
@@ -176,9 +170,7 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
           )}
         </div>
         {!paired && (
-          <p className="remote-pair-privacy">
-            {tr("只将二维码或配对码交给你希望授权的手机。")}
-          </p>
+          null
         )}
         {notice && <p role="status">{localizeBackendMessage(notice, tr)}</p>}
       </section>
@@ -186,9 +178,6 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
         <div className="remote-relay-row">
           <div>
             <h4>{tr("中继服务")}</h4>
-            <p className="field-help">
-              {tr("通过中继连接手机与电脑，可使用官方或自建服务。")}
-            </p>
           </div>
           <div
             className="remote-relay-options"
@@ -242,7 +231,7 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
           </>
         )}
         {relay !== savedRelay && (
-          <small>{tr("保存设置后，可使用新中继生成配对码。")}</small>
+          null
         )}
       </section>
     </section>

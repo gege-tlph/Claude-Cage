@@ -282,7 +282,6 @@ export const RemoteView = forwardRef(function RemoteView(
           <h3>
             {connection === "connecting" ? translate("正在连接画面") : translate("画面连接已断开")}
           </h3>
-          <p>{translate("后台任务不会因画面断开而自动结束。")}</p>
           {connection === "disconnected" && (
             <button
               className="primary"

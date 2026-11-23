@@ -483,19 +483,19 @@ export function HostPluginsSidebar({ visible, model, page, onPage, onBack, onCon
         <button type="button" className={`plugin-market-entry ${inMarket ? "selected" : ""}`} aria-current={inMarket ? "page" : undefined}
           onClick={() => onPage({ kind: "market" })}>
           <span className="plugin-market-entry-icon"><Store size={18} /></span>
-          <span><strong>{tr("插件市场")}</strong><small>{market.loading && !market.loaded ? tr("正在读取…") : market.error ? tr("暂时无法读取") : updates ? tr("{0} 个可更新 · {1} 个可安装", (updates), (installable)) : installable ? tr("{0} 个可安装", (installable)) : tr("浏览和安装插件")}</small></span>
+          <span><strong>{tr("插件市场")}</strong><small>{market.loading && !market.loaded ? tr("正在读取…") : market.error ? tr("暂时无法读取") : updates ? tr("{0} 个可更新 · {1} 个可安装", (updates), (installable)) : installable ? tr("{0} 个可安装", (installable)) : ""}</small></span>
           {updates > 0 && <em aria-hidden="true">{updates}</em>}
           <ChevronRight size={15} className="trailing-icon" />
         </button>
         <button type="button" className={`plugin-market-entry ${inDrafts ? "selected" : ""}`} aria-current={inDrafts ? "page" : undefined}
           onClick={() => onPage({ kind: "drafts" })}>
           <span className="plugin-market-entry-icon"><FileCode2 size={18} /></span>
-          <span><strong>{tr("待审核草稿")}</strong><small>{draftCount ? tr("{0} 个自定义插件待审核", draftCount) : tr("审核 Claude 创建的插件")}</small></span>
+          <span><strong>{tr("待审核草稿")}</strong><small>{draftCount ? tr("{0} 个自定义插件待审核", draftCount) : ""}</small></span>
           {draftCount > 0 && <em aria-hidden="true">{draftCount}</em>}
           <ChevronRight size={15} className="trailing-icon" />
         </button>
         {view && !view.enabled && view.available && <button type="button" className="plugin-sidebar-notice" onClick={() => onPage({ kind: "settings" })}>
-          <ShieldCheck size={17} /><span><strong>{tr("主机工具未开启")}</strong><small>{tr("插件不会运行。点此前往设置开启。")}</small></span>
+          <ShieldCheck size={17} /><span><strong>{tr("主机工具未开启")}</strong></span>
         </button>}
         {!view && <p className="plugin-sidebar-hint" role={error ? "alert" : "status"}>{error || tr("正在读取插件…")}</p>}
         {view && <SidebarSection title={tr("已安装")} count={installed.length} open={open} onToggle={() => setOpen(value => !value)}>
@@ -570,7 +570,6 @@ function Market({ model, onConfirm, onPage }) {
       <header className="plugin-market-head">
         <div>
           <h2>{tr("插件市场")}</h2>
-          <p>{tr("来自社区插件仓库。安装前请查看插件声明的权限，只安装你信任的插件。")}</p>
         </div>
         <div className="plugin-market-tools">
           <label className="plugin-search large">
@@ -648,7 +647,7 @@ function Grants({ model, plugin, onConfirm }) {
     return (
       <section className="plugin-grants" aria-label={tr("授权")}>
         <div className="plugin-grants-head">
-          <div><strong>{tr("授权")}</strong><p>{tr("在确认窗口中选择“始终允许”，或在下方选择已打开的项目，在这些项目中运行命令就不再询问。")}</p></div>
+          <div><strong>{tr("授权")}</strong></div>
           {projects.length > 1 && <button type="button" disabled={Boolean(busy)} onClick={() => revoke("")}>{tr("全部撤销")}</button>}
         </div>
         {open.length > 0 && <div className="plugin-grant-add">
@@ -662,7 +661,7 @@ function Grants({ model, plugin, onConfirm }) {
             <Folder size={15} aria-hidden="true" /><code title={project}>{project}</code>
             <button type="button" disabled={Boolean(busy)} onClick={() => revoke(project)} aria-label={tr("撤销 {0} 的授权", (project))}>{tr("撤销")}</button>
           </li>)}
-        </ul> : <p className="plugin-grants-empty">{tr("还没有始终允许的项目，每次运行命令都会询问。")}</p>}
+        </ul> : <p className="plugin-grants-empty">{tr("还没有始终允许的项目")}</p>}
       </section>
     );
   }
@@ -674,7 +673,7 @@ function Grants({ model, plugin, onConfirm }) {
         <div className="plugin-grants-head">
           <div>
             <strong>{tr("授权")}</strong>
-            <p>{tr("这个插件在环境内运行，没有声明权限，调用它的工具不需要确认。")}</p>
+            <p>{tr("无需确认")}</p>
           </div>
         </div>
       </section>
@@ -686,7 +685,6 @@ function Grants({ model, plugin, onConfirm }) {
       <div className="plugin-grants-head">
         <div>
           <strong>{tr("授权")}</strong>
-          <p>{always ? tr("Claude 和插件页面调用它的工具时不再询问。插件更新后如果需要新的权限，会重新询问。") : tr("Claude 或插件页面每次调用它的工具前，都会弹窗询问。")}</p>
         </div>
         <div className="plugin-segmented" role="radiogroup" aria-label={tr("调用工具时")}>
           <button type="button" role="radio" aria-checked={!always} disabled={Boolean(busy)} onClick={() => always && change({ plugin: plugin.name, always: false }, key)}>{tr("每次询问")}</button>
@@ -727,9 +725,6 @@ function PluginSettings({ model, plugin, onConfirm }) {
   const set = (id, value) => setValues(previous => ({ ...previous, [id]: value }));
   return (
     <form className="plugin-settings" onSubmit={save} aria-label={tr("设置")}>
-      <p className="plugin-page-lead">{guest
-        ? tr("这些值以环境变量交给插件在 Cage 环境中的程序，保存后插件会重新启动。密钥用你的 Cage 账户加密保存，之后不再显示；交给环境内的插件前需要你确认风险。")
-        : tr("这些值以环境变量交给插件在这台电脑上的程序，保存后插件会重新启动。密钥用你的 Cage 账户加密保存，之后不再显示；Cage 锁定时，用到密钥的插件会停止，解锁后自动恢复。")}</p>
       {settings.map(item => {
         const id = `plugin-setting-${plugin.name}-${item.id}`, clearing = cleared.includes(item.id);
         const value = values[item.id] || "";
@@ -776,7 +771,6 @@ function Detail({ model, name, onConfirm, onPage }) {
     <div className="plugin-empty">
       <Blocks size={28} />
       <strong>{tr("这个插件已不在清单中")}</strong>
-      <p>{tr("它可能已被卸载，或插件文件夹已被移走。")}</p>
       <button type="button" onClick={() => onPage({ kind: "settings" })}>{tr("前往插件设置")}</button>
     </div>
   );
@@ -853,11 +847,9 @@ function Detail({ model, name, onConfirm, onPage }) {
       </header>
       {plugin && !on && <div className="plugin-banner" role="status"><CircleAlert size={17} /><div>
         <strong>{plugin.built_in && name === "commands" ? tr("命令已停用") : tr("插件已停用")}</strong>
-        <p>{plugin.built_in && name === "commands" ? tr("Claude 将不能在这台电脑上运行命令。打开上方开关即可恢复。") : tr("插件不会运行，Claude 也看不到它提供的工具。打开上方开关即可恢复。")}</p>
       </div></div>}
       {plugin && on && plugin.needs_settings && <div className="plugin-banner" role="status"><CircleAlert size={17} /><div>
         <strong>{tr("插件需要配置")}</strong>
-        <p>{tr("请在「设置」中填写必填项，保存后插件会自动启动。")}</p>
       </div>{tab !== "settings" && <button type="button" onClick={() => setTab("settings")}>{tr("填写设置")}</button>}</div>}
       {plugin?.problem && !plugin.needs_settings && <div className="plugin-banner problem" role="alert"><TriangleAlert size={17} /><div>
         <strong>{plugin.missing_program ? tr("需要本机安装 {0}", plugin.missing_program) : tr("插件无法加载")}</strong>
@@ -874,9 +866,8 @@ function Detail({ model, name, onConfirm, onPage }) {
         <div className="plugin-page-main" role="tabpanel">
           {tab === "settings" && plugin?.settings?.length ? <PluginSettings key={JSON.stringify(plugin.settings)} model={model} plugin={plugin} onConfirm={onConfirm} />
           : tab === "contributions" && added.length ? <>
-            <p className="plugin-page-lead">{tr("除了提供给 Claude 的工具，插件还会在应用中添加这些内容。")}</p>
             <ul className="plugin-permission-list">
-              {added.map(({ key, icon: Icon, title, text }) => <li key={key}><span><Icon size={17} /></span><div><strong>{title}</strong><p>{text}</p></div></li>)}
+              {added.map(({ key, icon: Icon, title }) => <li key={key}><span><Icon size={17} /></span><div><strong>{title}</strong></div></li>)}
             </ul>
           </> : tab !== "permissions" ? tools.length ? <ul className="plugin-tool-list">
             {tools.map(tool => <li key={tool.name}>
@@ -885,17 +876,15 @@ function Detail({ model, name, onConfirm, onPage }) {
             </li>)}
           </ul> : <div className="plugin-empty compact">
             <Wrench size={22} />
-            <p>{!plugin ? tr("安装并运行后，这里会列出插件提供给 Claude 的工具。") : plugin.needs_settings ? tr("填写必填设置后，这里会列出插件提供的工具。") : plugin.problem ? tr("插件无法加载，没有可用的工具。") : !on ? tr("启用插件后，这里会列出它提供的工具。") : !view.enabled ? tr("开启主机工具后，这里会列出插件提供的工具。") : tr("插件运行后，这里会列出它提供的工具。")}</p>
           </div> : <>
             {plugin && <Grants model={model} plugin={plugin} onConfirm={onConfirm} />}
-            <p className="plugin-page-lead">{tr("权限由插件自行声明，供你在安装前判断。")}</p>
             {declared.length ? <ul className="plugin-permission-list">
               {declared.map(key => {
                 const known = permissions[key] || { title: key, text: "插件声明的其他权限。", icon: ShieldCheck };
                 const Icon = known.icon;
-                return <li key={key}><span><Icon size={17} /></span><div><strong>{tr(known.title)}</strong><p>{tr(known.text)}</p></div></li>;
+                return <li key={key}><span><Icon size={17} /></span><div><strong>{tr(known.title)}</strong></div></li>;
               })}
-            </ul> : <div className="plugin-empty compact"><ShieldCheck size={22} /><p>{tr("这个插件没有声明需要任何权限。")}</p></div>}
+            </ul> : <div className="plugin-empty compact"><ShieldCheck size={22} /><p>{tr("未声明任何权限")}</p></div>}
           </>}
         </div>
         <aside className="plugin-page-aside" aria-label={tr("插件信息")}>
@@ -970,7 +959,6 @@ function SettingsPage({ model, status, onConfirm }) {
           <span className="plugin-master-icon"><Blocks size={24} /></span>
           <div>
             <h2>{remote ? tr("允许远程主机「{0}」的 Claude 使用插件", hostName) : tr("允许 Claude 使用这台电脑")}</h2>
-            <p>{remote ? tr("插件通过 MCP 把远程主机与环境内的能力提供给远程 Claude Code 和 Claude 桌面应用，审批窗口会回流到你本机桌面。") : tr("插件通过 MCP 把这台电脑的能力提供给环境内的 Claude Code 和 Claude 桌面应用。")}</p>
           </div>
           {view.available && <label className="plugin-switch">
             <input role="switch" type="checkbox" aria-label={remote ? tr("允许远程主机使用插件") : tr("允许 Claude 使用这台电脑")} checked={view.enabled} disabled={Boolean(busy)} onChange={toggle} />
@@ -985,16 +973,15 @@ function SettingsPage({ model, status, onConfirm }) {
         </div>
       </section>
       <ul className="plugin-facts">
-        <li><ShieldCheck size={18} /><div><strong>{tr("每次操作都先征求同意")}</strong><p>{remote ? tr("需要确认时会在你本机弹出原生确认框并标明远程主机名称，可选择允许一次或始终允许。") : tr("系统会弹窗显示插件、工具和参数，你可以只允许一次，或在本次运行期间都允许。")}</p></div></li>
-        <li><TriangleAlert size={18} /><div><strong>{tr("不受环境隔离保护")}</strong><p>{tr("插件以你的系统账户权限运行。只安装你信任的插件。")}</p></div></li>
-        <li><CircleAlert size={18} /><div><strong>{tr("试验功能")}</strong><p>{tr("此功能仍在试验阶段，默认关闭。")}</p></div></li>
+        <li><ShieldCheck size={18} /><div><strong>{tr("每次操作都先征求同意")}</strong></div></li>
+        <li><TriangleAlert size={18} /><div><strong>{tr("不受环境隔离保护")}</strong></div></li>
+        <li><CircleAlert size={18} /><div><strong>{tr("试验功能")}</strong></div></li>
       </ul>
       {remote && syncStatus && syncStatus.state !== "unsupported" && (
         <section className="plugin-card">
           <div className="plugin-card-head-row">
             <div>
               <h3>{tr("从本机自动同步")}</h3>
-              <p className="plugin-card-lead">{tr("连接远程主机后会自动把本机兼容的插件同步过去（单向增量，不删除远程已有插件，不同步授权和密钥）。")}</p>
             </div>
             <button type="button" disabled={Boolean(busy) || syncStatus.state === "syncing"} onClick={triggerSync}>
               <RefreshCw size={14} className={busy === "sync" || syncStatus.state === "syncing" ? "spin" : undefined} />{tr("立即同步")}
@@ -1019,7 +1006,6 @@ function SettingsPage({ model, status, onConfirm }) {
       {remote && bridgeStatus?.supported && (
         <section className="plugin-card">
           <h3>{tr("共享本机插件给当前远程")}</h3>
-          <p className="plugin-card-lead">{tr("把本机桌面插件（如 Blender、桌面控制）通过加密隧道临时提供给远程 Claude。调用时会在你本机弹窗审批并在本机执行，断开连接自动收回。")}</p>
           {bridgeStatus.error && <p className="error-message">{bridgeStatus.error}</p>}
           {bridgeStatus.plugins?.length ? (
             <ul className="plugin-bridge-list">
@@ -1052,15 +1038,13 @@ function SettingsPage({ model, status, onConfirm }) {
       {view.problems?.length > 0 && <div className="plugin-banner problem" role="alert"><TriangleAlert size={17} /><div><strong>{tr("部分插件未能加载")}</strong>{view.problems.map(problem => <p key={problem}>{problem}</p>)}</div></div>}
       <section className="plugin-card">
         <h3>{tr("可操作的文件夹")}</h3>
-        <p className="plugin-card-lead">{remote ? tr("远程命令插件只能在远程主机这些已打开的项目文件夹中运行。") : tr("命令插件只能在这些已打开的项目文件夹中运行。")}</p>
         {view.folders.length ? <ul className="plugin-folder-list">
           {view.folders.map(folder => <li key={folder}><Folder size={16} /><code>{folder}</code></li>)}
-        </ul> : <div className="plugin-empty compact"><FolderOpen size={22} /><p>{tr("还没有打开项目。打开项目后，它的文件夹会出现在这里。")}</p></div>}
+        </ul> : <div className="plugin-empty compact"><FolderOpen size={22} /><p>{tr("还没有打开项目")}</p></div>}
       </section>
       {view.dismissed_defaults?.length > 0 && (
         <section className="plugin-card">
           <h3>{tr("已卸载的默认插件")}</h3>
-          <p className="plugin-card-lead">{tr("这些随应用附带的默认插件已被你卸载，更新 Cage 时不会强制装回。需要时可随时恢复安装。")}</p>
           <ul className="plugin-bridge-list">
             {view.dismissed_defaults.map(item => {
               const restoring = busy === `restore:${item.name}`;
@@ -1087,7 +1071,6 @@ function SettingsPage({ model, status, onConfirm }) {
       )}
       <section className="plugin-card">
         <h3>{tr("手动安装插件")}</h3>
-        <p className="plugin-card-lead">{tr("把插件文件夹放进下面的位置，然后点击“重新加载插件”。每个插件是一个带有 plugin.json 的文件夹。")}</p>
         <CopyField value={view.directory} label={tr("复制插件文件夹路径")} />
       </section>
     </div>
@@ -1273,7 +1256,6 @@ function DraftsPage({ model, status, onConfirm, onPage }) {
       <header className="plugin-market-head">
         <div>
           <h2>{tr("待审核草稿")}</h2>
-          <p>{tr("环境内的 Claude 可以通过「插件工坊」编写、校验并提交自定义 MCP 工具与侧栏页面。所有草稿必须经你审查源码与权限并点击安装后才会生效。")}</p>
         </div>
         <div className="plugin-market-tools">
           <button type="button" disabled={Boolean(busy) || drafts?.loading} onClick={() => loadDrafts()}>
@@ -1286,13 +1268,11 @@ function DraftsPage({ model, status, onConfirm, onPage }) {
         <div className="plugin-empty">
           <FileCode2 size={28} />
           <strong>{tr("等待环境启动")}</strong>
-          <p>{tr("环境启动后，Claude 提交的自定义插件草稿会显示在这里。")}</p>
         </div>
       ) : items.length === 0 ? (
         <div className="plugin-empty">
           <FileCode2 size={28} />
           <strong>{tr("暂无待审核草稿")}</strong>
-          <p>{tr("直接告诉环境里的 Claude 你需要什么能力或侧栏页面，它会使用默认的「插件工坊」生成代码、自动测试并提交到这里供你一键安装。")}</p>
         </div>
       ) : (
         <div className="plugin-draft-list">

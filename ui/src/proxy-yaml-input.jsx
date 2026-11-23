@@ -164,17 +164,11 @@ export function ProxyYAMLInput({
                   ? selected.name
                   : tr("将配置文件拖到这里")}
           </strong>
-          <span>
-            {selected ? tr("点击或拖入其他文件替换") : tr("也可以点击选择文件")}
-          </span>
         </span>
         <span className="proxy-yaml-choose" aria-hidden="true">
           {selected ? tr("更换文件") : tr("选择文件")}
         </span>
       </button>
-      <p id={helpID} className="proxy-yaml-help">
-        {tr("支持 YAML / YML / JSON，单个文件不超过 8 MiB")}
-      </p>
       <p className="proxy-yaml-status" role="status">
         {reading
           ? tr("正在读取文件，请稍候。")
@@ -189,7 +183,7 @@ export function ProxyYAMLInput({
         </p>
       )}
       <label>
-        {selected ? tr("配置内容") : tr("粘贴 v2rayN 导出的节点分享链接（每行一个），或导入 Clash/Mihomo YAML。")}
+        {tr("配置内容")}
         <textarea
           aria-label={tr("节点配置")}
           rows={7}
@@ -204,9 +198,6 @@ export function ProxyYAMLInput({
           placeholder="proxies: …"
         />
       </label>
-      <p className="field-help">
-        {tr("只导入节点和明确的代理链，Cage 自行管理 DNS、监听端口及出站规则。")}
-      </p>
     </div>
   );
 }

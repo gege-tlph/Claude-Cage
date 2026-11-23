@@ -102,7 +102,6 @@ export function ResourceSettings({ status, onConfirm, onDirtyChange }) {
   };
   if (data?.runtime === "container") return <section className="environment-versions" aria-label={tr("计算资源")}>
     <h4>{tr("服务器容器资源上限")}</h4>
-    <p className="field-help">{tr("CPU、内存与进程数量由服务器上的容器资源组限制。")}</p>
     <div className="setting-summary-row"><span>{tr("资源限制核验")}</span><strong>{data.running ? resourcesVerified ? tr("已核验") : tr("未通过核验") : tr("环境未运行")}</strong></div>
     <div className="setting-summary-row"><span>{tr("容器内存上限")}</span><strong>{data.running ? resourcesVerified ? gib(data.configured_memory_bytes) : tr("未核验") : gib(data.recommended_memory_bytes)}</strong></div>
     <div className="setting-summary-row"><span>{tr("容器 CPU 上限")}</span><strong>{data.running ? resourcesVerified ? tr("{0} 个逻辑核心", (data.configured_cpus)) : tr("未核验") : tr("{0} 个逻辑核心", (data.recommended_cpus))}</strong></div>
@@ -112,7 +111,6 @@ export function ResourceSettings({ status, onConfirm, onDirtyChange }) {
   </section>;
   return <section className="environment-versions resource-settings" aria-label={tr("计算资源")}>
     <h4>{tr("计算资源")}</h4>
-    <p className="field-help resource-intro">{tr("默认使用主机一半的资源，可在下方调整。内存按需使用，持续空闲后逐步归还主机。CPU 按实际任务使用。")}</p>
     {draft ? <form className="resource-allocation" onSubmit={save}>
       <fieldset disabled={busy} className="resource-fields">
         <legend className="sr-only">{tr("资源配置")}</legend>
@@ -159,6 +157,6 @@ export function ResourceSettings({ status, onConfirm, onDirtyChange }) {
       {(observation?.pressure || observation?.host_pressure) && <p className="field-help" role="status">{observation.host_pressure ? tr("主机内存紧张，暂缓扩大分配。") : tr("环境内存紧张，正在上限内增加可用内存。达到上限后请减少同时运行的任务。")}</p>}
     </div>}
     {(resourceError || observation?.error) && <p role="alert" className="error-message"><SafetyMessage message={resourceError || observation.error} /></p>}
-    {data?.running && <details className="resource-observation-note"><summary>{tr("资源统计说明")}</summary><p className="field-help">{tr("内存用量不含可回收缓存；这些数值反映环境内部状态，主机系统监视器还会统计虚拟化开销。")}</p></details>}
+    {data?.running && <details className="resource-observation-note"><summary>{tr("资源统计说明")}</summary></details>}
   </section>;
 }

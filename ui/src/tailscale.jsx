@@ -148,7 +148,6 @@ export function TailscalePanel({ status, onOpenLogin, onOpenBrowser, onInstall, 
           <ChevronDown size={16} />
         </button>
         {controlOpen && <div id="tailnet-control-server" className="tailscale-detail">
-          <p className="field-help">{tr("留空使用 Tailscale 官方服务；如需接入自建 Headscale，请填写 HTTPS 根地址（例如 https://headscale.example.com）。各控制服务器的设备身份分别保存在独立目录，切换不会覆盖原有身份。")}</p>
           <label className="field-label" htmlFor="tailscale-control-url">{tr("自建控制服务器地址（HTTPS，留空为官方）")}</label>
           <div className="tailscale-connect-form">
             <input

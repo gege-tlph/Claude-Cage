@@ -48,8 +48,6 @@ export function SSHConfigImport({ platform, onSaved, onClose }) {
   return (
     <Modal title={tr("导入本机 SSH 配置")} onClose={busy ? undefined : onClose}>
       <div className="ssh-dialog-body ssh-config-import">
-        <p>{tr("从 {0} 读取主机，使用本机 SSH agent。请先用 ssh-add 添加密钥。", configPath)}</p>
-        <p>{tr("私钥、转发和其他 SSH 选项不会导入。已有主机不会覆盖，首次连接仍需核对指纹。")}</p>
         {error && <p className="error-message" role="alert">{localizeBackendMessage(error, tr)}</p>}
         {result ? (
           <p role="status">{tr("已导入 {0} 台主机，跳过 {1} 台已有主机。", result.imported.length, result.skipped)}</p>

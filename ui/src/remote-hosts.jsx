@@ -721,7 +721,7 @@ function Environment({ context, refresh, children }) {
                 </div>
               )}
               {!context.client_only && local && (
-                <p className="ssh-help">{tr("云端连接就绪后再切换工作台。")}</p>
+                null
               )}
               {error && !decision && !stop && !remove && (
                 <p className="error-message" role="alert">
@@ -795,11 +795,6 @@ function Environment({ context, refresh, children }) {
                     ? tr("重新连接 SSH 主机")
                     : defaultLocal ? tr("本机工作台连接未完成") : tr("连接 SSH 主机")}
               </h1>
-              <p>
-                {context.client_only
-                  ? tr("通过 SSH 连接服务器，首次连接可自动部署 Cage。项目、应用和网络由服务器管理。")
-                  : tr("本机和 SSH 主机使用同一个工作台。项目、应用和网络由选中的环境管理。")}
-              </p>
               {!context.client_only &&
                 localStatus?.known &&
                 localStatus.available === false &&

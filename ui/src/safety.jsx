@@ -105,9 +105,7 @@ export function SafetyPanel({
       onClose={onClose}
       footer={
         <>
-          <span className="save-note">
-            {busy ? status.job.message : tr("外网关闭时，离线终端和文件仍可使用")}
-          </span>
+          {busy && <span className="save-note">{status.job.message}</span>}
           {(online || network.mode === "checking") && (
             <button onClick={pause}>
               {network.mode === "checking" ? tr("取消检测并关闭外网") : tr("暂停外网")}
@@ -147,14 +145,14 @@ export function SafetyPanel({
               {busy
                 ? localizeBackendMessage(status.job.message, tr)
                 : online
-                  ? (status.network_error ? localizeBackendMessage(status.network_error, tr) : tr("关键检查已通过，后台继续核对出口规则与环境配置。"))
+                  ? (status.network_error ? localizeBackendMessage(status.network_error, tr) : "")
                   : (status.network_error
                     ? localizeBackendMessage(status.network_error, tr)
                     : safety.error
                       ? localizeBackendMessage(safety.error, tr)
                       : safety.gate?.reason
                         ? localizeBackendMessage(safety.gate.reason, tr)
-                        : tr("完成关键检查后，才允许连接外部网站。"))}
+                        : "")}
             </p>
           </div>
           <button className="text-button" onClick={() => onSettings("network")}>
@@ -226,11 +224,7 @@ export function SafetyPanel({
                 })}
             </div>
           </>
-        ) : (
-          <p className="safety-empty">
-            {tr("检查涵盖出站规则、代理故障关闭、DNS、共享目录、宿主管理接口，以及系统和浏览器的实际配置。关键项失败或未知时保持外网关闭。")}
-          </p>
-        )}
+        ) : null}
         <DeviceChecks disabled={busy || !status.vm_running} />
         {report?.checks?.some((check) => !check.critical) && (
           <div className="safety-advisories">
@@ -249,14 +243,12 @@ export function SafetyPanel({
         )}
         <div className="safety-section-heading">
           <h4>{tr("社区补充检查")}</h4>
-          <span>{tr("提示项，不参与联网准入")}</span>
         </div>
         <div className="diagnostic-sites">
           {diagnostics.map((site) => (
             <div key={site.url}>
               <strong>{tr(site.name)}</strong>
               <small>{site.source}</small>
-              <p>{tr(site.description)}</p>
               <button disabled={!online || busy} onClick={() => open(site.url)}>
                 {tr("在 Cage 中打开")}
                 <ArrowUpRight size={14} />
@@ -282,9 +274,6 @@ export function SafetyPanel({
             </div>
           ))}
         </div>
-        <p className="field-help">
-          {tr("点击后才访问第三方站点。站点会收到 Cage 的出口 IP，并可读取该页面可访问的浏览器信息。评分属于社区参考。")}
-        </p>
         <details className="safety-scope">
           <summary>{tr("检查范围与来源")}</summary>
           <p>

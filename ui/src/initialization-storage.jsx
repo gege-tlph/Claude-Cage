@@ -24,13 +24,11 @@ export function InitializationStorage({ value, onChange, disabled }) {
   }
   return <section className="initialization-storage" aria-label={tr("环境存储目录")}>
     <label htmlFor="initialization-directory">{tr("存储目录")}</label>
-    <p>{tr("系统镜像、下载缓存和虚拟磁盘保存在这里。已填入默认目录，不需要更换磁盘时可直接保留；也可以选择其他本地磁盘上的专用空文件夹。")}</p>
-    <p>{tr("这是 Cage 的环境数据目录。更新、重装或卸载应用会保留这里的数据；请勿手动删除。")}</p>
     <div className="initialization-directory-control">
       <input id="initialization-directory" value={value?.directory || ""} disabled={locked} spellCheck={false} placeholder={value ? tr("请输入存储目录的完整路径") : tr("正在读取默认目录…")} onChange={event => onChange({ ...value, directory: event.target.value })} />
       {nativeAvailable() && <button type="button" disabled={locked} onClick={choose}><FolderOpen size={16} />{tr("选择文件夹")}</button>}
     </div>
-    {value?.location.has_environment && <p>{tr("已有虚拟磁盘，继续使用原存储目录。完成初始化后可在设置中迁移。")}</p>}
+    {value?.location.has_environment && <p>{tr("已有虚拟磁盘，继续使用原存储目录")}</p>}
     {error && <p role="alert">{tr(error)}<button onClick={() => { setError(""); retry(value => value + 1); }}>{tr("重新读取")}</button></p>}
   </section>;
 }

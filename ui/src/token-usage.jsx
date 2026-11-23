@@ -68,7 +68,6 @@ function UsageCurve({ series, mode, metric }) {
       {[0,Math.floor((series.length-1)/2),series.length-1].filter((n,index,items)=>n>=0&&items.indexOf(n)===index)
         .map(index=><text key={index} x={x(index)} y={height-8} textAnchor={index===0 ? "start" : index===series.length-1 ? "end" : "middle"}>{series[index]?.date.slice(5).replace("-","/")}</text>)}
     </svg></div>
-    <p className="token-chart-caption" aria-live="polite">{point ? mode==="weekly" ? tr("{0} 所在周 · {1} Token", point.date, point.value.toLocaleString()) : `${point.date} · ${point.value.toLocaleString()} Token` : mode==="cumulative" ? tr("累计曲线汇总所选年份内已记录的 Token。") : tr("无记录的日期留空；周用量汇总该周已有记录。")}</p>
   </>;
 }
 
@@ -185,7 +184,7 @@ export function TokenUsagePanel({ onConfirm }) {
         {!data.enabled && <p className="token-notice" role="status">{tr("统计已暂停，已保存的计数继续保留。")}</p>}
         {snapshot?.pending && <p className="token-notice" role="status">{tr("部分记录尚未读完，将在后续采集中继续处理。")}</p>}
         {snapshot?.invalid_records>0 && <p className="token-notice" role="status">{tr("有 {0} 条记录无法解析，当前统计可能不完整。", snapshot.invalid_records.toLocaleString())}</p>}
-        {rows.length===0 && <p className="token-empty">{tr("尚无可统计的 Token 记录。运行 Claude Code 或 Desktop Code 后刷新；已有历史会从仍保留的日志中读取。")}</p>}
+        {rows.length===0 && <p className="token-empty">{tr("尚无可统计的 Token 记录")}</p>}
       </div>
       {breakdown.length>0 && <section className="token-breakdown" aria-labelledby="token-breakdown-title">
         <div className="token-section-heading"><h3 id="token-breakdown-title">{tr("按运行入口分布")}</h3><span>{tr("{0} 年", activeYear)} · {tr(tokenMetrics.find(([key])=>key===metric)?.[1])}</span></div>

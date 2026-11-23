@@ -264,13 +264,8 @@ export function ClaudeDesktop({
                 ? "Claude Desktop"
                 : tr("在 Cage 中使用 Claude Desktop")}
             </h2>
-            <p>
-              {tr("Chat 和 Code 共用一个官方应用。在 Cage 内安装、登录并使用，项目文件来自已打开的文件夹。")}
-            </p>
             {!desktop?.installed && (
-              <p>
-                {tr("首次使用时从 Anthropic 官方源下载，不增加 Cage 默认安装包体积。")}
-              </p>
+              null
             )}
             <div className="desktop-actions">
               {desktop && (
@@ -306,10 +301,7 @@ export function ClaudeDesktop({
                 </button>
               )}
             </div>
-            {desktop?.installed && <p>{tr("Linux 版通过系统软件源更新。可点击上方“更新应用”，或在 Cage 终端运行 sudo apt update && sudo apt install --only-upgrade claude-desktop。")}</p>}
-            <p className="desktop-note">
-              {tr("关闭应用后释放图形会话资源，登录状态保留在 Cage 环境中。需要额外虚拟机的 Cowork 功能暂未适配。")}
-            </p>
+            {desktop?.installed && null}
           </div>
         )}
       </div>

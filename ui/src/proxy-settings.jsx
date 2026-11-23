@@ -480,7 +480,6 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
             <CircleHelp size={17} aria-hidden="true" />
           </button>
         </div>
-        {!initializing && <p>{tr("导入具体节点。使用代理链时，在 Cage 中依次选择中转和最终出口。")}</p>}
       </div>
       {getClientContext().mode === "local" && <LocalConfigImport busy={busy} onImport={id => mutate("import-local", { id })} />}
       {helpOpen && (
@@ -565,7 +564,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
       </div>
       {active && status.location && (
         <p className="field-help">
-          {tr("最近检测出口：{0}。联网是否放行以工作台检查状态为准。", `${status.location.ip} · ${status.location.country} ${status.location.city}`.trim())}
+          {tr("最近检测出口：{0}", `${status.location.ip} · ${status.location.country} ${status.location.city}`.trim())}
         </p>
       )}
       {!proxy.core_available && (
@@ -573,9 +572,6 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
           {tr("安装包缺少随附代理核心，请重新构建或安装完整 Cage 应用。")}
         </div>
       )}
-      <p className="field-help">
-        {tr("仅允许经节点转发的 IPv4 TCP 和 DNS；公网 UDP、IPv6、ICMP 持续阻断。切换会关闭旧网络连接并重新检查出口。")}
-      </p>
       <div role="tablist" aria-label={tr("代理管理")} className="proxy-tabs">
         {[
           ["nodes", "节点"],
@@ -603,7 +599,6 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
               <div className="proxy-route-heading">
                 <div>
                   <h4 id="proxy-route-title">{tr("配置连接方式")}</h4>
-                  <p>{tr("直接使用一个出口，或经中转连接住宅代理。")}</p>
                 </div>
                 <div
                   className="proxy-route-mode"
@@ -679,7 +674,6 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                             </optgroup>
                           ))}
                         </InlineSelect>
-                        {final && usableNodes.some((node) => node.id === id) && <small>{tr("目标网站看到此节点的出口 IP")}</small>}
                       </div>
                       {!final && (
                         <button
@@ -875,7 +869,6 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
             <div className="proxy-empty">
               <Download size={26} />
               <strong>{tr("添加第一份节点来源")}</strong>
-              <p>{tr("粘贴 v2rayN 导出的节点分享链接（每行一个），或导入 Clash/Mihomo YAML。")}</p>
               <button
                 onClick={() => openImport("file")}
               >
@@ -1036,11 +1029,6 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
               {tr("手动更新订阅时通过主机网络下载")}
             </label>
           )}
-          {proxy.sources.some((s) => s.remote) && (
-            <p className="field-help">
-              {tr("自动更新始终使用当前配置的代理，不会切换到主机下载。")}
-            </p>
-          )}
           {form && (
             <div className="proxy-import">
               <h4>{form.id ? tr("编辑来源") : tr("添加节点来源")}</h4>
@@ -1126,9 +1114,6 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                       {tr("通过主机网络下载这份订阅")}
                     </label>
                   )}
-                  <p className="field-help">
-                    {tr("默认经当前配置的代理下载。首次没有可用节点时，可勾选主机下载或导入本地文件；失败不会自动改用其他路径。")}
-                  </p>
                 </>
               )}
               {form.id && !form.remote && (() => {
@@ -1164,12 +1149,10 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                           <input inputMode="numeric" value={nodeEdit.port} disabled={busy} onChange={(e) => setNodeEdit({ ...nodeEdit, port: e.target.value })} />
                         </label>
                       </div>
-                      <p className="field-help">{tr("只修改服务器和端口，认证信息与协议参数保持不变；修改后需重新通过出口检查。")}</p>
                       <button type="button" disabled={busy || !nodeEdit.id || !nodeEdit.server.trim() || !nodeEdit.port} onClick={editNodeAddress}>
                         {tr("保存地址")}
                       </button>
                     </div>
-                    <p className="field-help">{tr("可粘贴或选择新的 YAML 更新此来源；名称不变的节点保留选择与出口规则。留空则只修改名称。")}</p>
                     <ProxyYAMLInput
                       content={form.content}
                       disabled={busy}
@@ -1314,7 +1297,6 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                           placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
                         />
                       </label>
-                      <p className="field-help">{tr("粘贴完整 PEM / OpenSSH 私钥内容，不支持填写本机文件路径。")}</p>
                       <label>
                         {tr("私钥口令（可选）")}
                         <input
@@ -1337,7 +1319,6 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                         placeholder="ssh-ed25519 AAAA…"
                       />
                     </label>
-                    <p className="field-help">{tr("填写可信的服务器公钥以核对服务器身份，每行一条；留空时不校验服务器身份。SSH 仅转发 TCP。")}</p>
                   </>}
                 </>
               )}
@@ -1378,9 +1359,6 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
               <small>{tr("累计") + " "}{bytes(connections.downloadTotal)}</small>
             </span>
           </div>
-          <p className="field-help">
-            {tr("显示当前核心的连接与流量，包含 Cage 自身检测请求；重启核心后累计值重置。")}
-          </p>
           <div className="proxy-node-list">
             {connections.connections.map((c) => (
               <div className="proxy-connection" key={c.id}>
@@ -1402,7 +1380,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
       {tab === "diagnostics" && (
         <>
           <p className="field-help">
-            {tr("随附核心 {0}。以下为 Cage 状态摘要；含凭据风险的核心原始日志不向页面公开。", proxy.version || tr("未运行"))}
+            {tr("随附核心 {0}", proxy.version || tr("未运行"))}
           </p>
           <div className="proxy-diagnostics" role="log">
             {logs.map((line, i) => (
@@ -1450,9 +1428,6 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
               {tr("停止核心")}
             </button>
           </div>
-          <p className="field-help">
-            {tr("Cage 不设置系统代理或主机 TUN。本机其他代理的 TUN 仍可能影响核心出站，需要结合实际路由验证。")}
-          </p>
         </>
       )}
       {pending && (

@@ -288,9 +288,6 @@ function ThemeCard({ variant, value, active, onChange, codeFonts }) {
       </button>
       {advanced && (
         <div className="theme-options">
-          <p className="theme-options-hint">
-            {tr("未单独设置的颜色随基础配色自动调整。")}
-          </p>
           {colorGroups.map((group) => (
             <details className="theme-color-group" key={group.label}>
               <summary>{tr(group.label)}</summary>

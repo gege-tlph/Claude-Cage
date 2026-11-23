@@ -24,7 +24,6 @@ function CookieEditor({ editor, busy, onChange, onSave, onCancel }) {
       onChange={event => onChange({ ...form, value: event.target.value })} /></label>
     <label className="cookie-check"><input type="checkbox" checked={revealed} onChange={event => setRevealed(event.target.checked)} />{tr("显示值")}</label>
     {field("domain", tr("域名"), { required: true, maxLength: 254 })}
-    <p className="cookie-editor-note">{tr("以“.”开头时包含子域名，否则仅限该主机名。")}</p>
     {field("path", tr("路径"), { required: true, maxLength: 1024 })}
     <div className="cookie-editor-row">{check("secure", "Secure")}{check("httpOnly", "HttpOnly")}
       <span>SameSite<InlineSelect inline aria-label="SameSite" value={form.sameSite} disabled={busy} onValueChange={sameSite => onChange({ ...form, sameSite })}>

@@ -214,6 +214,6 @@ export function ArchivedSessions({ request = desktopSessionRequest, ready, onRes
         </article>;
       })}</div>
     </section>)}
-    {!ready && <p className="archive-note">{tr("启动主机环境后可以永久删除 Claude Code 原始记录。")}</p>}
+    {!ready && null}
   </section>;
 }

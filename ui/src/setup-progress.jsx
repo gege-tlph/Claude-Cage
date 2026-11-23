@@ -52,7 +52,6 @@ export function SetupProgress({ job, onDetails, onStop, onRetry, disconnected })
       </div>}
       {failed && <>
         <p className="setup-transfer-error" role="alert"><SafetyMessage message={job.error} /></p>
-        <p className="setup-transfer-hint">{tr("可手动继续安装，已保存的下载会尝试续传。")}</p>
       </>}
     </div>
     <div className="setup-transfer-actions">

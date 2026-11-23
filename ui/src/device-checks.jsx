@@ -21,7 +21,6 @@ export function DeviceChecks({ target, disabled = false }) {
   }
   return <section className="device-checks" aria-label={tr("设备配置与渲染检测")}>
     <h4>{tr("设备配置与渲染检测")}</h4>
-    <p>{tr("核对实际配置、浏览器身份和图形能力。结果用于排查不一致，不作为物理设备或匿名性认证。")}</p>
     <div className="device-check-actions">
       {(!target || target === "browser") && <button disabled={busy || disabled} onClick={() => run("browser")}>{busy ? tr("正在检测…") : tr("检测浏览器")}</button>}
       {(!target || target === "desktop") && <button disabled={busy || disabled} onClick={() => run("desktop")}>{busy ? tr("正在检测…") : tr("检测 Claude Desktop")}</button>}
