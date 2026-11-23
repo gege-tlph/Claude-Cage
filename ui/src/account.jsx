@@ -393,7 +393,7 @@ export function AccountGate({ children }) {
           {isRemoteClient() ? tr("账户资料保存在当前云端主机") : tr("账户资料仅保存在这台设备上")}
         </p>
         {account && !account.trusted_local && <p className="account-recovery-note">
-          {!creating && !account?.recovery_ready && tr("此账户尚未设置恢复密钥。能登录时，请到「设置 → 账户」补设。")}
+          {!creating && !account?.recovery_ready && tr("此账户尚未设置恢复密钥。登录后前往「设置 → 账户」设置。")}
         </p>}
       </section>
       {nativeAvailable() && (

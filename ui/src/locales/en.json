@@ -1281,7 +1281,7 @@
   "此网站尚未保存账号密码。": "No saved passwords for this site.",
   "此节点已用作中转": "This node is used as a relay",
   "此账号会从列表中移除，虚拟机中的资料会保留。": "This account will be removed from the list; data in the VM is kept.",
-  "此账户尚未设置恢复密钥。能登录时，请到「设置 → 账户」补设。": "This account has no recovery key yet. While you can sign in, set one in Settings → Account.",
+  "此账户尚未设置恢复密钥。登录后前往「设置 → 账户」设置。": "No recovery key set for this account. After signing in, set one in Settings → Account.",
   "此账户尚未设置恢复密钥。请使用原密码或已开启的快捷登录进入，再到「设置 → 账户」补设。若所有解锁方式均不可用，当前无法恢复加密资料；现有数据会保留。": "This account has no recovery key yet. Enter with your old password or quick sign-in, then set one in Settings → Account. If no unlock method works, encrypted data can't be recovered for now; existing data is kept.",
   "此配置已创建本地账户，请登录": "A local account exists for this configuration. Sign in.",
   "此配置已有工作台服务正在运行": "A workbench service is already running for this configuration",
