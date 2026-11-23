@@ -28,8 +28,8 @@ func TestDefaultPluginsBundledAndDigestMatchesDeployed(t *testing.T) {
 	if len(studio.Manifest.Permissions) != 0 {
 		t.Fatalf("permissions = %v, want empty", studio.Manifest.Permissions)
 	}
-	if len(studio.I18n) != 15 {
-		t.Fatalf("i18n languages = %d, want 15", len(studio.I18n))
+	if len(studio.I18n) != 2 || studio.I18n["zh-CN"].DisplayName == "" || studio.I18n["en"].DisplayName == "" {
+		t.Fatalf("i18n languages = %v, want zh-CN and en", studio.I18n)
 	}
 
 	dir := t.TempDir()
@@ -59,8 +59,8 @@ func TestDefaultPluginsBundledAndDigestMatchesDeployed(t *testing.T) {
 	if ctrl.Manifest.Kind != KindHost || len(ctrl.Manifest.Permissions) != 0 {
 		t.Fatalf("unexpected use-cage manifest: %+v", ctrl.Manifest)
 	}
-	if len(ctrl.I18n) != 15 {
-		t.Fatalf("use-cage i18n languages = %d, want 15", len(ctrl.I18n))
+	if len(ctrl.I18n) != 2 || ctrl.I18n["zh-CN"].DisplayName == "" || ctrl.I18n["en"].DisplayName == "" {
+		t.Fatalf("use-cage i18n languages = %v, want zh-CN and en", ctrl.I18n)
 	}
 	ctrlDigest, err := InstallDefaultPlugin("use-cage", dir)
 	if err != nil {

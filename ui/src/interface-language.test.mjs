@@ -5,12 +5,9 @@ import { backendMessageKeys } from "./backend-message.mjs";
 
 const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
 
-test("Cage's desktop language list and first-run translations match the README", () => {
-  const readme = read("../../README.md");
-  const documented = [...readme.matchAll(/\[([^\]]+)\]\(README(?:\.([\w-]+))?\.md\)/g)]
-    .map(([, name, id]) => [id ?? "zh-CN", name]);
+test("Cage's interface languages are Chinese and English, with first-run translations", () => {
   const languages = JSON.parse(read("../../internal/uilocale/languages.json"));
-  assert.deepEqual(languages.map(({ id, name }) => [id, name]), documented);
+  assert.deepEqual(languages.map(({ id, name }) => [id, name]), [["zh-CN", "简体中文"], ["en", "English"]]);
   const native = JSON.parse(read("../../internal/uilocale/native.json"));
   for (const { id } of languages.slice(1)) {
     const catalog = JSON.parse(read(`./locales/${id}.json`));
@@ -28,7 +25,7 @@ test("Cage's desktop language list and first-run translations match the README",
   }
 });
 
-test("all 14 locale catalogs have identical key sets and cover every translated UI and backend text", async () => {
+test("every locale catalog has the same key set and cover every translated UI and backend text", async () => {
   const { tailnetText } = await import("./tailscale-text.mjs");
   const { errorText } = await import("./error-message.mjs");
   const sources = new Set([...Object.values(tailnetText), ...Object.values(errorText), ...backendMessageKeys]);
@@ -61,7 +58,7 @@ test("all 14 locale catalogs have identical key sets and cover every translated 
   assert.deepEqual(parityMismatch, []);
 });
 
-test("all 14 non-zh-CN languages localize Tailscale, proxy intervals, API failures and generated tab names", async () => {
+test("every non-zh-CN language localizes Tailscale, proxy intervals, API failures and generated tab names", async () => {
   const { tailnetText } = await import("./tailscale-text.mjs");
   const { formatMessage } = await import("./message-catalog.mjs");
   const { httpErrorMessage, connectionErrorMessage, nativeFailureMessage } = await import("./error-message.mjs");
@@ -99,15 +96,15 @@ test("all 14 non-zh-CN languages localize Tailscale, proxy intervals, API failur
       }
     }
 
-    if (id === "ru") {
-      assert.equal(localize("每天"), "Каждый день");
-      assert.equal(localize(tailnetText.copyDeviceAddress, "laptop"), "Скопировать адрес устройства laptop");
-      assert.equal(localize(tailnetText.onlineCount, 2), "В сети: 2");
-      assert.match(httpMsg, /Чтение состояния переноса.*HTTP 409/u);
-      assert.match(connMsg, /Чтение настроек уведомлений.*Соединение с Cage прервалось/u);
-      assert.match(nativeMsg, /Проверка системных уведомлений/u);
-      assert.equal(tabLabel, "Инкогнито · Файл · demo");
-      assert.equal(customTabLabel, "Инкогнито · 我的项目");
+    if (id === "en") {
+      assert.equal(localize("每天"), "Daily");
+      assert.equal(localize(tailnetText.copyDeviceAddress, "laptop"), "Copy address of laptop");
+      assert.equal(localize(tailnetText.onlineCount, 2), "2 online");
+      assert.match(httpMsg, /^Read machine switch status failed \(HTTP 409\)/);
+      assert.match(connMsg, /^Read notification settings failed: the workbench lost its connection/);
+      assert.match(nativeMsg, /^Read system notification status failed/);
+      assert.equal(tabLabel, "Private · Files · demo");
+      assert.equal(customTabLabel, "Private · 我的项目");
     }
   }
 });

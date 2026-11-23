@@ -75,19 +75,14 @@ func TestMatchHostDisplayLanguages(t *testing.T) {
 		want      string
 	}{
 		{nil, "zh-CN"},
-		{[]string{"en-US", "de-DE"}, "zh-CN"},
-		{[]string{"de-DE", "fr-CA", "ko-KR"}, "fr"},
-		{[]string{"ru_RU.UTF-8"}, "ru"},
-		{[]string{"zh-Hant-CN"}, "zh-TW"},
-		{[]string{"zh-Hans-TW"}, "zh-CN"},
-		{[]string{"zh-HK"}, "zh-TW"},
+		{[]string{"C.UTF-8"}, "zh-CN"},
+		{[]string{"en-US", "de-DE"}, "en"},
+		{[]string{"en_GB.UTF-8"}, "en"},
+		{[]string{"de-DE", "zh-CN"}, "zh-CN"},
+		{[]string{"de-DE", "fr-CA", "ko-KR"}, "en"},
+		{[]string{"zh-Hant-TW"}, "zh-CN"},
 		{[]string{"zh_SG"}, "zh-CN"},
-		{[]string{"fa-AF"}, "prs"},
-		{[]string{"fa-IR"}, "fa"},
-		{[]string{"prs-Arab-AF"}, "prs"},
-		{[]string{"ps_PK.UTF-8"}, "ps"},
-		{[]string{"ti_ER.UTF-8@saaho"}, "ti"},
-		{[]string{"my-MM"}, "my"},
+		{[]string{"ru_RU.UTF-8@saaho"}, "en"},
 	}
 	for _, tc := range tests {
 		if got := Match(tc.preferred); got != tc.want {

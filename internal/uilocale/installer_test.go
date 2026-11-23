@@ -8,17 +8,17 @@ import (
 
 func TestWindowsInstallerSeedsOnlyNewPreference(t *testing.T) {
 	profile := filepath.Join(t.TempDir(), "profile")
-	if err := SeedWindowsInstallerChoice(profile, 1034); err != nil {
+	if err := SeedWindowsInstallerChoice(profile, 1033); err != nil {
 		t.Fatal(err)
 	}
-	if got := Load(profile).Language; got != "es" {
+	if got := Load(profile).Language; got != "en" {
 		t.Fatalf("new installer preference = %q", got)
 	}
 	path := filepath.Join(profile, PreferenceFile)
 	if err := os.WriteFile(path, []byte("{\"language\":\"system\"}\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := SeedWindowsInstallerChoice(profile, 1036); err != nil {
+	if err := SeedWindowsInstallerChoice(profile, 2052); err != nil {
 		t.Fatal(err)
 	}
 	if got := Load(profile).Language; got != System {

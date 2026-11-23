@@ -52,42 +52,30 @@ func Valid(id string) bool {
 	return id == System || id != "" && supported[strings.ToLower(id)] == id
 }
 
+// English is the interface for a host that names only other languages; a host
+// that names none keeps the Chinese source text.
+const fallback = "en"
+
 func Match(preferred []string) string {
+	named := false
 	for _, tag := range preferred {
 		tag, _, _ = strings.Cut(tag, ".")
 		tag, _, _ = strings.Cut(tag, "@")
 		tag = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(tag), "_", "-"))
-		parts := strings.Split(tag, "-")
-		switch parts[0] {
-		case "zh":
-			for _, part := range parts[1:] {
-				switch part {
-				case "hant":
-					return "zh-TW"
-				case "hans":
-					return Default
-				}
-			}
-			for _, part := range parts[1:] {
-				switch part {
-				case "hk", "mo", "tw", "cht":
-					return "zh-TW"
-				}
-			}
-			return Default
-		case "fa":
-			for _, part := range parts[1:] {
-				if part == "af" {
-					return "prs"
-				}
-			}
-			return "fa"
-		case "drw", "gbz":
-			return "prs"
+		primary, _, _ := strings.Cut(tag, "-")
+		if primary == "" || primary == "c" || primary == "posix" {
+			continue
 		}
-		if id, ok := supported[parts[0]]; ok {
+		named = true
+		if primary == "zh" {
+			return Default
+		}
+		if id, ok := supported[primary]; ok {
 			return id
 		}
+	}
+	if named {
+		return fallback
 	}
 	return Default
 }

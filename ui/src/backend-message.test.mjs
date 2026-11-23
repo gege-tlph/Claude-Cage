@@ -15,7 +15,7 @@ test("localizeBackendMessage preserves original Chinese in default locale", () =
   assert.equal(localizeBackendMessage(routeErr, formatMessage), routeErr);
 });
 
-test("localizeBackendMessage translates ErrLocalProxyNode and dynamic backend errors across all 14 languages", () => {
+test("localizeBackendMessage translates ErrLocalProxyNode and dynamic backend errors in every non-default language", () => {
   const errLocalNode = "本机代理端口不能用作节点。请导入原客户端的具体节点，在 Cage 中按中转到最终出口的顺序重新配置并应用";
   const samples = [
     errLocalNode,
@@ -67,13 +67,13 @@ test("localizeBackendMessage translates ErrLocalProxyNode and dynamic backend er
   }
 });
 
-test("Russian ErrLocalProxyNode and daily refresh interval match issue #749 expectations", () => {
-  const catalog = JSON.parse(read("./locales/ru.json"));
+test("English ErrLocalProxyNode and daily refresh interval are translated", () => {
+  const catalog = JSON.parse(read("./locales/en.json"));
   const localize = (source, ...values) => formatMessage(Object.hasOwn(catalog, source) ? catalog[source] : source, ...values);
 
-  assert.equal(localize("每天"), "Каждый день");
+  assert.equal(localize("每天"), "Daily");
   const errLocalNode = "本机代理端口不能用作节点。请导入原客户端的具体节点，在 Cage 中按中转到最终出口的顺序重新配置并应用";
-  const ruErr = localizeBackendMessage(errLocalNode, localize);
-  assert.match(ruErr, /\p{Script=Cyrillic}/u);
-  assert.doesNotMatch(ruErr, /\p{Script=Han}/u);
+  const enErr = localizeBackendMessage(errLocalNode, localize);
+  assert.match(enErr, /^A local proxy port can't be used as a node/);
+  assert.doesNotMatch(enErr, /\p{Script=Han}/u);
 });
