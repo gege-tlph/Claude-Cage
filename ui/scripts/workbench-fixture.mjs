@@ -24,7 +24,8 @@ export async function createWorkbench({
     process.env.CAGE_PLAYWRIGHT_MODULE || "playwright",
   );
   const browser = await engines[process.env.CAGE_TEST_BROWSER || "chromium"].launch({ headless: true, executablePath: process.env.CAGE_TEST_BROWSER_PATH, ...launchOptions });
-  const context = await browser.newContext({ viewport, recordVideo, deviceScaleFactor });
+  // A null viewport follows a visible window's size and takes no scale factor.
+  const context = await browser.newContext(viewport === null ? { viewport, recordVideo } : { viewport, recordVideo, deviceScaleFactor });
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));

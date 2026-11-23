@@ -87,3 +87,4 @@ __pycache__/
 
 # Unfinished local native file-open prototype, excluded from compilation.
 /scripts/guest-os/guest-clipboard-windows/WindowsNativeOpen.cs.local
+ui/.layout-scan/
