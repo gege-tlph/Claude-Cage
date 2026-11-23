@@ -10,6 +10,10 @@ import { createWorkbench } from "./workbench-fixture.mjs";
 
 const url = process.env.PREVIEW_URL || "http://127.0.0.1:5198";
 let language = process.env.PREVIEW_LANG || "zh-CN";
+// PREVIEW_STARTUP_DELAY (ms) holds the first workspace status after each page
+// load, so the startup splash stays visible; reload the page to replay it.
+const startupDelay = Number(process.env.PREVIEW_STARTUP_DELAY || 0);
+let holdNextStatus = startupDelay > 0;
 
 const { browser, page } = await createWorkbench({
   url,
@@ -26,6 +30,16 @@ const { browser, page } = await createWorkbench({
       }
       await route.fulfill({ json: { language, active: language, system: "zh-CN" } });
     });
+    if (startupDelay > 0) {
+      page.on("framenavigated", (frame) => { if (frame === page.mainFrame()) holdNextStatus = true; });
+      await page.route("**/api/status", async (route) => {
+        if (holdNextStatus) {
+          holdNextStatus = false;
+          await new Promise((resolve) => setTimeout(resolve, startupDelay));
+        }
+        await route.fallback();
+      });
+    }
     await page.route("**/api/vault", (route) => route.fulfill({ json: { entries: [
       { id: "1", origin: "https://mail.example.com", username: "lin@example.com" },
     ], blocked: [] } }));
