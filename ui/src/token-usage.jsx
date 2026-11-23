@@ -200,7 +200,7 @@ export function TokenUsagePanel({ onConfirm }) {
         <p>{snapshot?.timezone ? tr("采集默认与托管账号配置中的标准会话记录，按运行环境的本地日期统计（{0}）。日志来源表示配置目录，不代表实际扣费账号。自定义配置、CCS、其他设备及已删除或未保存的日志暂不覆盖。", snapshot.timezone) : tr("采集默认与托管账号配置中的标准会话记录，按运行环境的本地日期统计。日志来源表示配置目录，不代表实际扣费账号。自定义配置、CCS、其他设备及已删除或未保存的日志暂不覆盖。")}</p>
         <p>{tr("运行入口依据每条用量记录中的客户端标识，表示请求的发起入口，不代表实际执行机器。缺少标识、无法识别或同一请求的标识冲突时归入“未知入口”。升级前已采集但原日志已删除的计数继续保留，无法补分入口。")}</p>
         <p>{tr("工作台运行、环境就绪且已解锁时约每分钟采集一次。暂停后停止读取，重新启用会补读仍保留的日志。")}</p>
-        <div className="token-settings-actions"><label><input type="checkbox" checked={data.enabled} disabled={busy} onChange={event=>load({action:"configure",enabled:event.target.checked})}/>{tr("启用本地统计")}</label><button disabled={busy || !data.available} onClick={clear}>{tr("清除统计")}</button></div>
+        <div className="token-settings-actions"><label className="check-line"><input type="checkbox" checked={data.enabled} disabled={busy} onChange={event=>load({action:"configure",enabled:event.target.checked})}/>{tr("启用本地统计")}</label><button disabled={busy || !data.available} onClick={clear}>{tr("清除统计")}</button></div>
       </details>
       <p className="token-updated">{snapshot?.updated_at?tr("上次采集：{0}", (new Date(snapshot.updated_at*1000).toLocaleString())):tr("尚未完成采集")}{data.cutoff>0?" · " + tr("仅统计 {0} 之后的请求", new Date(data.cutoff*1000).toLocaleString()):""}</p>
     </>}

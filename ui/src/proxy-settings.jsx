@@ -922,17 +922,6 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
       )}
       {tab === "sources" && (
         <>
-          <label className="check-line">
-            <input
-              type="checkbox"
-              checked={hostRefresh}
-              onChange={(e) => setHostRefresh(e.target.checked)}
-            />
-            {tr("手动更新订阅时通过主机网络下载")}
-          </label>
-          <p className="field-help">
-            {tr("自动更新始终使用当前配置的代理，不会切换到主机下载。")}
-          </p>
           <div className="proxy-toolbar">
             <span>
               {tr("{0} 个来源 · {1} 个节点", proxy.sources.length, allNodes.length)}
@@ -959,7 +948,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                     : tr("手动更新")}
                 </small>
                 <small>
-                  {tr("更新于 {0}", new Date(s.updated_at).toLocaleString(activeInterfaceLanguage()))}
+                  {Number.isFinite(new Date(s.updated_at).getTime()) && tr("更新于 {0}", new Date(s.updated_at).toLocaleString(activeInterfaceLanguage()))}
                   {usageLabel(s.usage) && ` · ${usageLabel(s.usage)}`}
                 </small>
                 {s.error && (
@@ -1036,6 +1025,22 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
               </div>
             </div>
           ))}
+          {/* A secondary option for manual refreshes, after the sources it applies to. */}
+          {proxy.sources.some((s) => s.remote) && (
+            <label className="check-line proxy-host-refresh">
+              <input
+                type="checkbox"
+                checked={hostRefresh}
+                onChange={(e) => setHostRefresh(e.target.checked)}
+              />
+              {tr("手动更新订阅时通过主机网络下载")}
+            </label>
+          )}
+          {proxy.sources.some((s) => s.remote) && (
+            <p className="field-help">
+              {tr("自动更新始终使用当前配置的代理，不会切换到主机下载。")}
+            </p>
+          )}
           {form && (
             <div className="proxy-import">
               <h4>{form.id ? tr("编辑来源") : tr("添加节点来源")}</h4>
@@ -1136,18 +1141,19 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                       <div className="field-row">
                         <label>
                           {tr("节点")}
-                          <select
+                          <InlineSelect
+                            aria-label={tr("节点")}
                             value={nodeEdit.id}
                             disabled={busy}
-                            onChange={(e) => {
-                              const n = nodesOfSource.find((x) => x.id === e.target.value);
-                              setNodeEdit({ id: e.target.value, server: String(n?.server ?? ""), port: String(n?.port ?? "") });
+                            onValueChange={(value) => {
+                              const n = nodesOfSource.find((x) => x.id === value);
+                              setNodeEdit({ id: value, server: String(n?.server ?? ""), port: String(n?.port ?? "") });
                             }}
                           >
                             {nodesOfSource.map((n) => (
                               <option key={n.id} value={n.id}>{n.name}</option>
                             ))}
-                          </select>
+                          </InlineSelect>
                         </label>
                         <label>
                           {tr("服务器")}

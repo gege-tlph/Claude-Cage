@@ -651,6 +651,12 @@ button.proxy-region-group-header:hover:not(:disabled) {
 .proxy-loading {
   padding: 20px 0;
 }
+/* The proxy block above them is much taller once loaded. Shown during the
+   load, the sections after it would flash at the top and then jump down.
+   A load error (role="alert") keeps them visible. */
+.settings-fields:has(> .proxy-loading[role="status"]) > :not(.proxy-loading) {
+  display: none;
+}
 .external-proxy {
   border-top: 1px solid var(--line);
   padding-top: 18px;
@@ -900,4 +906,19 @@ button.proxy-region-group-header:hover:not(:disabled) {
 }
 .proxy-node-edit > button {
   justify-self: start;
+}
+/* The host-download option follows the sources list as a secondary setting. */
+.proxy-host-refresh {
+  margin-top: 10px;
+}
+/* Breathing room between the node address card, the drop zone and the
+   content field; an empty status line takes no space. */
+.proxy-import .proxy-node-edit {
+  margin-bottom: 14px;
+}
+.proxy-yaml-status:empty {
+  display: none;
+}
+.proxy-yaml-input > label {
+  margin-top: 14px;
 }

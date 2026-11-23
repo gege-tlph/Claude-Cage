@@ -69,11 +69,13 @@
   gap: 8px;
   min-width: 0;
 }
+/* One row: the status text next to the title comes and goes while usage is
+   queried. Wrapping would move the actions down and back each time, so the
+   status text shrinks with an ellipsis instead. */
 .claude-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
   gap: 10px 16px;
   margin-bottom: 14px;
 }
@@ -82,6 +84,20 @@
   align-items: center;
   gap: 10px;
   min-width: 0;
+}
+.claude-toolbar-title h4 {
+  flex: none;
+}
+.claude-toolbar-title .claude-toolbar-status {
+  display: block; /* text-overflow does not apply to a flex container */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.claude-toolbar-title .claude-toolbar-status svg {
+  vertical-align: -2px;
+  margin-inline-end: 5px;
 }
 .claude-toolbar-title h4 {
   display: inline-flex;

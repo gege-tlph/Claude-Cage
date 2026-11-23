@@ -1,3 +1,4 @@
+import { InlineSelect } from "./inline-select";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft, Blocks, Check, ChevronDown, ChevronRight, CircleAlert, Clock, Copy, Download, FileCode2, Folder, FolderOpen, Globe2,
@@ -651,9 +652,9 @@ function Grants({ model, plugin, onConfirm }) {
           {projects.length > 1 && <button type="button" disabled={Boolean(busy)} onClick={() => revoke("")}>{tr("全部撤销")}</button>}
         </div>
         {open.length > 0 && <div className="plugin-grant-add">
-          <select value={project} disabled={Boolean(busy)} onChange={event => setChoice(event.target.value)} aria-label={tr("选择项目")}>
+          <InlineSelect value={project} disabled={Boolean(busy)} onValueChange={setChoice} aria-label={tr("选择项目")}>
             {open.map(folder => <option key={folder} value={folder}>{folder}</option>)}
-          </select>
+          </InlineSelect>
           <button type="button" disabled={Boolean(busy)} onClick={allow}>{tr("始终允许")}</button>
         </div>}
         {projects.length ? <ul className="plugin-grant-projects">
@@ -747,10 +748,10 @@ function PluginSettings({ model, plugin, onConfirm }) {
               onChange={event => set(item.id, event.target.checked ? "true" : "false")} />
             <span aria-hidden="true" />
           </span>
-          : item.type === "choice" ? <select id={id} disabled={Boolean(busy)} value={value || item.default || ""} onChange={event => set(item.id, event.target.value)}>
+          : item.type === "choice" ? <InlineSelect id={id} aria-label={item.title} disabled={Boolean(busy)} value={value || item.default || ""} onValueChange={next => set(item.id, next)}>
             {!item.default && <option value="">{tr("未选择")}</option>}
             {(item.choices || []).map(choice => <option key={choice} value={choice}>{choice}</option>)}
-          </select>
+          </InlineSelect>
           : <input id={id} type="text" spellCheck={false} maxLength={8192} disabled={Boolean(busy)} value={value} placeholder={item.default || ""}
             onChange={event => set(item.id, event.target.value)} />}
         </div>;

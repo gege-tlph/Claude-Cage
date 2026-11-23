@@ -127,8 +127,9 @@ export function TailscalePanel({ status, onOpenLogin, onOpenBrowser, onInstall, 
         </div>
         <p className="field-help">{tr(!ready ? tailnetText.startEnvironment : connected ? tailnetText.joinedNetwork : state?.backend === "NeedsLogin" && !state.auth_url ? tailnetText.waitingForLoginLink : descriptions[state?.backend] || tailnetText.readingTailscaleStatus)}</p>
         {state?.account && connected && <p className="tailscale-account">{tr(tailnetText.accountLabel, state.account)}</p>}
-        {ready && state && <div className="tailscale-actions">
-          {!state.installed ? <button className="primary-button" disabled={busy} onClick={async () => {
+        {/* The row keeps its height while the state loads, so the sections below do not jump. */}
+        {ready && <div className="tailscale-actions">
+          {state && (!state.installed ? <button className="primary-button" disabled={busy} onClick={async () => {
             setBusy(true); setError("");
             try { await onInstall(); } catch (e) { setError(e.message); }
             finally { if (mounted.current) setBusy(false); }
@@ -137,7 +138,7 @@ export function TailscalePanel({ status, onOpenLogin, onOpenBrowser, onInstall, 
             {state.auth_url && !connected && <button className="quiet-button" disabled={busy} onClick={() => openLogin(state)}>{tr(tailnetText.openLoginPage)}</button>}
             {state.enabled && <button className="quiet-button" disabled={busy} onClick={() => stop(false)}>{tr(tailnetText.disconnect)}</button>}
             {connected && <button className="quiet-button" disabled={busy} onClick={() => stop(true)}>{tr(tailnetText.logout)}</button>}
-          </>}
+          </>)}
         </div>}
       </div>
       {(error || loginError && !connected) && <p className="error-message" role="alert">{tr(error || loginError)}</p>}
