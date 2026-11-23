@@ -1,3 +1,4 @@
+import { StartupStage } from "./startup-splash.jsx";
 import { isMac, shortcut, primaryModifier } from "./platform.mjs";
 import {
   DEFAULT_SIDEBAR_WIDTH,
@@ -1665,14 +1666,7 @@ function App() {
   if (!status || !settings)
     return (
       <>
-        <div className="boot-screen">
-          <div className="brand-mark">C</div>
-          <h1>Cage</h1>
-          <p>
-            <LoaderCircle size={16} className="spin" />
-            {tr("正在连接工作区…")}
-          </p>
-        </div>
+        <StartupStage status={tr("正在连接工作区…")} />
         {dialogs}
       </>
     );
