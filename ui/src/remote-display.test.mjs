@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { setTimeout as pause } from "node:timers/promises";
-import { displayGeometry, displaySizeSync, followDisplaySize, watchPixelRatio } from "./remote-display.mjs";
+import { DESKTOP_MIN_WIDTH, displayGeometry, displaySizeSync, followDisplaySize, watchPixelRatio } from "./remote-display.mjs";
 
 test("normal size preserves logical pixels; zoom changes workspace, large displays retain aspect ratio", () => {
   assert.deepEqual(displayGeometry({ width: 1000, height: 700 }, { desktop: true }), { width: 2000, height: 1400 });
@@ -11,6 +11,43 @@ test("normal size preserves logical pixels; zoom changes workspace, large displa
   assert.deepEqual(displayGeometry({ width: 160, height: 240 }, { density: 1.5 }), { width: 240, height: 360 });
   assert.deepEqual(displayGeometry({ width: 1000, height: 700 }, { desktop: true, zoom: 1.25, density: 1.5 }), { width: 1200, height: 840 });
   assert.equal(displayGeometry({ width: 0, height: 700 }), null);
+});
+
+test("a Claude Desktop pane narrower than its minimum keeps the guest that wide and is scaled down whole", () => {
+  const minWidth = DESKTOP_MIN_WIDTH;
+  assert.equal(minWidth, 800);
+  // Half of a split: the guest stays 800 logical pixels wide, with the pane's aspect.
+  assert.deepEqual(displayGeometry({ width: 504, height: 818 }, { desktop: true, minWidth }), { width: 1600, height: 2596 });
+  // Zoom shrinks the workspace only down to the same width.
+  assert.deepEqual(displayGeometry({ width: 800, height: 600 }, { desktop: true, zoom: 1.25, minWidth }), { width: 1600, height: 1200 });
+  assert.deepEqual(displayGeometry({ width: 500, height: 700 }, { desktop: true, pixelRatio: 1, minWidth }), { width: 800, height: 1120, scale: 1 });
+  // A pane at least that wide keeps its own size, and without a minimum
+  // (a Desktop shown alone) the guest follows the pane as before.
+  assert.deepEqual(displayGeometry({ width: 800, height: 600 }, { desktop: true, minWidth }), { width: 1600, height: 1200 });
+  assert.deepEqual(displayGeometry({ width: 504, height: 818 }, { desktop: true }), { width: 1008, height: 1636 });
+});
+
+test("the minimum width is read again at each resize, so entering and leaving a split resizes the guest", async () => {
+  const fixture = displayFixture({ ratio: 1 });
+  const requests = [];
+  let width = 1000, split = false;
+  fixture.container.getBoundingClientRect = () => ({ width, height: 700 });
+  const sizing = followDisplaySize({
+    ...fixture, desktop: true, density: 2, minWidth: () => split ? DESKTOP_MIN_WIDTH : 0,
+    resize: async (size) => { requests.push(size); return { ok: true }; },
+  });
+  try {
+    await pause(200);
+    assert.deepEqual(requests.at(-1), { width: 2000, height: 1400 });
+    // Entering a split halves the pane: the guest stays 800 wide.
+    width = 500; split = true; fixture.observers[0].callback();
+    await pause(200);
+    assert.deepEqual(requests.at(-1), { width: 1600, height: 2240 });
+    // Leaving it gives the guest the whole pane again.
+    width = 1000; split = false; fixture.observers[0].callback();
+    await pause(200);
+    assert.deepEqual(requests.at(-1), { width: 2000, height: 1400 });
+  } finally { sizing.dispose(); }
 });
 
 test("a guest that follows its viewer renders one pixel per screen pixel", () => {

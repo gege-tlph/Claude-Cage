@@ -30,7 +30,7 @@ import { useTranslation, translate } from "./interface-language.mjs";
 const terminalAccountRequest = (path, options) => api("/cli" + path, options.body);
 
 export const RemoteView = forwardRef(function RemoteView(
-  { visible, focused = true, keyboard, systemClipboard = true, tabId, copyScope = tabId, onStatus, onFallback, desktop = false, zoom = 1 },
+  { visible, focused = true, keyboard, systemClipboard = true, tabId, copyScope = tabId, onStatus, onFallback, desktop = false, zoom = 1, minWidth = 0 },
   ref,
 ) {
   const windowVisible = useWindowVisibility();
@@ -40,7 +40,7 @@ export const RemoteView = forwardRef(function RemoteView(
     input = useRef(),
     current = useRef({ visible, keyboard, onStatus, onFallback }),
     displayResize = useRef();
-  current.current = { visible: screenVisible && focused, keyboard, systemClipboard, tabId, onStatus, onFallback, zoom };
+  current.current = { visible: screenVisible && focused, keyboard, systemClipboard, tabId, onStatus, onFallback, zoom, minWidth };
   const failures = useRef(0);
   const [connection, setConnection] = useState("connecting"),
     [attempt, setAttempt] = useState(0),
@@ -112,6 +112,7 @@ export const RemoteView = forwardRef(function RemoteView(
           sizing = followDisplaySize({
             client, container, desktop, density: display_scale, follow: dynamic_scale === true,
             zoom: () => current.current.zoom,
+            minWidth: () => current.current.minWidth,
             resize: (size) => api(desktop ? "/claude-desktop/resize" : "/browser/resize", size),
             onError: () => setSizeError(true),
             onSuccess: () => setSizeError(false),

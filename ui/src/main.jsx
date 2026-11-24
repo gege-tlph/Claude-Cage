@@ -1958,10 +1958,10 @@ function App() {
               onFallback={(text, message) => setTransfer({ text, message })}
               sidebarCollapsed={sidebarCollapsed}
               onExpand={() => persist("cage-sidebar-collapsed", false, setSidebarCollapsed)}
-              renderDefault={(focused) => <ClaudeDesktop
+              renderDefault={(focused, split) => <ClaudeDesktop
                 uploads={desktopFiles.uploads}
                 onProjectOpened={async () => { await refreshSettings(); await refreshStatus.current?.(); }}
-                status={status} visible={!settingsOpen && !managementPage} remoteRef={remote} focused={focused}
+                status={status} visible={!settingsOpen && !managementPage} remoteRef={remote} focused={focused} split={split}
                 onStatus={notify} onFallback={(text, message) => setTransfer({ text, message })}
                 onDetails={() => setDetails(true)}
                 // DesktopPanes draws the one sidebar reveal for every pane.

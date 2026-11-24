@@ -13,6 +13,7 @@ import { RemoteView } from "./views";
 import { useWindowVisibility } from "./window-visibility";
 import "./claude-desktop.css";
 import { useTranslation } from "./interface-language.mjs";
+import { DESKTOP_MIN_WIDTH } from "./remote-display.mjs";
 import { localizeBackendMessage } from "./backend-message.mjs";
 
 export function ClaudeDesktop({
@@ -22,6 +23,8 @@ export function ClaudeDesktop({
   visible,
   remoteRef,
   focused = true,
+  // Beside another pane: the guest keeps its minimum width (remote-display.mjs).
+  split = false,
   onStatus,
   onFallback,
   onDetails,
@@ -173,6 +176,7 @@ export function ClaudeDesktop({
             ref={remoteRef}
             desktop
             focused={focused}
+            minWidth={split ? DESKTOP_MIN_WIDTH : 0}
             visible={visible}
             keyboard={status.keyboard}
             onStatus={onStatus}
