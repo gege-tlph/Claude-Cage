@@ -3,6 +3,7 @@ package cage
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -246,5 +247,66 @@ func TestStorageResolvesAliasesToPrivateDisk(t *testing.T) {
 	physical, err := StoragePhysicalPath(logical)
 	if err != nil || !StorageContains(target, physical) {
 		t.Fatalf("private path escaped through alias: %s: %v", physical, err)
+	}
+}
+
+// A storage directory the user deleted can come back empty, for example made
+// again by hand. Holding no file, it is reported as missing, so a new location
+// can be chosen instead of the settings page failing (#453). A directory with
+// any file in it, such as a different disk in its place, stays unavailable.
+func TestStorageDeletedAndRecreatedEmptyIsMissing(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		recover func(t *testing.T, dir string)
+		missing bool
+	}{
+		{"deleted", func(*testing.T, string) {}, true},
+		{"empty directory", func(t *testing.T, dir string) {
+			if err := os.MkdirAll(dir, 0700); err != nil {
+				t.Fatal(err)
+			}
+		}, true},
+		{"empty folders only", func(t *testing.T, dir string) {
+			if err := os.MkdirAll(filepath.Join(dir, "state", "lima"), 0700); err != nil {
+				t.Fatal(err)
+			}
+		}, true},
+		{"a file left", func(t *testing.T, dir string) {
+			writeStorageFixture(t, filepath.Join(dir, "state", "lima", "base", "disk"), []byte("data"))
+		}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			profile, root := newStorageFixture(t)
+			dir := filepath.Join(root, "Cage", "CageData")
+			if err := os.MkdirAll(filepath.Dir(dir), 0700); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := MoveStorage(context.Background(), profile, dir, storageExpectation(t, profile), nil); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.RemoveAll(dir); err != nil {
+				t.Fatal(err)
+			}
+			tc.recover(t, dir)
+			loc, err := GetStorageLocation(profile)
+			if got := errors.Is(err, ErrStorageMissing) && loc.Missing; got != tc.missing {
+				t.Fatalf("missing = %v, want %v: %+v %v", got, tc.missing, loc, err)
+			}
+			if err == nil {
+				t.Fatal("unavailable storage reported as usable")
+			}
+			if !tc.missing {
+				return
+			}
+			// The missing location can be replaced by a new, empty one.
+			next := filepath.Join(root, "Next")
+			moved, err := MoveStorage(context.Background(), profile, next, loc, nil)
+			if err != nil || !sameStoragePath(moved.Directory, next) {
+				t.Fatalf("replace missing storage: %+v %v", moved, err)
+			}
+			if loc, err = GetStorageLocation(profile); err != nil || !sameStoragePath(loc.Directory, next) {
+				t.Fatalf("after replacement: %+v %v", loc, err)
+			}
+		})
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -201,7 +202,7 @@ func getStorageLocation(profile string) (StorageLocation, error) {
 		target, te := paths.Resolve(filepath.Join(r.Directory, "state"))
 		marker, me := os.ReadFile(filepath.Join(r.Directory, storageMarker))
 		if err != nil || te != nil || me != nil || string(marker) != r.ID || !sameStoragePath(real, target) {
-			if storageDeleted(anchor, r.Directory) {
+			if storageDeleted(anchor, r.Directory) || storageEmptied(anchor, r.Directory) {
 				loc.Missing = true
 				return loc, fmt.Errorf("%w：%s。如果它位于外接磁盘，请连接磁盘后重新打开设置；否则请选择新的存储位置，Cage 会在那里重新创建环境，原环境数据无法恢复。", ErrStorageMissing, r.Directory)
 			}
@@ -261,6 +262,38 @@ func storageDeleted(anchor, directory string) bool {
 	if parent, err := os.Stat(filepath.Dir(directory)); err != nil || !parent.IsDir() {
 		return false
 	}
+	return storageAnchorDetached(anchor)
+}
+
+// storageEmptied reports a directory that exists again after the storage was
+// deleted, for example recreated by hand, but holds no file at any depth and
+// no storage marker (#453). As with a deleted one, nothing is lost by choosing
+// a new location; a directory with any file in it keeps the stricter error.
+func storageEmptied(anchor, directory string) bool {
+	if info, err := os.Lstat(directory); err != nil || !info.IsDir() {
+		return false
+	}
+	if !storageAnchorDetached(anchor) {
+		return false
+	}
+	empty := true
+	err := filepath.WalkDir(directory, func(_ string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		// Links and other non-directories count as content.
+		if !entry.IsDir() {
+			empty = false
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	return err == nil && empty
+}
+
+// storageAnchorDetached reports an anchor that is only a link, or absent, so
+// no environment data lives behind it.
+func storageAnchorDetached(anchor string) bool {
 	if _, err := os.Readlink(anchor); err == nil {
 		return true
 	}
