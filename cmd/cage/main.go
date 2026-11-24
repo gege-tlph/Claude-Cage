@@ -61,7 +61,8 @@ cage run COMMAND   Execute a command in the shared environment: from the current
                    --here requires the current directory (asks before sharing
                    it on a terminal, fails otherwise); --workdir DIR runs from
                    DIR in the environment
-cage claude        Run Claude Code in the shared environment
+cage claude        Run Claude Code in the shared environment; starts the
+                   environment first when it is not running
 cage stop          Stop the shared Cage environment and its proxy core
                    --keep-proxy keeps the core running for an environment restart
 cage list          List this cage profile's VMs
@@ -130,6 +131,9 @@ func run() int {
 	}
 	if args[0] == "agent" {
 		return runAgent(args[1:], os.Stdin, os.Stdout)
+	}
+	if args[0] == "user-path" {
+		return userPathCommand(args[1:])
 	}
 	if args[0] == "verify-web-assets" {
 		if len(args) != 1 {
@@ -659,6 +663,14 @@ func run() int {
 	allowed := map[string]bool{"setup": true, "run": true, "shell": true, "claude": true, "stop": true, "list": true, "doctor": true, "info": true, "name": true}
 	if !allowed[args[0]] {
 		return fail(fmt.Errorf("unknown cage command %q; see cage help", args[0]))
+	}
+	if args[0] == "claude" {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		err := ensureEnvironment(ctx, controllerStarter(path), os.Stderr)
+		cancel()
+		if err != nil {
+			return fail(err)
+		}
 	}
 	if args[0] == "run" || args[0] == "shell" || args[0] == "claude" {
 		warnClosedNetwork(path, os.Stderr)
