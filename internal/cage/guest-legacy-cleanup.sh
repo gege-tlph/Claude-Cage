@@ -115,14 +115,16 @@ if legacy_running; then
     sudo ln -s /run/audio-output /run/cage-audio
   fi
 else
+  # The lists end with an empty line. Under `set -e` a loop must not end on a
+  # failed test: the update would stop here on every start.
   printf '%s\n' "$legacy_programs" | while read -r former _; do
-    [ -n "$former" ] && sudo rm -f -- "$former"
+    [ -z "$former" ] || sudo rm -f -- "$former"
   done
   printf '%s\n' "$legacy_files" | while read -r former; do
-    [ -n "$former" ] && sudo rm -f -- "$former"
+    [ -z "$former" ] || sudo rm -f -- "$former"
   done
   printf '%s\n' "$legacy_directories" | while read -r former; do
-    [ -n "$former" ] && sudo rm -rf --one-file-system -- "$former"
+    [ -z "$former" ] || sudo rm -rf --one-file-system -- "$former"
   done
   if [ -L /run/cage-audio ]; then sudo rm -f /run/cage-audio; fi
   # Sockets and display settings of the former input and display helpers.
