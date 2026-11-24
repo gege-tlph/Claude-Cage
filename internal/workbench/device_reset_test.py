@@ -210,10 +210,10 @@ class DeviceResetTest(unittest.TestCase):
         stop_calls = [c for c in calls if c[:2] == ["systemctl", "stop"]]
         self.assertEqual(len(stop_calls), 1)
         stopped = stop_calls[0][2:]
-        self.assertIn("cage-claude-desktop", stopped)
+        self.assertIn("desktop-session", stopped)
         self.assertIn(valid_unit, stopped)
         self.assertNotIn(invalid_unit, stopped)
-        self.assertIn("cage-browser", stopped)
+        self.assertIn("browser-session", stopped)
 
 
 if __name__ == "__main__":

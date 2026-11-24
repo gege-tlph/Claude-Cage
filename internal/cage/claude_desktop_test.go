@@ -56,7 +56,7 @@ func TestDesktopCallbackFocusAfterHandoff(t *testing.T) {
 				if err := os.WriteFile(filepath.Join(dir, "id"), []byte("#!/bin/sh\nprintf '%s\\n' \"$TEST_IDENTITY\"\n"), 0755); err != nil {
 					t.Fatal(err)
 				}
-				script := strings.ReplaceAll(guestOpen, "/etc/claude-cage/browser-control.json", config)
+				script := strings.ReplaceAll(guestOpen, "/etc/workbench/browser-control.json", config)
 				script = strings.ReplaceAll(script, "http://127.0.0.1:18500", server.URL)
 				script = strings.ReplaceAll(script, "/usr/bin/node", "\"$TEST_NODE\"")
 				code := "0"
@@ -71,7 +71,7 @@ func TestDesktopCallbackFocusAfterHandoff(t *testing.T) {
 				}
 				args = append(args, tc.url)
 				cmd := exec.Command("sh", args...)
-				cmd.Env = append(os.Environ(), "PATH="+dir+":"+os.Getenv("PATH"), "TEST_NODE="+node, "TEST_IDENTITY="+identity, "CALLBACK_EXIT="+code, "CAGE_CLAUDE_LOGIN="+login)
+				cmd.Env = append(os.Environ(), "PATH="+dir+":"+os.Getenv("PATH"), "TEST_NODE="+node, "TEST_IDENTITY="+identity, "CALLBACK_EXIT="+code, "LOGIN_ID="+login)
 				out, err := cmd.CombinedOutput()
 				if tc.fail {
 					if err == nil {
@@ -213,7 +213,7 @@ func TestDesktopAuthBrowserHardeningAndNoIncognito(t *testing.T) {
 			"HOME=" + home,
 			"XDG_RUNTIME_DIR=" + runtimeDir,
 			"TZ=Asia/Tokyo",
-			"CAGE_LANGUAGE=en-US",
+			"BROWSER_LANG=en-US",
 			"CAGE_INTERNAL_MARKER=leak",
 			"TEST_CAPTURE=" + capture,
 		}

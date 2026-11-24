@@ -11,8 +11,8 @@ func TestLinuxAccountsAndRoles(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	s := p.Linux("User=cage-browser\nGroup=cage-audio\nUser=cage\nsudo -H -u cage cat /home/cage/file\nsudo useradd --create-home --shell /bin/bash cage-browser\ncage-browser ALL=(cage) NOPASSWD: /usr/local/bin/tool\nsystemctl restart cage-browser.service\nmessage['source'] = 'cage-browser'\naccount = pwd.getpwnam(user)\n")
-	for _, want := range []string{"User=web\n", "Group=cage-audio\n", "User=alex\n", "-u alex cat /home/alex/file", "/bin/bash web", "web ALL=(alex)", "restart cage-browser.service", "message['source'] = 'cage-browser'", "'cage': 'alex', 'cage-browser': 'web'"} {
+	s := p.Linux("User=cage-browser\nGroup=cage-audio\nUser=cage\nsudo -H -u cage cat /home/cage/file\nsudo useradd --create-home --shell /bin/bash cage-browser\ncage-browser ALL=(cage) NOPASSWD: /usr/local/bin/tool\nsystemctl restart browser-session.service\nmessage['source'] = 'cage-browser'\naccount = pwd.getpwnam(user)\n")
+	for _, want := range []string{"User=web\n", "Group=cage-audio\n", "User=alex\n", "-u alex cat /home/alex/file", "/bin/bash web", "web ALL=(alex)", "restart browser-session.service", "message['source'] = 'cage-browser'", "'cage': 'alex', 'cage-browser': 'web'"} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("missing %q", want)
 		}
@@ -27,14 +27,14 @@ func TestLinuxDimensionsAndBrowser(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	s := p.Linux(`load-module module-null-sink sink_name=cage_output sink_properties=device.description=Cage
-load-module module-pipe-source source_name=cage_input file=/run/cage-audio/input.fifo format=s16le rate=48000 channels=1 source_properties=device.description=Cage
-set-default-source cage_input
+	s := p.Linux(`load-module module-null-sink sink_name=null rate=48000 channels=2 format=s16le
+load-module module-pipe-source source_name=fifo_input file=/run/audio-output/input.fifo format=s16le rate=48000 channels=1
+set-default-source fifo_input
 const flags = ["--no-first-run", "--window-size=1440,900"];
 const directory = "/usr/local/lib/cage-split";
 {"name": "Cage browser panes"}
 `)
-	for _, want := range []string{"sink_name=speakers", "source_name=speakers_input", `source_properties="device.description='My Audio'"`, "set-default-source speakers_input", "--disable-webgl", "--disable-reading-from-canvas", "browser-panes-" + p.ExtensionSuffix, `"name": "My Tabs"`} {
+	for _, want := range []string{"sink_name=speakers", "device.description='My Audio'", "source_name=speakers_input", `source_properties="device.description='My Audio'"`, "set-default-source speakers_input", "--disable-webgl", "--disable-reading-from-canvas", "browser-panes-" + p.ExtensionSuffix, `"name": "My Tabs"`} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("missing %q", want)
 		}

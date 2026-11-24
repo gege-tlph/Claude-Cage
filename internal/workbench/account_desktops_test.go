@@ -296,7 +296,7 @@ func TestLinuxAccountDesktopDeleteScript(t *testing.T) {
 	otherID := strings.Repeat("b", 24)
 	targetDir := filepath.Join(home, ".local/share/desktop-profiles", targetID)
 	otherDir := filepath.Join(home, ".local/share/desktop-profiles", otherID)
-	accountDir := filepath.Join(home, ".local/share/cage/claude-accounts", targetID, "config")
+	accountDir := filepath.Join(home, ".local/share/workbench/claude-accounts", targetID, "config")
 	for _, dir := range []string{filepath.Join(targetDir, "data"), otherDir, accountDir} {
 		if err := os.MkdirAll(dir, 0700); err != nil {
 			t.Fatal(err)
@@ -351,14 +351,14 @@ func TestLinuxAccountDesktopScriptWiresPortalAndIsolatedInput(t *testing.T) {
 		}
 	}
 	for _, want := range []string{
-		"/usr/local/bin/cage-desktop-files --open",
-		"/usr/local/bin/cage-desktop-files &",
+		"/usr/local/libexec/desktop-files --open",
+		"/usr/local/libexec/desktop-files &",
 		"export GTK_USE_PORTAL=1",
 		"--xdg-portal-required-version=3",
-		"/usr/local/bin/cage-input-session",
+		"/usr/local/libexec/input-session",
 		"--property=PrivateTmp=yes",
-		"--property=EnvironmentFile=-/etc/claude-cage/environment",
-		// Not TZ= or CAGE_LANGUAGE= on the unit: the environment file's
+		"--property=EnvironmentFile=-/etc/workbench/environment",
+		// Not TZ= or a language on the unit: the environment file's
 		// values would win over them.
 		"--property=Environment=account_tz=${CAGE_ACCOUNT_TZ}",
 		"--property=Environment=account_language=${CAGE_ACCOUNT_LANGUAGE}",
@@ -366,7 +366,7 @@ func TestLinuxAccountDesktopScriptWiresPortalAndIsolatedInput(t *testing.T) {
 		"client_runtime=(/usr/bin/python3 -I /usr/local/bin/client_runtime.py)",
 		`${client_runtime[@]+"${client_runtime[@]}"} claude-desktop`,
 		"browser-language",
-		"unset CAGE_LANGUAGE",
+		"unset language",
 		"dbus-update-activation-environment DISPLAY XAUTHORITY HOME XDG_RUNTIME_DIR TZ LANG LC_ALL",
 		`--lang=${desktop_lang}`,
 		// The viewer's density reaches the instance through its settings manager.

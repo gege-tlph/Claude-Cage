@@ -40,7 +40,7 @@ test -x /usr/bin/claude-desktop
 sudo systemctl reset-failed "$unit.service" 2>/dev/null || :
 # The controller creates node namespaces. Older administrator-managed
 # namespaces keep their Desktop-only binding until the account is changed.
-props=("--property=EnvironmentFile=-/etc/claude-cage/environment")
+props=("--property=EnvironmentFile=-/etc/workbench/environment")
 if [[ $scope == dedicated || $scope == node-* ]]; then
   namespace=$unit
   if [[ $scope == node-* ]]; then route=${scope#node-}; [[ $route =~ ^[0-9a-f]{24}$ ]]; namespace="net-$route"; fi
@@ -66,14 +66,18 @@ code=$2
 if [[ $code == default ]]; then
   config="$base/code"
 else
-  config="$HOME/.local/share/cage/claude-accounts/$code/config"
+  # Components older than the current names keep the data under the former
+  # one until the update moves it.
+  data="$HOME/.local/share/workbench"
+  if [[ ! -e $data && ! -L $data && -d $HOME/.local/share/cage ]]; then data="$HOME/.local/share/cage"; fi
+  config="$data/claude-accounts/$code/config"
 fi
 mkdir -p "$config"
 # Desktop's Code tab starts the CLI without Cage's launch flags. Link the
 # shared skills and instructions and add shared settings first; a conflict
 # keeps the original files, is logged by this unit and does not block Desktop.
 if [[ $code != default ]]; then
-  /usr/local/bin/cage-claude-account share "$code" >/dev/null || :
+  /usr/local/libexec/claude-account share "$code" >/dev/null || :
 fi
 # client_runtime creates temporary compatibility aliases. Resolve the path
 # inside the service's private /tmp so it also exists for the Code tab.
@@ -135,7 +139,7 @@ cat > "$XDG_RUNTIME_DIR/bin/xdg-open" <<'OPEN'
 #!/bin/sh
 case "${1:-}" in
   http://*|https://*|claude://*|about:blank) exec /usr/bin/gio open "$1" ;;
-  *) exec /usr/local/bin/cage-desktop-files --open "${1:-}" ;;
+  *) exec /usr/local/libexec/desktop-files --open "${1:-}" ;;
 esac
 OPEN
 chmod 0700 "$XDG_RUNTIME_DIR/bin/xdg-open"
@@ -150,7 +154,7 @@ tigervncpasswd -f < "$XDG_RUNTIME_DIR/password" > "$XDG_RUNTIME_DIR/vnc-password
 # The viewer sets the density of the screen showing it through the settings
 # manager; until then the configured one applies. Record both for the viewer.
 display_scale=2
-if [[ -r /etc/claude-cage/display-scale && $(< /etc/claude-cage/display-scale) == 1.5 ]]; then
+if [[ -r /etc/workbench/display-scale && $(< /etc/workbench/display-scale) == 1.5 ]]; then
   display_scale=1.5
 fi
 printf '%s\n' "$display_scale" > "$XDG_RUNTIME_DIR/display-scale"
@@ -165,14 +169,15 @@ xauth -f "$XAUTHORITY" add "$DISPLAY" . "$cookie"
 # The environment file's values win over the unit's own Environment=, so the
 # account's region arrives under other names and is applied here.
 if [[ -n "${account_tz:-}" ]]; then export TZ=$account_tz; fi
-if [[ -n "${account_language:-}" ]]; then CAGE_LANGUAGE=$account_language; fi
+# The interface language is the browser's; it is not in the session environment.
+language=${account_language:-$(sed -n 's/^BROWSER_LANG=//p' /etc/workbench/browser.env 2>/dev/null || true)}
 unset account_tz account_language
 desktop_lang=""
-if [[ "${CAGE_LANGUAGE:-}" =~ ^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$ ]]; then
-  desktop_lang="${CAGE_LANGUAGE}"
+if [[ "${language:-}" =~ ^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$ ]]; then
+  desktop_lang="${language}"
   printf '%s\n' "$desktop_lang" > "$XDG_RUNTIME_DIR/browser-language"
 fi
-unset CAGE_LANGUAGE
+unset language
 dbus-update-activation-environment DISPLAY XAUTHORITY HOME XDG_RUNTIME_DIR TZ LANG LC_ALL
 if [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
   printf '%s' "$DBUS_SESSION_BUS_ADDRESS" > "$XDG_RUNTIME_DIR/bus-address"
@@ -186,8 +191,8 @@ openbox --config-file "$XDG_RUNTIME_DIR/windows.xml" >/dev/null 2>&1 &
 # alone do not hide them.
 printf 'Gtk/DecorationLayout ":"\n' > "$XDG_RUNTIME_DIR/xsettings.fixed"
 guest_theme=
-if [ -r "$work_home/.config/claude-cage/theme-variant" ]; then
-  read -r guest_theme < "$work_home/.config/claude-cage/theme-variant" || true
+if [ -r "$work_home/.config/workbench/theme-variant" ]; then
+  read -r guest_theme < "$work_home/.config/workbench/theme-variant" || true
   if [ "$guest_theme" = dark ]; then
     printf 'Net/ThemeName "Adwaita-dark"\nGtk/ApplicationPreferDarkTheme 1\n' >> "$XDG_RUNTIME_DIR/xsettings.fixed"
   elif [ "$guest_theme" = light ]; then
@@ -195,8 +200,8 @@ if [ -r "$work_home/.config/claude-cage/theme-variant" ]; then
   fi
 fi
 if [ -n "$guest_theme" ]; then
-  if [ -x /usr/local/bin/cage-apply-theme ]; then
-    HOME="$work_home" /usr/local/bin/cage-apply-theme "$guest_theme" >/dev/null 2>&1 || true
+  if [ -x /usr/local/libexec/apply-theme ]; then
+    HOME="$work_home" /usr/local/libexec/apply-theme "$guest_theme" >/dev/null 2>&1 || true
   fi
   if command -v gsettings >/dev/null 2>&1; then
     if [ "$guest_theme" = dark ]; then
@@ -232,8 +237,8 @@ for _ in {1..60}; do
   sleep .1
 done
 gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets/aliases/default --method org.freedesktop.DBus.Properties.Get org.freedesktop.Secret.Collection Locked | grep -q false
-if [[ -x /usr/local/bin/cage-desktop-files ]]; then
-  /usr/local/bin/cage-desktop-files &
+if [[ -x /usr/local/libexec/desktop-files ]]; then
+  /usr/local/libexec/desktop-files &
   files_pid=$!
   for _ in {1..100}; do
     kill -0 "$files_pid"
@@ -250,7 +255,7 @@ cd "$HOME"
 # the renderer confirms the login. Keep the filtered stream in the unit's
 # private, ephemeral runtime directory; no callback or cookie is inspected.
 input_session=()
-if [[ -x /usr/local/bin/cage-input-session ]]; then input_session=(/usr/local/bin/cage-input-session); fi
+if [[ -x /usr/local/libexec/input-session ]]; then input_session=(/usr/local/libexec/input-session); fi
 lang_args=()
 if [[ -n "${desktop_lang:-}" ]]; then lang_args=("--lang=${desktop_lang}"); fi
 # The neutral launcher renames the audio and input socket paths the client

@@ -67,7 +67,10 @@ func cliChannelDigest() string {
 func cliChannelInstallCommand() string {
 	content := sha256.Sum256(cliChannelBundle())
 	script := fmt.Sprintf(`import gzip,hashlib,os,pathlib,sys,tempfile
-d=pathlib.Path.home()/".local/share/cage/cli-channel-code"
+h=pathlib.Path.home()/".local/share"
+d=h/"workbench"
+if not os.path.lexists(d) and (h/"cage").is_dir():d=h/"cage"
+d=d/"cli-channel-code"
 d.mkdir(parents=True,exist_ok=True,mode=0o700)
 p=d/"%s.py"
 b=sys.stdin.buffer.read()
@@ -172,7 +175,10 @@ func cliChannelCommand(mode, argument string) string {
 	// Versioned helpers let an open terminal keep its original protocol while a
 	// rebuilt host begins new sessions. No account configuration is overwritten.
 	bootstrap := fmt.Sprintf(`import os,pathlib,sys
-p=pathlib.Path.home()/".local/share/cage/cli-channel-code"/"%s.py"
+h=pathlib.Path.home()/".local/share"
+d=h/"workbench"
+if not os.path.lexists(d) and (h/"cage").is_dir():d=h/"cage"
+p=d/"cli-channel-code"/"%s.py"
 if not p.is_file():sys.exit(%d)
 os.execv(sys.executable,[sys.executable,"-I",str(p),*sys.argv[1:]])
 `, cliChannelDigest(), cliChannelMissing)
@@ -719,7 +725,7 @@ func (s *Server) prepareTerminalConversation(workspace string, selection claudeS
 	if err := writePrivate(mobileRecordPath(s.profile, id), record); err != nil {
 		return "", nil, err
 	}
-	script := "cd " + shellescape.Quote(directory) + " && exec env TERM=xterm-256color COLORTERM=truecolor CAGE_WORKBENCH=1 bash -lic " + shellescape.Quote(body)
+	script := "cd " + shellescape.Quote(directory) + " && exec env TERM=xterm-256color COLORTERM=truecolor WORKBENCH_TERMINAL=1 bash -lic " + shellescape.Quote(body)
 	return script, record, nil
 }
 

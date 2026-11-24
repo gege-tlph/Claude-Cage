@@ -590,15 +590,15 @@ func claudeSnapshotCommand(id string) string {
 }
 
 func claudeGuestReportCommand(id, subject string) string {
-	command := "exec /usr/local/bin/cage-claude-account snapshot " + id
+	command := "exec /usr/local/libexec/claude-account snapshot " + id
 	if subject != "" {
-		command = "exec /usr/local/bin/cage-claude-account usage " + id + " " + shellescape.Quote(subject)
+		command = "exec /usr/local/libexec/claude-account usage " + id + " " + shellescape.Quote(subject)
 	}
 	if id == "default" {
 		// Use the same login shell a regular terminal opens, including its
 		// configured API/provider environment. Isolate startup banners from
 		// the JSON output and keep the probe outside every shared project.
-		command = `set -o pipefail; cd "$HOME" && env TERM=xterm-256color COLORTERM=truecolor CAGE_WORKBENCH=1 /bin/bash -lic ` +
+		command = `set -o pipefail; cd "$HOME" && env TERM=xterm-256color COLORTERM=truecolor WORKBENCH_TERMINAL=1 /bin/bash -lic ` +
 			shellescape.Quote(`printf '\nCAGE_CLAUDE_SNAPSHOT '; `+command) +
 			` | sed -n 's/^CAGE_CLAUDE_SNAPSHOT //p'`
 	}
@@ -607,29 +607,31 @@ func claudeGuestReportCommand(id, subject string) string {
 
 func managedClaudeTerminalScript(workspace, command, accountID, subject string, login bool) string {
 	if login {
-		return "cd \"$HOME\" && exec /usr/local/bin/cage-claude-account login " + shellescape.Quote(accountID)
+		return "cd \"$HOME\" && exec /usr/local/libexec/claude-account login " + shellescape.Quote(accountID)
 	}
 	// The interactive shell still interprets the user's saved command and
 	// remains useful when Claude exits. The shim scopes subsequent invocations
 	// in this shell to the same official CLI profile.
-	env := `export CAGE_CLAUDE_ACCOUNT_ID=` + shellescape.Quote(accountID) +
-		` CAGE_CLAUDE_SUBJECT=` + shellescape.Quote(subject) + "; "
+	env := `export ACCOUNT_PROFILE_ID=` + shellescape.Quote(accountID) +
+		` ACCOUNT_SUBJECT=` + shellescape.Quote(subject) + "; "
 	if accountID != "default" {
-		env += `export CLAUDE_CONFIG_DIR="$HOME/.local/share/cage/claude-accounts/$CAGE_CLAUDE_ACCOUNT_ID/config"; `
+		// An environment whose components predate the current names keeps its
+		// data under the former one until the update moves it.
+		env += `account_data="$HOME/.local/share/workbench"; if [ ! -e "$account_data" ] && [ ! -L "$account_data" ] && [ -d "$HOME/.local/share/cage" ]; then account_data="$HOME/.local/share/cage"; fi; export CLAUDE_CONFIG_DIR="$account_data/claude-accounts/$ACCOUNT_PROFILE_ID/config"; unset account_data; `
 	}
-	env += `export PATH="/usr/local/lib/cage-claude-bin:$PATH"; `
-	body := env + `eval "$CAGE_TERMINAL_COMMAND"; unset CAGE_TERMINAL_COMMAND; exec bash -i`
+	env += `export PATH="/usr/local/libexec/claude-wrapper:$PATH"; `
+	body := env + `eval "$TERMINAL_COMMAND"; unset TERMINAL_COMMAND; exec bash -i`
 	return "cd " + shellescape.Quote(workspace) +
-		" && exec env TERM=xterm-256color COLORTERM=truecolor CAGE_WORKBENCH=1 CAGE_TERMINAL_COMMAND=" +
+		" && exec env TERM=xterm-256color COLORTERM=truecolor WORKBENCH_TERMINAL=1 TERMINAL_COMMAND=" +
 		shellescape.Quote(command) + " bash -lic " + shellescape.Quote(body)
 }
 
 // The saved command is interpreted only by the guest's interactive shell.
 // Reconnecting a viewer never executes it again; exiting Claude leaves a shell.
 func terminalScript(workspace, kind, command string) string {
-	prefix := "cd " + shellescape.Quote(workspace) + " && exec env TERM=xterm-256color COLORTERM=truecolor CAGE_WORKBENCH=1 "
+	prefix := "cd " + shellescape.Quote(workspace) + " && exec env TERM=xterm-256color COLORTERM=truecolor WORKBENCH_TERMINAL=1 "
 	if kind != "claude" {
 		return prefix + "bash -l"
 	}
-	return prefix + "CAGE_TERMINAL_COMMAND=" + shellescape.Quote(command) + " bash -lic " + shellescape.Quote("eval \"$CAGE_TERMINAL_COMMAND\"; unset CAGE_TERMINAL_COMMAND; exec bash -il")
+	return prefix + "TERMINAL_COMMAND=" + shellescape.Quote(command) + " bash -lic " + shellescape.Quote("eval \"$TERMINAL_COMMAND\"; unset TERMINAL_COMMAND; exec bash -il")
 }

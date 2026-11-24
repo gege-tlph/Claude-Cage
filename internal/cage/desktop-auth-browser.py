@@ -30,7 +30,7 @@ def read_env_file_language(path):
     try:
         for line in Path(path).read_text(encoding="utf-8", errors="replace").splitlines():
             key, sep, val = line.partition("=")
-            if sep and key.strip() == "CAGE_LANGUAGE":
+            if sep and key.strip() == "BROWSER_LANG":
                 lang = valid_language(val.strip().strip("'\""))
                 if lang:
                     return lang
@@ -39,7 +39,7 @@ def read_env_file_language(path):
     return ""
 
 
-def resolve_language(env=None, runtime_dir="", env_file="/etc/claude-cage/environment"):
+def resolve_language(env=None, runtime_dir="", env_file="/etc/workbench/browser.env"):
     env = os.environ if env is None else env
     runtime_dir = runtime_dir or env.get("XDG_RUNTIME_DIR", "")
     if runtime_dir:
@@ -50,7 +50,7 @@ def resolve_language(env=None, runtime_dir="", env_file="/etc/claude-cage/enviro
         except OSError:
             pass
     for candidate in (
-        valid_language(env.get("CAGE_LANGUAGE", "")),
+        valid_language(env.get("BROWSER_LANG", "")),
         read_env_file_language(env_file),
         language_from_locale(env.get("LC_ALL", "")),
         language_from_locale(env.get("LANG", "")),
@@ -137,7 +137,7 @@ def main(address):
     lang = resolve_language(os.environ, temporary)
     env = clean_environment(os.environ)
     regular = Path.home() / ".config/chromium"
-    if not sign_in(url) or Path("/etc/claude-cage/login-browser-mode").exists():
+    if not sign_in(url) or Path("/etc/workbench/login-browser-mode").exists():
         try:
             save_language_prefs(regular, lang)
         except OSError:

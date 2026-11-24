@@ -14,6 +14,18 @@ import uuid
 from urllib.parse import urlsplit
 
 
+def data_root(home):
+    # Environments whose components predate the current names keep the data
+    # under the former one until their next update moves it.
+    current = home / ".local/share/workbench"
+    former = home / ".local/share/cage"
+    return former if not os.path.lexists(current) and former.is_dir() else current
+
+# Variables the workbench sets for its own helpers; the CLI never receives them.
+CONTROLLER_VARIABLES = frozenset(("ACCOUNT_PROFILE_ID", "ACCOUNT_SUBJECT", "ACCOUNT_BROWSER", "LOGIN_ID",
+                                  "LOGIN_CONNECTION", "LOGIN_OWNER", "WORKBENCH_TERMINAL", "TERMINAL_COMMAND"))
+
+
 class Unverified(Exception):
     pass
 
@@ -48,8 +60,9 @@ def read_settings(path):
 # Its stdout is captured privately inside the guest, never forwarded over SSH.
 CCS_PROBE = """
 import json, os, sys
+
 args = sys.argv[1:]
-if os.environ['CAGE_CAPTURE_ID'] not in args:
+if os.environ['CAPTURE_PROBE_ID'] not in args:
     sys.exit(1)
 settings = {}
 source = None
@@ -64,7 +77,7 @@ if '--settings' in args:
         if len(content) > 1048576: sys.exit(1)
         settings = json.loads(content)
     del args[index:index + 2]
-print('CAGE_CCS_CAPTURE:' + json.dumps([args, settings, source, dict(os.environ)]))
+print('CAPTURE_RESULT:' + json.dumps([args, settings, source, dict(os.environ)]))
 """
 
 
@@ -72,15 +85,15 @@ def ccs_launch(profile, args, id_index):
     probe_id = str(uuid.uuid4())
     probe_args = args.copy()
     probe_args[id_index] = probe_id
-    with tempfile.TemporaryDirectory(prefix="cage-ccs-launch-") as directory:
+    with tempfile.TemporaryDirectory(prefix="ccs-launch-") as directory:
         probe = Path(directory) / "claude"
         probe.write_text("#!" + sys.executable + " -I\n" + CCS_PROBE)
         probe.chmod(0o700)
-        env = dict(os.environ, CCS_CLAUDE_PATH=str(probe), CAGE_CAPTURE_ID=probe_id)
+        env = dict(os.environ, CCS_CLAUDE_PATH=str(probe), CAPTURE_PROBE_ID=probe_id)
         result = subprocess.run(["ccs", profile, *probe_args], env=env, stdin=subprocess.DEVNULL,
                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=20)
-    records = [line.removeprefix(b"CAGE_CCS_CAPTURE:") for line in result.stdout.splitlines()
-               if line.startswith(b"CAGE_CCS_CAPTURE:")]
+    records = [line.removeprefix(b"CAPTURE_RESULT:") for line in result.stdout.splitlines()
+               if line.startswith(b"CAPTURE_RESULT:")]
     if result.returncode or len(records) != 1 or len(records[0]) > 2 << 20:
         raise Unverified()
     passed, settings, source, env = json.loads(records[0])
@@ -98,7 +111,7 @@ def ccs_launch(profile, args, id_index):
     if any(flag not in ("--disallowedTools", "--disallowed-tools", "--append-system-prompt", "--append-system-prompt-file")
            or not value or value.startswith("-") for flag, value in zip(extra[::2], extra[1::2])):
         raise Unverified()
-    env.pop("CAGE_CAPTURE_ID", None)
+    env.pop("CAPTURE_PROBE_ID", None)
     env.pop("CCS_CLAUDE_PATH", None)
     return args + extra, settings, env
 
@@ -289,7 +302,8 @@ def resolve(prefix, args, id_index, snapshot):
 
 def resolve_actual_context(binary, prefix, args, env, settings, snapshot):
     config, settings, route_env, route_settings, flags, policies = freeze_settings(env, settings, snapshot)
-    env = {key: value for key, value in env.items() if not key.upper().startswith("CAGE_")}
+    env = {key: value for key, value in env.items()
+           if key.upper() not in CONTROLLER_VARIABLES and not key.upper().startswith(("CAGE_", "CLAUDE_CAGE_"))}
     effective = {**route_env, **route_settings}
     fd = snapshot.fileno()
     status = subprocess.run([binary, *flags, "auth", "status"], env=env, pass_fds=() if os.name == "nt" else (fd,),
@@ -346,7 +360,7 @@ def official_turn(helper_path, account, args, snapshot, sid, resume, verify_only
                     raise Changed()
             elif key.startswith(("ANTHROPIC_", "CLAUDE_")) and key not in harmless_env:
                 raise Unverified()
-    subject = os.environ.get("CAGE_CLAUDE_SUBJECT")
+    subject = os.environ.get("ACCOUNT_SUBJECT")
     if not subject:
         raise Unverified()
     def bind_subscription(reading):
@@ -368,7 +382,7 @@ def official_turn(helper_path, account, args, snapshot, sid, resume, verify_only
 
 
 def bind(session_id, resume, material):
-    directory = Path(os.environ["CAGE_CLI_STATE_ROOT"]).parent / "mobile-cli-identities" if os.name == "nt" else Path.home() / ".local/share/cage/mobile-cli-identities"
+    directory = Path(os.environ["CAGE_CLI_STATE_ROOT"]).parent / "mobile-cli-identities" if os.name == "nt" else data_root(Path.home()) / "mobile-cli-identities"
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     path = directory / session_id
     serialized = json.dumps(material, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
@@ -419,7 +433,8 @@ def main():
                 raise Unverified()
             bind(sid, False, None)
             single_turn_notice()
-            os.execvpe(prefix[0], [*prefix, *args], {key: value for key, value in os.environ.items() if not key.upper().startswith("CAGE_")})
+            os.execvpe(prefix[0], [*prefix, *args], {key: value for key, value in os.environ.items()
+                                                     if key.upper() not in CONTROLLER_VARIABLES and not key.upper().startswith(("CAGE_", "CLAUDE_CAGE_"))})
         bind(sid, resume, material)
         if verify_only:
             raise Verified(Path(env.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude").resolve())

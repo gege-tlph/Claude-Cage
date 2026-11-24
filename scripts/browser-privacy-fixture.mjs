@@ -72,7 +72,7 @@ export async function createPrivacyController({ preferences, headless = true } =
   try {
     const sourceDirectory = new URL('../internal/cage/', import.meta.url);
     for (const name of await readdir(sourceDirectory))
-      if ((name.startsWith('browser-') && name.endsWith('.mjs')) || name === 'device-observation.mjs' || name === 'display-density.mjs' || name === 'native-input.mjs' || name === 'tailnet-client.mjs' || name === 'browser-extension-archive.py')
+      if ((name.startsWith('browser-') && name.endsWith('.mjs')) || name === 'device-observation.mjs' || name === 'display-density.mjs' || name === 'native-input.mjs' || name === 'browser-extension-archive.py')
         await cp(new URL(name, sourceDirectory), join(directory, name));
     await cp(new URL('split-extension', sourceDirectory), join(directory, 'extension'), { recursive: true });
     const source = await readFile(new URL('browser-agent.mjs', sourceDirectory), 'utf8');
@@ -80,7 +80,7 @@ export async function createPrivacyController({ preferences, headless = true } =
     assert.ok(source.includes(marker));
     assert.ok(source.includes('spawn(browserBinary, flags'), 'Update the isolated browser launch adapter');
     const adapted = source.replaceAll('/home/cage-browser', directory)
-      .replace('/etc/claude-cage/browser-control.json', join(directory, 'control.json'))
+      .replace('/etc/workbench/browser-control.json', join(directory, 'control.json'))
       .replace('/usr/local/lib/cage-split', join(directory, 'extension'))
       .replace('spawn(browserBinary, flags', `spawn(${JSON.stringify(browserPath)}, [...flags, "--use-mock-keychain", "--password-store=basic"]`)
       .replace('"--start-fullscreen",', headless ? '"--headless=new", "--disable-background-networking",' : '"--start-fullscreen", "--disable-background-networking",')

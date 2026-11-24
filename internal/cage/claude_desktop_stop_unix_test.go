@@ -41,7 +41,7 @@ func TestDesktopFinishMarksStoppingBeforeSignalingApp(t *testing.T) {
 	}
 	dir := t.TempDir()
 	// Missing runtime directory is ignored cleanly.
-	missing := exec.Command(bash, "-c", desktopFinish, "desktop-finish.sh", filepath.Join(dir, "missing"), "cage-claude-desktop.service")
+	missing := exec.Command(bash, "-c", desktopFinish, "desktop-finish.sh", filepath.Join(dir, "missing"), "desktop-session.service")
 	if out, err := missing.CombinedOutput(); err != nil {
 		t.Fatalf("missing runtime dir failed: %v %s", err, out)
 	}
@@ -85,12 +85,12 @@ while true; do sleep 0.05; done`)
 	if err := os.MkdirAll(filepath.Join(fakeProc, pid), 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(fakeProc, pid, "cgroup"), []byte("0::/system.slice/cage-claude-desktop.service\n"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(fakeProc, pid, "cgroup"), []byte("0::/system.slice/desktop-session.service\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	script := strings.ReplaceAll(desktopFinish, `"/proc/$app/cgroup"`, `"`+fakeProc+`/$app/cgroup"`)
 	script = strings.ReplaceAll(script, `[[ -d /proc/$app ]]`, `kill -0 "$app" 2>/dev/null`)
-	finish := exec.Command(bash, "-c", script, "desktop-finish.sh", runtimeDir, "cage-claude-desktop.service")
+	finish := exec.Command(bash, "-c", script, "desktop-finish.sh", runtimeDir, "desktop-session.service")
 	if out, err := finish.CombinedOutput(); err != nil {
 		t.Fatalf("desktop-finish.sh failed: %v %s", err, out)
 	}
@@ -164,10 +164,10 @@ stub_app() { ` + appBody + `; }
 stub_python() { cat >/dev/null; }
 `
 			script := claudeDesktopSession
-			script = strings.ReplaceAll(script, "/run/cage-desktop", runtimeDir)
-			script = strings.ReplaceAll(script, "/usr/local/bin/cage-display-governor", filepath.Join(dir, "missing-governor"))
-			script = strings.ReplaceAll(script, "/usr/local/bin/cage-desktop-files", "stub_desktop_files")
-			script = strings.ReplaceAll(script, "/usr/local/bin/cage-input-session", "stub_app")
+			script = strings.ReplaceAll(script, "/run/desktop-session", runtimeDir)
+			script = strings.ReplaceAll(script, "/usr/local/libexec/display-governor", filepath.Join(dir, "missing-governor"))
+			script = strings.ReplaceAll(script, "/usr/local/libexec/desktop-files", "stub_desktop_files")
+			script = strings.ReplaceAll(script, "/usr/local/libexec/input-session", "stub_app")
 			script = strings.ReplaceAll(script, "/usr/bin/python3", "stub_python")
 			script = strings.ReplaceAll(script, "command -v xsettingsd", "false")
 
@@ -194,13 +194,13 @@ stub_python() { cat >/dev/null; }
 			}()
 			defer close(stopUnlocker)
 
-			cmd := exec.Command(bash, "-s")
+			// Past the dbus-run-session step: the session receives the readiness
+			// socket as an argument.
+			cmd := exec.Command(bash, "-s", "--", "--session", filepath.Join(runtimeDir, "notify"))
 			cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 			cmd.Stdin = strings.NewReader(prelude + script)
 			cmd.Env = append(os.Environ(),
 				"HOME="+home,
-				"CAGE_DESKTOP_SESSION=1",
-				"CAGE_NOTIFY_SOCKET="+filepath.Join(runtimeDir, "notify"),
 				"DBUS_SESSION_BUS_ADDRESS=unix:path="+filepath.Join(runtimeDir, "bus"),
 				"TEST_READY="+readyFile,
 			)

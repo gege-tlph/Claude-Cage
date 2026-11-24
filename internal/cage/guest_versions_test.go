@@ -128,7 +128,7 @@ exec(sys.stdin.read())
  esac
 }
 `
-	cmd := exec.Command("bash", "-c", prelude+strings.ReplaceAll(markGuestStart(body), "/etc/claude-cage", filepath.ToSlash(dir)))
+	cmd := exec.Command("bash", "-c", prelude+strings.ReplaceAll(markGuestStart(body), "/etc/workbench", filepath.ToSlash(dir)))
 	cmd.Env = append(os.Environ(), "TEST_PYTHON="+filepath.ToSlash(python), "TEST_BOOTSTRAP="+bootstrap, "MANIFEST_DIR="+filepath.ToSlash(dir), "INITIAL="+initial, fmt.Sprintf("FAIL_PUBLISH=%t", failPublish))
 	return cmd.CombinedOutput()
 }
@@ -678,7 +678,7 @@ func TestGuestManifestInterruptedStartThenRetryPublishesManifest(t *testing.T) {
 		t.Fatal(err)
 	}
 	started := filepath.Join(dir, "body-started")
-	interrupted := strings.ReplaceAll(markGuestStart("touch \"$STARTED_FLAG\"; sleep 30"), "/etc/claude-cage/", etcDir+"/")
+	interrupted := strings.ReplaceAll(markGuestStart("touch \"$STARTED_FLAG\"; sleep 30"), "/etc/workbench/", etcDir+"/")
 	cmd := exec.Command("bash", "-c", interrupted)
 	cmd.Env = append(os.Environ(), "PATH="+dir+":"+os.Getenv("PATH"), "STARTED_FLAG="+started)
 	if err := cmd.Start(); err != nil {
@@ -706,7 +706,7 @@ func TestGuestManifestInterruptedStartThenRetryPublishesManifest(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(etcDir, "components.updating")); err != nil {
 		t.Fatalf("interrupted start left no updating marker: %v", err)
 	}
-	retry := strings.ReplaceAll(markGuestStart("printf recovered"), "/etc/claude-cage/", etcDir+"/")
+	retry := strings.ReplaceAll(markGuestStart("printf recovered"), "/etc/workbench/", etcDir+"/")
 	retryCmd := exec.Command("bash", "-c", retry)
 	retryCmd.Env = append(os.Environ(), "PATH="+dir+":"+os.Getenv("PATH"))
 	if out, err := retryCmd.CombinedOutput(); err != nil {
@@ -734,7 +734,7 @@ func TestGuestStartRecoversFromTruncatedGuestFiles(t *testing.T) {
 		t.Skip("python3 unavailable")
 	}
 	// 1. code-server.yaml and browser-password guard against empty/truncated files.
-	guardStart := strings.Index(guestStart, `mkdir -p "$HOME/.config/claude-cage"`)
+	guardStart := strings.Index(guestStart, `mkdir -p "$HOME/.config/workbench"`)
 	guardEnd := strings.Index(guestStart, `sudo install -d -o cage-browser`)
 	if guardStart < 0 || guardEnd <= guardStart {
 		t.Fatal("credential guard section not found in guest-start.sh")
@@ -743,7 +743,7 @@ func TestGuestStartRecoversFromTruncatedGuestFiles(t *testing.T) {
 	for name, badYAML := range map[string]string{"empty": "", "truncated": "auth: password\n"} {
 		t.Run("credentials-"+name, func(t *testing.T) {
 			home := t.TempDir()
-			cfgDir := filepath.Join(home, ".config", "claude-cage")
+			cfgDir := filepath.Join(home, ".config", "workbench")
 			if err := os.MkdirAll(cfgDir, 0700); err != nil {
 				t.Fatal(err)
 			}
@@ -790,8 +790,8 @@ func TestGuestStartRecoversFromTruncatedGuestFiles(t *testing.T) {
 		t.Fatal("PYCONTROL block not found")
 	}
 	ctrlScript := guestStart[ctrlStart : ctrlStart+ctrlEnd]
-	ctrlScript = strings.ReplaceAll(ctrlScript, `Path('/etc/claude-cage/browser-control.json')`, `Path(os.environ["CTRL_PATH"])`)
-	ctrlScript = strings.ReplaceAll(ctrlScript, `Path('/etc/claude-cage/display-scale')`, `Path(os.environ["SCALE_PATH"])`)
+	ctrlScript = strings.ReplaceAll(ctrlScript, `Path('/etc/workbench/browser-control.json')`, `Path(os.environ["CTRL_PATH"])`)
+	ctrlScript = strings.ReplaceAll(ctrlScript, `Path('/etc/workbench/display-scale')`, `Path(os.environ["SCALE_PATH"])`)
 	ctrlScript = strings.ReplaceAll(ctrlScript, "grp.getgrnam('cage-browser').gr_gid", "None")
 	ctrlScript = recordDirectoryFsyncs + ctrlScript + recordDirectoryFsyncsReport
 	for _, tc := range []struct {
@@ -808,13 +808,13 @@ func TestGuestStartRecoversFromTruncatedGuestFiles(t *testing.T) {
 			dir := t.TempDir()
 			home := filepath.Join(dir, "home")
 			etcDir := filepath.Join(dir, "etc")
-			if err := os.MkdirAll(filepath.Join(home, ".config", "claude-cage"), 0700); err != nil {
+			if err := os.MkdirAll(filepath.Join(home, ".config", "workbench"), 0700); err != nil {
 				t.Fatal(err)
 			}
 			if err := os.MkdirAll(etcDir, 0700); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(filepath.Join(home, ".config", "claude-cage", "code-server.yaml"), []byte("auth: password\npassword: editor-secret\n"), 0600); err != nil {
+			if err := os.WriteFile(filepath.Join(home, ".config", "workbench", "code-server.yaml"), []byte("auth: password\npassword: editor-secret\n"), 0600); err != nil {
 				t.Fatal(err)
 			}
 			ctrlPath := filepath.Join(etcDir, "browser-control.json")
@@ -890,7 +890,7 @@ func TestGuestStartRecoversFromTruncatedGuestFiles(t *testing.T) {
 				t.Fatal(err)
 			}
 			cmd := exec.Command("python3", "-c", prefScript)
-			cmd.Env = append(os.Environ(), "FIXTURE="+dir, "CAGE_LANGUAGE=en-US", "FSYNC_DIRS="+prof)
+			cmd.Env = append(os.Environ(), "FIXTURE="+dir, "BROWSER_LANG=en-US", "FSYNC_DIRS="+prof)
 			out, err := cmd.CombinedOutput()
 			if err != nil {
 				t.Fatalf("%v %s", err, out)

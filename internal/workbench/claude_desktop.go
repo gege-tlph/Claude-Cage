@@ -34,9 +34,9 @@ def run(*args):
     return subprocess.run(args, capture_output=True, text=True).stdout.strip()
 package=run('dpkg-query','-W','-f=${Status}\n${Version}','claude-desktop').splitlines()
 installed=bool(package and package[0]=='install ok installed')
-state=run('systemctl','is-active','cage-claude-desktop.service')
-result=run('systemctl','show','--property=Result','--value','cage-claude-desktop.service') if state=='failed' else ''
-print(json.dumps({'installed':installed,'version':package[1] if installed else '', 'running':state=='active','failed':state=='failed','managed':Path('/run/cage-desktop/keyring-ready').exists(),'failure_reason':'oom-kill' if result=='oom-kill' else ''}))
+state=run('systemctl','is-active','desktop-session.service')
+result=run('systemctl','show','--property=Result','--value','desktop-session.service') if state=='failed' else ''
+print(json.dumps({'installed':installed,'version':package[1] if installed else '', 'running':state=='active','failed':state=='failed','managed':Path('/run/desktop-session/keyring-ready').exists(),'failure_reason':'oom-kill' if result=='oom-kill' else ''}))
 CAGE_DESKTOP_STATE`
 
 func (s *Server) claudeDesktopStatus(w http.ResponseWriter, r *http.Request) {
@@ -119,14 +119,14 @@ func (s *Server) claudeDesktopAction(w http.ResponseWriter, r *http.Request) {
 			s.mu.Unlock()
 			script := cage.InstallTLS12Prelude(tls12Compat) + cage.ClaudeDesktopInstallScript()
 			if action == "update" {
-				script = "set -e\nsudo systemctl stop cage-claude-desktop.service\n" + script
+				script = "set -e\nsudo systemctl stop desktop-session.service\n" + script
 			}
 			return RunMaintenanceScript(s.operationContext(), s.configPath, script, s.jobs.execution(), s.jobs.execution())
 		case "start":
 			return s.startClaudeDesktop()
 		default:
 			s.setMessage("正在关闭 Claude Desktop…")
-			return s.runDesktopScript("sudo systemctl stop cage-claude-desktop.service", 30*time.Second)
+			return s.runDesktopScript("sudo systemctl stop desktop-session.service", 30*time.Second)
 		}
 	})
 }
@@ -156,7 +156,7 @@ func (s *Server) startClaudeDesktop() error {
 	s.syncHostToolsConfigNow(s.operationContext())
 	ctx, cancel := context.WithTimeout(s.operationContext(), 55*time.Second)
 	defer cancel()
-	cmd := s.sshCommand(ctx, "-T", s.sshTarget(), "--", "/usr/local/bin/cage-claude-start")
+	cmd := s.sshCommand(ctx, "-T", s.sshTarget(), "--", "/usr/local/libexec/claude-desktop-start")
 	cmd.Stdin = bytes.NewReader(key)
 	cmd.Stdout, cmd.Stderr = s.jobs.execution(), s.jobs.execution()
 	if err = cmd.Run(); err != nil {
@@ -171,7 +171,7 @@ func (s *Server) runDesktopScript(script string, timeout time.Duration) error {
 	defer cancel()
 	// A guest cgroup owns apt and all descendants, including across SSH loss.
 	// The application's persistent service is separate from this operation.
-	command := fmt.Sprintf("sudo systemd-run --quiet --pipe --wait --collect --unit=cage-desktop-operation --property=User=cage --property=RuntimeMaxSec=%d --property=KillMode=control-group --setenv=HOME=/home/cage --working-directory=/home/cage /bin/bash -se", int(timeout.Seconds()))
+	command := fmt.Sprintf("sudo systemd-run --quiet --pipe --wait --collect --unit=desktop-operation --property=User=cage --property=RuntimeMaxSec=%d --property=KillMode=control-group --setenv=HOME=/home/cage --working-directory=/home/cage /bin/bash -se", int(timeout.Seconds()))
 	var renderErr error
 	command, renderErr = s.linuxTemplate(command)
 	if renderErr != nil {
@@ -188,7 +188,7 @@ func (s *Server) runDesktopScript(script string, timeout time.Duration) error {
 		if ctx.Err() != nil {
 			cleanup, finish := context.WithTimeout(context.Background(), 5*time.Second)
 			defer finish()
-			_, _ = s.guest(cleanup, "sudo systemctl stop cage-desktop-operation.service")
+			_, _ = s.guest(cleanup, "sudo systemctl stop desktop-operation.service")
 			return ctx.Err()
 		}
 		return executionFailure("准备或关闭 Claude Desktop", err, s.jobs.snapshot().Log)
@@ -200,13 +200,13 @@ func (s *Server) claudeDesktopCredentials(w http.ResponseWriter, r *http.Request
 	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
 	defer cancel()
 	b, err := s.guestQuick(ctx, `set -eu
-systemctl is-active --quiet cage-claude-desktop.service
-password=$(cat "$HOME/.config/claude-cage/desktop-password")
+systemctl is-active --quiet desktop-session.service
+password=$(cat "$HOME/.config/workbench/desktop-password" 2>/dev/null || cat "$HOME/.config/claude-cage/desktop-password")
 printf '%s\n' "$password"
-if test -f /run/cage-desktop/base-display-scale; then cat /run/cage-desktop/base-display-scale
-elif test -f /run/cage-desktop/display-scale; then cat /run/cage-desktop/display-scale
+if test -f /run/desktop-session/base-display-scale; then cat /run/desktop-session/base-display-scale
+elif test -f /run/desktop-session/display-scale; then cat /run/desktop-session/display-scale
 else echo; fi
-if test -f /run/cage-desktop/xsettings.pid; then echo dynamic; fi`)
+if test -f /run/desktop-session/xsettings.pid; then echo dynamic; fi`)
 	password, scale, _ := strings.Cut(strings.TrimSpace(string(b)), "\n")
 	if err != nil || len(password) != 8 {
 		http.Error(w, "Claude Desktop 尚未启动", 409)
@@ -280,11 +280,11 @@ func (s *Server) claudeDesktopResize(w http.ResponseWriter, r *http.Request) {
 // Fixed commands and validated numbers only; no host shell executes input.
 // scale is empty for a viewer that leaves the display's density alone.
 func desktopResizeScript(wid, hei int, scale string) string {
-	const run = "/run/cage-desktop"
+	const run = "/run/desktop-session"
 	return displayResizeScript(run, "export DISPLAY=:78 XAUTHORITY="+run+"/Xauthority\n",
 		fmt.Sprintf(`printf '%%s %%s %%s\n' %d %d "$scale" > `+run+`/desktop-size
 # A phone holds the display. Its release applies this size and density.
-if test -f /run/cage-phone-desktop/layout.json; then exit 0; fi
+if test -f /run/phone-desktop/layout.json; then exit 0; fi
 `, wid, hei), "", wid, hei, scale)
 }
 
@@ -343,7 +343,7 @@ func (s *Server) claudeDesktopVNC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer release()
-	s.streamDesktopSocket(w, r, "/run/cage-desktop/vnc.sock")
+	s.streamDesktopSocket(w, r, "/run/desktop-session/vnc.sock")
 }
 
 func (s *Server) streamDesktopSocket(w http.ResponseWriter, r *http.Request, socket string) {

@@ -40,7 +40,7 @@ def initial_color_scheme():
                 base = Path(pwd.getpwuid(os.geteuid()).pw_dir)
             except (KeyError, OSError):
                 pass
-        candidate = base / '.config/claude-cage/theme-variant'
+        candidate = base / '.config/workbench/theme-variant'
     try:
         if candidate.is_symlink() or not candidate.is_file():
             return 0
@@ -51,7 +51,7 @@ def initial_color_scheme():
 
 
 def image_context():
-    result = subprocess.run(['/usr/local/bin/cage-native-input', '--request'],
+    result = subprocess.run(['/usr/local/libexec/native-input', '--request'],
                             input=b'{"mode":"status"}\n', stdout=subprocess.PIPE,
                             stderr=subprocess.DEVNULL, check=True, timeout=4)
     value = json.loads(result.stdout)
@@ -545,7 +545,7 @@ class Portal:
             title, options = self.child(parameters, 1), self.child(parameters, 2)
             try:
                 directory = self.option(options, 'directory', False)
-                token = self.option(options, 'handle_token', 'cage_' + uuid.uuid4().hex)
+                token = self.option(options, 'handle_token', 'req_' + uuid.uuid4().hex)
                 if not re.fullmatch(r'[A-Za-z0-9_]+', token):
                     raise ValueError('文件窗口标识无效')
                 handle = ROOT + '/request/' + sender.decode().lstrip(':').replace('.', '_') + '/' + token
@@ -702,7 +702,7 @@ def open_socket_path():
         candidate = Path(runtime) / 'files.sock'
         if candidate.is_socket():
             return str(candidate)
-    return '/run/cage-desktop/files.sock'
+    return '/run/desktop-session/files.sock'
 
 
 def main():
@@ -732,7 +732,7 @@ def main():
         return
     if len(sys.argv) == 3 and sys.argv[1] == '--save-file':
         # Terminal attachments are independent of the graphical session.
-        root = Path.home() / '.local/share/cage/attachments/files'
+        root = Path.home() / '.local/share/workbench/attachments/files'
         broker = Broker(root)
         key = broker.start()['id']
         try:
@@ -756,7 +756,7 @@ def main():
     directory = runtime / 'uploads'
     shutil.rmtree(directory, ignore_errors=True)
     from importlib.machinery import SourceFileLoader
-    downloads = SourceFileLoader('cage_desktop_downloads', '/usr/local/lib/cage-desktop-downloads.py').load_module()
+    downloads = SourceFileLoader('cage_desktop_downloads', '/usr/local/lib/desktop-downloads.py').load_module()
     broker = Broker(directory, downloads=downloads.create_downloads(runtime))
     portal = Portal(broker)
     broker.deliver = portal.deliver

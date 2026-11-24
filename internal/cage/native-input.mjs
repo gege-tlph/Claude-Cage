@@ -1,7 +1,7 @@
 import { createConnection } from "node:net";
 import { spawn } from "node:child_process";
 
-const helper = ["-n", "-H", "-u", "cage", "/usr/local/bin/cage-native-input"];
+const helper = ["-n", "-H", "-u", "cage", "/usr/local/libexec/native-input"];
 const responseLimit = 32768;
 
 // The caret is polled several times a second while Desktop has focus. One
@@ -97,7 +97,7 @@ export function nativeInput(value) {
       });
       child.stdin.end(JSON.stringify(value) + "\n");
     } else {
-      channel = createConnection("/home/cage-browser/.cache/cage-input/input.sock");
+      channel = createConnection("/home/cage-browser/.cache/input-method/input.sock");
       channel.setTimeout(3000, () => channel.destroy(new Error("Input bridge timed out")));
       channel.on("error", unavailable);
       channel.on("connect", () => channel.end(JSON.stringify(value) + "\n"));

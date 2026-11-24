@@ -19,6 +19,14 @@ import threading
 import time
 import uuid
 
+
+def data_root(home):
+    # Environments whose components predate the current names keep the data
+    # under the former one until their next update moves it.
+    current = home / ".local/share/workbench"
+    former = home / ".local/share/cage"
+    return former if not os.path.lexists(current) and former.is_dir() else current
+
 _controller_context = {**os.environ, **globals().get("_controller_context", {})}
 PRIVATE_MODE = 0o777 if os.name == "nt" and _controller_context.get("CAGE_REMOTE_APP_CONTAINER") == "1" else 0o700
 _runtime = None
@@ -27,7 +35,7 @@ _runtime = None
 def client_runtime():
     global _runtime
     if _runtime is None:
-        helper = Path(shutil.which("cage-claude-account") or "/usr/local/bin/cage-claude-account").resolve()
+        helper = Path(shutil.which("claude-account", path=os.pathsep.join(("/usr/local/libexec", os.environ.get("PATH", "")))) or "/usr/local/libexec/claude-account").resolve()
         paths = (Path(__file__).with_name("client_runtime.py"),
                  helper.with_name("client_runtime.py"), helper.parent.parent / "client_runtime.py",
                  Path("/usr/local/bin/client_runtime.py"),
@@ -55,7 +63,7 @@ def terminate_cli(pid, force=False):
         return _platform["terminate_cli"](pid, force)
     return os.kill(int(pid), signal.SIGKILL if force else signal.SIGTERM)
 
-ROOT = Path(_controller_context["CAGE_CLI_STATE_ROOT"]) if os.name == "nt" else Path.home() / ".local/share/cage/cli-channels"
+ROOT = Path(_controller_context["CAGE_CLI_STATE_ROOT"]) if os.name == "nt" else data_root(Path.home()) / "cli-channels"
 PROMPT_LIMIT = 32 << 10
 REPLY_LIMIT = 128 << 10
 HISTORY_LIMIT = 448 << 10
@@ -116,7 +124,7 @@ def config_directory(account):
         return Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude").resolve()
     if not re.fullmatch(r"[0-9a-f]{24}", account):
         raise ValueError("invalid account")
-    root = Path(_controller_context["CAGE_CLI_ACCOUNT_ROOT"]) if os.name == "nt" else Path.home() / ".local/share/cage/claude-accounts"
+    root = Path(_controller_context["CAGE_CLI_ACCOUNT_ROOT"]) if os.name == "nt" else data_root(Path.home()) / "claude-accounts"
     return root / account / "config"
 
 
@@ -540,9 +548,9 @@ def hook(connection):
             return {"decision": "block", "reason": "正在核对这个终端已更改的 Claude 登录，请稍后继续。"}
         if state.get("account_switch"):
             if event == "UserPromptSubmit":
-                return {"decision": "block", "reason": "Cage 正在切换账号，请在目标会话中继续。"}
+                return {"decision": "block", "reason": "正在切换账号，请在目标会话中继续。"}
             if event == "PreToolUse":
-                return {"hookSpecificOutput": {"hookEventName": event, "permissionDecision": "deny", "permissionDecisionReason": "Cage 正在切换账号。"}}
+                return {"hookSpecificOutput": {"hookEventName": event, "permissionDecision": "deny", "permissionDecisionReason": "正在切换账号。"}}
         state["updated_at"] = time.time()
         state["cli_id"] = identifier(payload["session_id"])
         state["workspace"] = payload.get("cwd", state.get("workspace", ""))
@@ -602,8 +610,9 @@ p = pathlib.Path('/etc/claude-code/managed-settings.json')
 old = p.read_bytes()
 value = json.loads(old)
 if value == {"permissions": {"defaultMode": "bypassPermissions"}, "tui": "fullscreen"}:
-    backup = p.with_name('managed-settings.json.cage-before-channels')
-    if not backup.exists():
+    backup = p.with_name('managed-settings.json.before-channels')
+    legacy_backup = p.with_name('managed-settings.json.cage-before-channels')
+    if not backup.exists() and not legacy_backup.exists():
         backup.write_bytes(old)
         backup.chmod(0o600)
     value['channelsEnabled'] = True
@@ -888,19 +897,19 @@ def launch(request):
     policy_available = migrate_cage_policy()
     connection = identifier(request["id"])
     folder = ROOT / connection
-    os.environ["CAGE_LOGIN_CONNECTION"] = connection
+    os.environ["LOGIN_CONNECTION"] = connection
     folder.mkdir(parents=True, exist_ok=True, mode=PRIVATE_MODE)
     prefix = request["prefix"]
     if os.name == "nt":
         account_id = request.get("account") or "default"
         os.environ["CLAUDE_CONFIG_DIR"] = str(config_directory(account_id))
         if request.get("subject"):
-            _controller_context["CAGE_CLAUDE_SUBJECT"] = request["subject"]
+            _controller_context["ACCOUNT_SUBJECT"] = request["subject"]
         prefix = [_controller_context["CAGE_CLI_BINARY"]]
         request["prefix"] = prefix
-    elif len(prefix) == 5 and Path(prefix[2]).name == "cage-claude-account" and prefix[3] == "run":
+    elif len(prefix) == 5 and Path(prefix[2]).name == "claude-account" and prefix[3] == "run":
         os.environ["CLAUDE_CONFIG_DIR"] = str(config_directory(prefix[4]))
-        _controller_context["CAGE_CLAUDE_SUBJECT"] = prefix[1].split("=", 1)[1]
+        _controller_context["ACCOUNT_SUBJECT"] = prefix[1].split("=", 1)[1]
     elif request.get("config"):
         os.environ["CLAUDE_CONFIG_DIR"] = request["config"]
     session_id = identifier(request.get("resume") or request.get("session_id") or connection)
@@ -921,7 +930,7 @@ def launch(request):
         if not account["has_status_line"](account["profile"](account_id)):
             status_command = _runtime["command_text"](_controller_context["CAGE_CLI_ACCOUNT_HELPER"], ["statusline", account_id])
             settings["statusLine"] = account["status_line"](status_command) if "status_line" in account else {"type": "command", "command": status_command}
-    elif len(prefix) == 5 and Path(prefix[2]).name == "cage-claude-account" and prefix[3] == "run":
+    elif len(prefix) == 5 and Path(prefix[2]).name == "claude-account" and prefix[3] == "run":
         account = runpy.run_path(prefix[2])
         if not account["has_status_line"](account["profile"](prefix[4])):
             command = _runtime["command_text"](prefix[2], ["statusline", prefix[4]])
@@ -934,7 +943,7 @@ def launch(request):
     with state_file(connection) as state:
         if live(state.get("pid")) and not state.get("closed"):
             raise ValueError("目标会话已有进程，未重复启动")
-        state.update(codex_enabled=request.get("codex_enabled") is True, cli_id=session_id, config=str(config_directory("default")), login_subject=_controller_context.get("CAGE_CLAUDE_SUBJECT"),
+        state.update(codex_enabled=request.get("codex_enabled") is True, cli_id=session_id, config=str(config_directory("default")), login_subject=_controller_context.get("ACCOUNT_SUBJECT"),
                      workspace=str(Path.cwd()), pid=os.getpid(), closed=False, updated_at=time.time(), approvals=[], busy=False,
                      channel_pid=None, pending_send=None, display=None, stopped=False,
                      requests=previous.get("requests", {}), sent=previous.get("sent", []))

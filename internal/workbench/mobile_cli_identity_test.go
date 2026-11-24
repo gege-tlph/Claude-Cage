@@ -47,7 +47,7 @@ ns = {"__name__": "identity_test"}
 exec(compile(sys.stdin.read(), "mobile_cli_identity.py", "exec"), ns)
 setup = Path("../../agent-vm.setup.sh").read_text()
 policy = json.loads(setup.split("managed-settings.json > /dev/null\n", 1)[1].split("\nJSON", 1)[0])
-with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"HOME": directory, "CAGE_CLAUDE_SUBJECT": "a" * 64}, clear=True):
+with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"HOME": directory, "ACCOUNT_SUBJECT": "a" * 64}, clear=True):
     home = Path(directory)
     os.environ["ProgramFiles"] = str(home / "Program Files")
     managed = Path(os.environ["ProgramFiles"]) / "ClaudeCode" if os.name == "nt" else home / "managed"
@@ -70,7 +70,7 @@ with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"HOME":
             ns["official_turn"]("unused", "default", args, snapshot, sid, resume)
     turn(False)
     turn(True)
-    binding = json.loads((home / ".local/share/cage/mobile-cli-identities" / sid).read_text())
+    binding = json.loads((home / ".local/share/workbench/mobile-cli-identities" / sid).read_text())
     assert binding[1], "standard Cage settings must support continuation"
     (managed / "managed-settings.json").write_text(json.dumps({**policy, "channelsEnabled": False}))
     turn(True)
@@ -192,12 +192,12 @@ fi
 				configDir = filepath.Join(home, ".claude")
 				if mode == "official-managed" {
 					slot = "1234567890abcdef12345678"
-					configDir = filepath.Join(home, ".local/share/cage/claude-accounts", slot, "config")
+					configDir = filepath.Join(home, ".local/share/workbench/claude-accounts", slot, "config")
 				}
 				settings = filepath.Join(configDir, "settings.json")
 				email, organization := "synthetic@example.invalid", uuid.NewString()
-				prefix = []string{"env", fmt.Sprintf("CAGE_CLAUDE_SUBJECT=%x", sha256.Sum256([]byte(email+"\n"+organization))),
-					"/usr/local/bin/cage-claude-account", "run", slot}
+				prefix = []string{"env", fmt.Sprintf("ACCOUNT_SUBJECT=%x", sha256.Sum256([]byte(email+"\n"+organization))),
+					"/usr/local/libexec/claude-account", "run", slot}
 				writeSubject = func(address string) {
 					state := map[string]any{"hasCompletedOnboarding": true, "oauthAccount": map[string]string{
 						"accountUuid": uuid.NewString(), "emailAddress": address, "organizationUuid": organization}}
@@ -234,7 +234,7 @@ fi
 						return nil, err
 					}
 					for i := range cmdline {
-						if cmdline[i] == "/usr/local/bin/cage-claude-account" {
+						if cmdline[i] == "/usr/local/libexec/claude-account" {
 							cmdline[i] = helper
 						}
 					}
@@ -319,7 +319,7 @@ fi
 			if result, err := run("changed credential", true); err == nil || result.Started {
 				t.Fatalf("new credential accepted: %#v %v", result, err)
 			}
-			binding := filepath.Join(home, ".local/share/cage/mobile-cli-identities", id)
+			binding := filepath.Join(home, ".local/share/workbench/mobile-cli-identities", id)
 			state, err := os.ReadFile(binding)
 			if err != nil {
 				t.Fatal(err)

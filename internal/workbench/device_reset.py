@@ -299,15 +299,15 @@ class DeviceResetter:
         if not self.live_system:
             return
         services = [
-            "cage-claude-desktop",
+            "desktop-session",
             *self._list_account_desktop_services(),
-            "cage-browser",
-            "cage-window-manager",
-            "cage-display",
-            "cage-display-governor",
-            "cage-webvnc",
-            "cage-editor",
-            "cage-audio",
+            "browser-session",
+            "browser-window-manager",
+            "browser-display",
+            "display-governor",
+            "browser-web-viewer",
+            "code-editor",
+            "audio-output",
         ]
         subprocess.run(["systemctl", "stop", *services], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 

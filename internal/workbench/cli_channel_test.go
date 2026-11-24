@@ -70,7 +70,7 @@ func TestSharedSendReceiptSurvivesReadFailure(t *testing.T) {
 	}
 	// Keep the real host SSH/bootstrap/RPC path; replace only the guest
 	// operation boundary to lose the read immediately after an admitted send.
-	helper := filepath.Join(home, ".local/share/cage/cli-channel-code", fmt.Sprintf("%x.py", sha256.Sum256([]byte(cliChannelHelper+cliResumePrompt+claudeAccountResumePrompt))))
+	helper := filepath.Join(home, ".local/share/workbench/cli-channel-code", fmt.Sprintf("%x.py", sha256.Sum256([]byte(cliChannelHelper+cliResumePrompt+claudeAccountResumePrompt))))
 	if err = os.MkdirAll(filepath.Dir(helper), 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -217,7 +217,7 @@ func TestDiscoveryRunningStateUpdatesCatalogAndClearsMissingHistory(t *testing.T
 	}
 	// Keep the host bootstrap and SSH path; substitute the guest's observation.
 	observation := filepath.Join(home, "observation.json")
-	helper := filepath.Join(home, ".local/share/cage/cli-channel-code", fmt.Sprintf("%x.py", sha256.Sum256([]byte(cliChannelHelper+cliResumePrompt+claudeAccountResumePrompt))))
+	helper := filepath.Join(home, ".local/share/workbench/cli-channel-code", fmt.Sprintf("%x.py", sha256.Sum256([]byte(cliChannelHelper+cliResumePrompt+claudeAccountResumePrompt))))
 	if err := os.MkdirAll(filepath.Dir(helper), 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -258,7 +258,7 @@ func TestCachedDiscoveryReuseIsBoundedAndInvalidatedByWrites(t *testing.T) {
 		t.Fatal(err)
 	}
 	observation := filepath.Join(home, "observation.json")
-	helper := filepath.Join(home, ".local/share/cage/cli-channel-code", fmt.Sprintf("%x.py", sha256.Sum256([]byte(cliChannelHelper+cliResumePrompt+claudeAccountResumePrompt))))
+	helper := filepath.Join(home, ".local/share/workbench/cli-channel-code", fmt.Sprintf("%x.py", sha256.Sum256([]byte(cliChannelHelper+cliResumePrompt+claudeAccountResumePrompt))))
 	if err := os.MkdirAll(filepath.Dir(helper), 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -333,7 +333,7 @@ func TestTerminalViewReusesUnchangedGuestView(t *testing.T) {
 	s, id, project := metadataFixture(t)
 	home, _ := filepath.EvalSymlinks(t.TempDir())
 	mobileTestSSH(t, s, home, []string{"HOME=" + home, "PATH=/usr/bin:/bin:/usr/local/bin"})
-	helper := filepath.Join(home, ".local/share/cage/cli-channel-code", fmt.Sprintf("%x.py", sha256.Sum256([]byte(cliChannelHelper+cliResumePrompt+claudeAccountResumePrompt))))
+	helper := filepath.Join(home, ".local/share/workbench/cli-channel-code", fmt.Sprintf("%x.py", sha256.Sum256([]byte(cliChannelHelper+cliResumePrompt+claudeAccountResumePrompt))))
 	if err := os.MkdirAll(filepath.Dir(helper), 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -401,7 +401,7 @@ print(json.dumps(view))
 
 func installClaudeTestHelpers(t *testing.T, bin string) {
 	t.Helper()
-	for source, dest := range map[string]string{"claude-account.py": "cage-claude-account", "client_runtime.py": "client_runtime.py"} {
+	for source, dest := range map[string]string{"claude-account.py": "claude-account", "client_runtime.py": "client_runtime.py"} {
 		body, err := os.ReadFile(filepath.Join("../cage", source))
 		if err != nil {
 			t.Fatal(err)
@@ -1162,7 +1162,7 @@ func TestCLIChannelInstallsHelperOverStandardInput(t *testing.T) {
 		t.Fatal("missing unlock epoch")
 	}
 	ctx := context.WithValue(context.Background(), accountEpochKey{}, epoch)
-	helper := filepath.Join(home, ".local/share/cage/cli-channel-code", cliChannelDigest()+".py")
+	helper := filepath.Join(home, ".local/share/workbench/cli-channel-code", cliChannelDigest()+".py")
 	for range 2 {
 		// A fresh guest, then one whose helper was removed, both recover.
 		var found []terminalConversation

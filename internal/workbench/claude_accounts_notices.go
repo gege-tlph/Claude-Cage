@@ -33,7 +33,7 @@ const (
 func (s *Server) readClaudeGuestNotices(ctx context.Context, ids []string) (map[string][]claudeAccountNotice, error) {
 	notices := make(map[string][]claudeAccountNotice)
 	for chunk := range slices.Chunk(ids, 24) {
-		data, err := s.guest(ctx, "exec /usr/local/bin/cage-claude-account notices "+strings.Join(chunk, " "))
+		data, err := s.guest(ctx, "exec /usr/local/libexec/claude-account notices "+strings.Join(chunk, " "))
 		if err != nil {
 			return notices, err
 		}

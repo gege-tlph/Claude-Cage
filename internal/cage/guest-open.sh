@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-login="${CAGE_CLAUDE_LOGIN:-}"
+login="${LOGIN_ID:-}"
 route=""
 account=""
 while [ "$#" -ge 3 ]; do
@@ -28,7 +28,7 @@ case "${1:-}" in
     exec sudo -n -H -u cage /usr/local/bin/tailnet --browser-return
     ;;
   claude://*)
-    sudo -u cage /usr/local/bin/cage-claude-open "$1"
+    sudo -u cage /usr/local/libexec/claude-desktop-open "$1"
     # Publish focus only after the running application accepted the handoff.
     # The browser service never receives the login URL or its credentials.
     set -- /desktop-focus
@@ -53,7 +53,7 @@ case "${1:-}" in
   *)
     # File operations belong to the desktop session, never the browser control
     # token. The host resolves them only within Cage project directories.
-    exec /usr/local/bin/cage-desktop-files --open "${1:-}"
+    exec /usr/local/libexec/desktop-files --open "${1:-}"
     ;;
 esac
 # sudo records its arguments in the system journal. Send the URL on stdin.
@@ -68,7 +68,7 @@ browser_request() {
 }
 printf '%s' "${2:-}" | browser_request --input-type=module -e '
 import {readFileSync} from "node:fs";
-const {token}=JSON.parse(readFileSync("/etc/claude-cage/browser-control.json","utf8"));
+const {token}=JSON.parse(readFileSync("/etc/workbench/browser-control.json","utf8"));
 const response=await fetch("http://127.0.0.1:18500"+process.argv[1],{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({url:readFileSync(0,"utf8"),login:process.argv[2],route:process.argv[3] || undefined,account:process.argv[4] || undefined})});
 if(!response.ok){console.error(await response.text().catch(()=>""));process.exit(1);}
 ' "$1" "${3:-}" "$route" "$account"

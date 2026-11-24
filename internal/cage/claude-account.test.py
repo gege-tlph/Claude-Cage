@@ -61,7 +61,7 @@ printf '%s\\n' "$@"
         self.email = "owner@example.test"
         self.subject = hashlib.sha256((self.email + "\ntest-org").encode()).hexdigest()
         self.env = {"HOME": str(self.home), "PATH": os.defpath, "TEST_EMAIL": self.email,
-                    "CAGE_CLAUDE_SUBJECT": self.subject, "PYTHONDONTWRITEBYTECODE": "1", "TMPDIR": str(self.scratch)}
+                    "ACCOUNT_SUBJECT": self.subject, "PYTHONDONTWRITEBYTECODE": "1", "TMPDIR": str(self.scratch)}
 
     def run_helper(self, mode, account, *args, data=None, env=None, check=True, cwd=None):
         return subprocess.run([sys.executable, str(source), mode, account, *args], env=env or self.env,
@@ -270,7 +270,7 @@ printf '%s\\n' "$@"
         args = self.run_helper("run", FIRST, "--model", "sonnet").stdout.splitlines()
         self.assertEqual(args[-2:], ["--model", "sonnet"])
         self.assertIn("autoMemoryDirectory", json.loads(Path(args[1]).read_text()))
-        config = self.home / ".local/share/cage/claude-accounts" / FIRST / "config"
+        config = self.home / ".local/share/workbench/claude-accounts" / FIRST / "config"
         original = '{"statusLine":{"type":"command","command":"my-original-status"}}'
         (config / "settings.json").write_text(original)
         args = self.run_helper("run", FIRST, "--model", "sonnet").stdout.splitlines()
@@ -300,7 +300,7 @@ printf '%s\\n' "$@"
         self.assertEqual((target / "existing.md").read_text(), "original memory")
         self.assertEqual((alias / "new.md").read_text(), "new memory")
         self.assertEqual((target / "nested/detail.md").read_text(), "nested memory")
-        backups = list((self.home / ".local/share/cage/claude-shared/backups/runtime-memory").glob("*/new.md"))
+        backups = list((self.home / ".local/share/workbench/claude-shared/backups/runtime-memory").glob("*/new.md"))
         self.assertEqual(len(backups), 1)
         self.assertEqual(backups[0].read_text(), "new memory")
         self.run_helper("run", FIRST, cwd=project)
@@ -388,10 +388,12 @@ printf '%s\\n' "$@"
 
     def test_official_process_receives_no_controller_flags_and_callbacks_still_work(self):
         capture = self.home / "child-environment"
-        env = {**self.env, "CAGE_LANGUAGE": "en-US", "CAGE_WORKBENCH": "1", "TEST_CAPTURE_ENV": str(capture)}
+        env = {**self.env, "BROWSER_LANG": "en-US", "WORKBENCH_TERMINAL": "1", "TEST_CAPTURE_ENV": str(capture)}
         args = self.run_helper("run", FIRST, "--model", "sonnet", env=env).stdout.splitlines()
         child_env = dict(line.split("=", 1) for line in capture.read_text().splitlines())
         self.assertFalse(any(key.upper().startswith("CAGE_") for key in child_env))
+        self.assertFalse(set(child_env) & {"WORKBENCH_TERMINAL", "ACCOUNT_SUBJECT", "ACCOUNT_PROFILE_ID"})
+        self.assertEqual(child_env["BROWSER_LANG"], "en-US")
         self.assertNotIn("cage", child_env["CLAUDE_CONFIG_DIR"].lower())
         self.assertNotIn("cage", args[1].lower())
         settings = json.loads(Path(args[1]).read_text())
@@ -407,7 +409,7 @@ printf '%s\\n' "$@"
     def test_callback_state_does_not_enter_its_process_environment(self):
         runtime = runpy.run_path(source.with_name("client_runtime.py"), init_globals={"_controller_context": self.env})
         probe = self.home / "probe.py"
-        probe.write_text('import json,os\nprint(json.dumps({"flags":[k for k in os.environ if k.startswith("CAGE_")],"subject":globals()["_controller_context"]["CAGE_CLAUDE_SUBJECT"]}))\n')
+        probe.write_text('import json,os\nprint(json.dumps({"flags":[k for k in os.environ if k.startswith("CAGE_") or k in ("ACCOUNT_SUBJECT", "LOGIN_OWNER", "ACCOUNT_BROWSER")],"subject":globals()["_controller_context"]["ACCOUNT_SUBJECT"]}))\n')
         result = subprocess.run(runtime["command"](probe), env=runtime["environment"](self.env),
                                 text=True, capture_output=True, check=True)
         self.assertEqual(json.loads(result.stdout), {"flags": [], "subject": self.subject})
@@ -415,10 +417,10 @@ printf '%s\\n' "$@"
     def test_installed_account_symlink_finds_its_versioned_runtime(self):
         installed = self.home / "version"
         (installed / "bin").mkdir(parents=True)
-        account = installed / "bin/cage-claude-account"
+        account = installed / "bin/claude-account"
         account.write_bytes(source.read_bytes())
         (installed / "client_runtime.py").write_bytes(source.with_name("client_runtime.py").read_bytes())
-        entry = self.home / "cage-claude-account"
+        entry = self.home / "claude-account"
         entry.symlink_to(account)
         result = subprocess.run([sys.executable, str(entry), "snapshot", FIRST], env=self.env,
                                 cwd=self.home, text=True, capture_output=True, check=True)
@@ -448,7 +450,7 @@ printf '%s\\n' "$@"
         history.write_text("previous conversation")
         snap = lambda env: json.loads(self.run_helper("snapshot", "default", env=env).stdout)
         self.assertEqual(snap(self.env)["email"], self.email)
-        self.assertFalse((self.home / ".local/share/cage/claude-accounts/default").exists())
+        self.assertFalse((self.home / ".local/share/workbench/claude-accounts/default").exists())
         payload = {"rate_limits": {"five_hour": {"used_percentage": 10, "resets_at": int(time.time()) + 3600}}}
         self.run_helper("statusline", "default", data=payload)
         self.assertIn("quota", snap(self.env))
@@ -526,7 +528,7 @@ printf '%s\\n' "$@"
         def share():
             self.run_helper("share",FIRST)
             return json.loads((config/"settings.json").read_text())
-        backups=lambda:sorted((self.home/".local/share/cage/claude-shared/backups"/FIRST).glob("settings.json-*"))
+        backups=lambda:sorted((self.home/".local/share/workbench/claude-shared/backups"/FIRST).glob("settings.json-*"))
         stored=share()
         self.assertEqual(stored,{"model":"sonnet","custom":1,"theme":"dark","hooks":{"Stop":[user,shared]}})
         self.assertTrue((config/"skills/local").is_symlink())
@@ -657,7 +659,7 @@ printf '%s\\n' "$@"
             memory=Path(json.loads(Path(flags[1]).read_text())["autoMemoryDirectory"])
             self.assertEqual((memory/"MEMORY.md").read_text(),"account learning")
             self.assertTrue(original.is_symlink())
-            backups=list((self.home/".local/share/cage/claude-shared/backups"/FIRST/"projects"/key).glob("memory-*"))
+            backups=list((self.home/".local/share/workbench/claude-shared/backups"/FIRST/"projects"/key).glob("memory-*"))
             self.assertEqual([(path/"MEMORY.md").read_text() for path in backups],["account learning"])
             self.assertTrue(Path(flags[1]).resolve().is_relative_to(base.resolve()))
 
@@ -759,7 +761,7 @@ else:
         self.assertEqual(first["quota"]["five_hour"]["resets_at"], 0)
         # A passive redraw doesn't refresh either age. A completed control
         # query refreshes only the window actually returned by the CLI.
-        path = self.home / ".local/share/cage/claude-accounts/default/quota.json"
+        path = self.home / ".local/share/workbench/claude-accounts/default/quota.json"
         stored = json.loads(path.read_text())
         old = int(time.time()) - 300
         stored["observed_at"] = stored["five_hour"]["observed_at"] = stored["seven_day"]["observed_at"] = old
@@ -823,6 +825,9 @@ class SharedPluginsMcpAndMemoryTests(unittest.TestCase):
         fixture = patch.dict(os.environ, self.env, clear=True)
         fixture.start()
         self.addCleanup(fixture.stop)
+        previous_cwd = os.getcwd()
+        os.chdir(self.home)
+        self.addCleanup(os.chdir, previous_cwd)
         self.common = self.home / ".claude"
         (self.common / "plugins").mkdir(parents=True)
 
@@ -902,7 +907,7 @@ class SharedPluginsMcpAndMemoryTests(unittest.TestCase):
             self.assertTrue((plugins / name).is_symlink())
         self.assertTrue((self.common / "plugins/cache/official/review/1.0.0/plugin.md").exists())
         # The redundant copy of an already shared version is kept, not deleted.
-        kept = list((self.home / ".local/share/cage/claude-shared/backups" / FIRST / "plugins").rglob(".in_use"))
+        kept = list((self.home / ".local/share/workbench/claude-shared/backups" / FIRST / "plugins").rglob(".in_use"))
         self.assertEqual([path.read_text() for path in kept], ["account copy"])
         common_installed = self.read(self.common / "plugins/installed_plugins.json")["plugins"]
         self.assertEqual(common_installed["review@official"][0]["installPath"], str(self.common / "plugins/cache/official/review/1.0.0"))
@@ -911,16 +916,15 @@ class SharedPluginsMcpAndMemoryTests(unittest.TestCase):
         second, other = self.profile(SECOND)
         self.share(SECOND)
         installed = self.read(other / "plugins/installed_plugins.json")["plugins"]
-        # A new registry uses the alias the runtime gives the CLI for this
-        # profile, exactly as the CLI itself would record it.
+        # A new registry uses the neutral profile path (or its runtime alias if
+        # an outer path happens to contain the product name).
         with patch.object(helper.tempfile, "tempdir", str(self.home)):
-            alias, real = helper.plugin_root_forms(other)
-        self.assertEqual(real, str(other / "plugins") + os.sep)
-        self.assertNotIn("cage", alias)
-        self.assertEqual(installed["review@official"][0]["installPath"], alias + "cache/official/review/1.0.0")
+            preferred = helper.plugin_root_forms(other)[0]
+        self.assertNotIn("cage", preferred.lower())
+        self.assertEqual(installed["review@official"][0]["installPath"], preferred + "cache/official/review/1.0.0")
         self.assertTrue((other / "plugins/cache/official/review/1.0.0/plugin.md").exists())
         known = self.read(other / "plugins/known_marketplaces.json")
-        self.assertEqual(known["official"]["installLocation"], alias + "marketplaces/official")
+        self.assertEqual(known["official"]["installLocation"], preferred + "marketplaces/official")
         # A registry written in the real spelling keeps it.
         first_installed = self.read(plugins / "installed_plugins.json")["plugins"]
         self.assertEqual(first_installed["lint@team"][0]["installPath"], str(plugins / "cache/team/lint/1.0.0"))
@@ -1042,7 +1046,7 @@ class SharedPluginsMcpAndMemoryTests(unittest.TestCase):
         self.share(FIRST)
         self.assertTrue((config / "CLAUDE.md").is_symlink())
         self.assertEqual((other / "CLAUDE.md").read_text(), "v2 from first")
-        backups = list((self.home / ".local/share/cage/claude-shared/backups/common").glob("CLAUDE.md-*"))
+        backups = list((self.home / ".local/share/workbench/claude-shared/backups/common").glob("CLAUDE.md-*"))
         self.assertEqual([path.read_text() for path in backups], ["v1"])
         # Both sides changed: nothing is chosen and the launch reports it.
         (other / "CLAUDE.md").unlink(); (other / "CLAUDE.md").write_text("second's edit")
@@ -1100,7 +1104,7 @@ class SharedPluginsMcpAndMemoryTests(unittest.TestCase):
         self.assertNotIn("lint@team", self.read(self.common / "plugins/installed_plugins.json")["plugins"])
 
     def test_backups_prune_by_creation_time_and_always_keep_the_newest(self):
-        backups = self.home / ".local/share/cage/claude-shared/backups" / FIRST
+        backups = self.home / ".local/share/workbench/claude-shared/backups" / FIRST
         backups.mkdir(parents=True)
         now = 1_800_000_000.0
         ns = lambda seconds: int(seconds * 1e9)
@@ -1690,14 +1694,14 @@ class SharedPluginsMcpAndMemoryTests(unittest.TestCase):
         # The rebuilt registry uses this account's own spelling of the plugins folder.
         self.assertTrue(self.read(config / "plugins/installed_plugins.json")["plugins"]["lint@team"][0]["installPath"]
                         .startswith(tuple(helper.plugin_root_forms(config))))
-        kept = list((self.home / ".local/share/cage/claude-shared/backups" / FIRST / "plugins").glob("installed_plugins.json.corrupt-*"))
+        kept = list((self.home / ".local/share/workbench/claude-shared/backups" / FIRST / "plugins").glob("installed_plugins.json.corrupt-*"))
         self.assertEqual([path.read_text() for path in kept], ["{ broken"])
         self.assertEqual(sorted(self.read(self.common / "plugins/installed_plugins.json")["plugins"]), ["lint@team"])
         # The shared one, too, is rebuilt from the account.
         (self.common / "plugins/installed_plugins.json").write_text("[]")
         self.share(FIRST)
         self.assertEqual(sorted(self.read(self.common / "plugins/installed_plugins.json")["plugins"]), ["lint@team"])
-        self.assertTrue(list((self.home / ".local/share/cage/claude-shared/backups/common/plugins").glob("installed_plugins.json.corrupt-*")))
+        self.assertTrue(list((self.home / ".local/share/workbench/claude-shared/backups/common/plugins").glob("installed_plugins.json.corrupt-*")))
 
     def test_old_pending_records_without_digest_claim_only_values_equal_to_the_shared_ones(self):
         self.write(self.common / "settings.json", {"language": "zh", "theme": "dark", "model": "sonnet"})
@@ -1756,7 +1760,7 @@ class SharedPluginsMcpAndMemoryTests(unittest.TestCase):
                          "- [Same](same.md) — both\n- [B](b.md) — shared\n- [A](a.md) — account\n"
                          f"- [Same]({renamed[0].name}) — both\n")
         # Both originals are kept in the backups.
-        backups = self.home / ".local/share/cage/claude-shared/backups"
+        backups = self.home / ".local/share/workbench/claude-shared/backups"
         self.assertEqual([(path / "same.md").read_text() for path in (backups / FIRST / "projects" / key).glob("memory-*")], ["account version"])
         self.assertEqual([path.read_text() for path in (backups / "common/projects" / key / "memory").glob("MEMORY.md-*")],
                          ["- [Same](same.md) — both\n- [B](b.md) — shared"])
@@ -1883,6 +1887,33 @@ class SharedPluginsMcpAndMemoryTests(unittest.TestCase):
         self.write(self.common / "settings.json", {})
         self.share(FIRST)
         self.assertEqual(self.read(config / "settings.json"), {})
+    def test_legacy_cage_plugin_registry_migrates_to_neutral_path(self):
+        first, config = self.profile(FIRST)
+        plugins = config / "plugins"
+        (plugins / "marketplaces/team/.claude-plugin").mkdir(parents=True)
+        (plugins / "marketplaces/team/.claude-plugin/marketplace.json").write_text("example/team")
+        (plugins / "cache/team/lint/1.0.0").mkdir(parents=True)
+        (plugins / "cache/team/lint/1.0.0/plugin.md").write_text("lint1.0.0")
+        with patch.object(helper.tempfile, "tempdir", str(self.home)):
+            legacy_alias, legacy_real = helper.legacy_plugin_root_forms(config)
+        self.write(plugins / "known_marketplaces.json", {
+            "team": {"source": {"source": "github", "repo": "example/team"},
+                     "installLocation": legacy_real + "marketplaces/team", "lastUpdated": "2026-11-01T00:00:00.000Z"}
+        })
+        self.write(plugins / "installed_plugins.json", {
+            "version": 2,
+            "plugins": {"lint@team": [{"scope": "user", "installPath": legacy_alias + "cache/team/lint/1.0.0", "version": "1.0.0"}]}
+        })
+        self.share(FIRST)
+        common_installed = self.read(self.common / "plugins/installed_plugins.json")["plugins"]
+        self.assertEqual(common_installed["lint@team"][0]["installPath"], str(self.common / "plugins/cache/team/lint/1.0.0"))
+        # Next account syncs cleanly and no legacy cage path remains.
+        second, other = self.profile(SECOND)
+        self.share(SECOND)
+        other_installed = self.read(other / "plugins/installed_plugins.json")["plugins"]
+        self.assertNotIn("cage", other_installed["lint@team"][0]["installPath"].lower())
+        self.assertTrue(Path(other_installed["lint@team"][0]["installPath"]).joinpath("plugin.md").exists())
+
 
 def numpy_base36(value):
     digits = ""

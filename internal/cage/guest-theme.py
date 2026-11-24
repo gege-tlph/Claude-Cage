@@ -265,10 +265,11 @@ def runtime_dirs() -> list[Path]:
     override = os.environ.get("CAGE_THEME_RUNTIME_DIRS", "")
     if override.strip():
         return [Path(part) for part in override.split(os.pathsep) if part]
-    dirs = [Path("/run/cage-desktop")]
+    dirs = [Path("/run/desktop-session")]
     run_root = Path("/run")
     if run_root.is_dir():
-        dirs.extend(sorted(run_root.glob("desktop-*")))
+        # The default Desktop's directory also matches the account pattern.
+        dirs.extend(d for d in sorted(run_root.glob("desktop-*")) if d not in dirs)
     return dirs
 
 
@@ -435,12 +436,12 @@ def update_claude_cli(home: Path, variant: str) -> None:
     update_json_dict(home / ".claude/settings.json", set_top_theme, create_if_missing=True)
     update_json_dict(home / ".claude.json", set_top_theme, create_if_missing=False)
     update_json_dict(
-        home / ".local/share/cage/claude-shared/settings.json",
+        home / ".local/share/workbench/claude-shared/settings.json",
         set_top_theme,
         create_if_missing=False,
     )
 
-    accounts_dir = home / ".local/share/cage/claude-accounts"
+    accounts_dir = home / ".local/share/workbench/claude-accounts"
     if accounts_dir.is_dir() and not accounts_dir.is_symlink():
         for entry in sorted(accounts_dir.iterdir()):
             if (
@@ -494,7 +495,7 @@ def apply_theme(variant: str, *, home: Path | None = None) -> None:
     if variant not in ("light", "dark"):
         raise ValueError(f"unsupported theme variant: {variant!r}")
     root = home or Path.home()
-    atomic_write_text(root / ".config/claude-cage/theme-variant", variant + "\n", mode=0o600)
+    atomic_write_text(root / ".config/workbench/theme-variant", variant + "\n", mode=0o600)
     update_code_server(root, variant)
     update_gtk_configs(root, variant)
     update_desktop_runtimes(variant)
@@ -504,7 +505,7 @@ def apply_theme(variant: str, *, home: Path | None = None) -> None:
 def main(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else argv
     if len(args) != 1 or args[0] not in ("light", "dark"):
-        print("usage: cage-apply-theme <light|dark>", file=sys.stderr)
+        print("usage: apply-theme <light|dark>", file=sys.stderr)
         return 2
     apply_theme(args[0])
     return 0

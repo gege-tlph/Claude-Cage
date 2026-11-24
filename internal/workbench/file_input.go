@@ -24,7 +24,7 @@ import (
 
 // The broker belongs to Claude Desktop, not to the VM. An unopened desktop
 // is an ordinary empty poll; a failed service must still surface as an error.
-const desktopFilesPoll = `state=$(systemctl is-active cage-claude-desktop.service 2>/dev/null) || true
+const desktopFilesPoll = `state=$(systemctl is-active desktop-session.service 2>/dev/null) || true
 case "$state" in
   inactive|activating|deactivating|unknown)
     printf '%s\n' '{"available":false,"uploads":[],"downloads":[],"opens":[]}'
@@ -57,7 +57,7 @@ func validFileTargetID(target, id string) bool {
 func desktopFileSocket(desktopID string) (string, error) {
 	switch desktopID {
 	case "", "default":
-		return "/run/cage-desktop/files.sock", nil
+		return "/run/desktop-session/files.sock", nil
 	default:
 		if !validClaudeID(desktopID) {
 			return "", errors.New("桌面实例标识无效")
@@ -94,7 +94,7 @@ func (s *Server) desktopFileOwner(id string) string {
 // desktopFilesPollAllScript polls the default Desktop broker (when active) and
 // any active independent account desktop brokers in a single guest command.
 func desktopFilesPollAllScript(asWorkUser string) string {
-	return `state=$(systemctl is-active cage-claude-desktop.service 2>/dev/null) || true
+	return `state=$(systemctl is-active desktop-session.service 2>/dev/null) || true
 default_active=0
 default_failed=0
 case "$state" in
@@ -105,7 +105,7 @@ case "$state" in
 esac
 sources=()
 if [ "$default_active" -eq 1 ]; then
-  sources+=("default:/run/cage-desktop/files.sock")
+  sources+=("default:/run/desktop-session/files.sock")
 fi
 for sock in /run/desktop-*/files.sock; do
   [ -S "$sock" ] || continue
@@ -337,7 +337,7 @@ func (s *Server) guestFilesForDesktop(ctx context.Context, desktopID, target, me
 	}
 	var script string
 	if target == "terminal" {
-		script = asWorkUser + "/usr/local/bin/cage-desktop-files --save-file " + shellescape.Quote(name)
+		script = asWorkUser + "/usr/local/libexec/desktop-files --save-file " + shellescape.Quote(name)
 	} else {
 		sock, sockErr := desktopFileSocket(desktopID)
 		if sockErr != nil {
@@ -673,7 +673,9 @@ func (s *Server) fileInputUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	if target == "terminal" {
 		path, _ := result["path"].(string)
-		valid := s.linuxPathHasPrefix(path, "/home/cage/.local/share/cage/attachments/files/") && !strings.ContainsAny(path, "\x00\r\n")
+		// A desktop helper started before the environment was updated still
+		// answers with the former data directory.
+		valid := (s.linuxPathHasPrefix(path, "/home/cage/.local/share/workbench/attachments/files/") || s.linuxPathHasPrefix(path, "/home/cage/.local/share/cage/attachments/files/")) && !strings.ContainsAny(path, "\x00\r\n")
 		if !valid {
 			http.Error(w, "文件保存路径无效", 502)
 			return
