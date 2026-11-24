@@ -45,7 +45,7 @@ def initial_color_scheme():
         if candidate.is_symlink() or not candidate.is_file():
             return 0
         variant = candidate.read_text(encoding='utf-8').strip()
-    except OSError:
+    except (OSError, UnicodeError):
         return 0
     return COLOR_SCHEMES.get(variant, 0)
 
@@ -464,7 +464,7 @@ class Portal:
             self.unref(value)
 
     def set_appearance(self, variant):
-        if variant not in COLOR_SCHEMES:
+        if not isinstance(variant, str) or variant not in COLOR_SCHEMES:
             raise ValueError('桌面主题无效')
         scheme = COLOR_SCHEMES[variant]
         self.color_scheme = scheme

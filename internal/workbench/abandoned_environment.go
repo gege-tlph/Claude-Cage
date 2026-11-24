@@ -52,7 +52,10 @@ func (s *Server) abandonedVMRunning(ctx context.Context, name string) (bool, err
 	if s.abandonedVMState != nil {
 		return s.abandonedVMState(ctx, name)
 	}
-	inst, err := vm.InstanceIn(ctx, s.deviceResetLimaHome(), name)
+	// The Lima home cmd/cage uses: with moved storage, the default one
+	// would make a running VM look missing.
+	home, logical := s.commandLimaHome()
+	inst, err := vm.InstanceAt(ctx, home, logical, name)
 	if errors.Is(err, vm.ErrNotFound) {
 		return false, nil
 	}

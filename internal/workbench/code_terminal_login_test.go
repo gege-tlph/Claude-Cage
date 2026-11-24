@@ -132,6 +132,45 @@ func TestObservedLoginPreservesSiblingSession(t *testing.T) {
 	}
 }
 
+// A session saved before its identity was recorded has no earlier login to
+// protect. A login observed in its directory binds it instead of stopping it
+// as "changed in another terminal" (#800).
+func TestObservedLoginBindsSessionWithoutRecordedIdentity(t *testing.T) {
+	s, id, project := metadataFixture(t)
+	s.claudeAccounts.probe = func(_ context.Context, dir string) (claudeGuestSnapshot, error) {
+		return claudeGuestSnapshot{LoggedIn: true, Email: "a@example.org"}, nil
+	}
+	old, _ := s.mobileCLI.record(s.profile, id)
+	old.Account = claudeSelection{}
+	old.Connection = "11111111-1111-4111-8111-111111111111"
+	old.Launcher = "claude"
+	if err := writePrivate(mobileRecordPath(s.profile, old.ID), old); err != nil {
+		t.Fatal(err)
+	}
+	terminal := newTerminalSession(nil)
+	terminal.id, terminal.connectionID = old.TerminalID, old.Connection
+	terminal.closed = true
+	close(terminal.done)
+	s.terminals.sessions[old.TerminalID] = terminal
+	mobileTestSSHRewrite(t, s, project, []string{"HOME=" + project, "PATH=/usr/bin:/bin"}, func(string) string { return `echo '{"ok":true}'` })
+	subject := claudeIdentityHash("a@example.org", "")
+	// The login came from another terminal on the same profile.
+	state := codeLoginObservation{current: codeLoginHint{Stamp: "1", Subject: subject, Owner: "22222222-2222-4222-8222-222222222222"}, connection: old.Connection}
+	if s.observeCodeLogin(t.Context(), old.snapshot(), &state) {
+		t.Fatal("session without a recorded identity was handled as a changed login")
+	}
+	if notice, _ := terminal.summary()["login_notice"].(string); notice != "" {
+		t.Fatalf("session stopped: %q", notice)
+	}
+	got, _ := s.mobileCLI.record(s.profile, old.ID)
+	if got.Account != (claudeSelection{Subject: subject}) {
+		t.Fatalf("session not bound to the observed login: %+v", got.Account)
+	}
+	if state.stamp != "1" {
+		t.Fatal("observation not consumed")
+	}
+}
+
 func TestUnboundCodeLoginNeedsItsOwnRequestWhenSharingProfile(t *testing.T) {
 	var manager terminalManager
 	first, second := newTerminalSession(nil), newTerminalSession(nil)

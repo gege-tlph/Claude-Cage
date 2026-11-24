@@ -19,17 +19,24 @@ const (
 // requireLimaPathFits refuses to start when the Lima home is so deep that the
 // base build's sockets would exceed UNIX_PATH_MAX. Lima would only refuse it
 // later, after the image download, with a summary that hid the reason (#913).
-// The home is the one cmd/cage gives Lima: with custom storage the profile is
-// resolved once and the rest stays logical.
 func (s *Server) requireLimaPathFits() error {
-	home, logical := filepath.Join(s.profile, "state", "lima"), false
-	if location, err := cage.GetStorageLocation(s.profile); err == nil && location.Custom {
-		if real, err := paths.Resolve(s.profile); err == nil {
-			home, logical = filepath.Join(real, "state", "lima"), true
-		}
-	}
+	home, logical := s.commandLimaHome()
 	if int(vmname.HomeLimit(home, logical)) >= len(limaBuildName) {
 		return nil
 	}
 	return usererror.New("启动环境", limaPathTooLongReason, limaPathTooLongNext, nil)
+}
+
+// commandLimaHome is the Lima home cmd/cage gives Lima for this profile: with
+// custom storage the profile is resolved once and the rest stays logical
+// (CAGE_LOGICAL_LIMA_HOME). Inspecting VMs in this process must use the same
+// home, or a moved storage's VMs look missing.
+func (s *Server) commandLimaHome() (home string, logical bool) {
+	home = filepath.Join(s.profile, "state", "lima")
+	if location, err := cage.GetStorageLocation(s.profile); err == nil && location.Custom {
+		if real, err := paths.Resolve(s.profile); err == nil {
+			return filepath.Join(real, "state", "lima"), true
+		}
+	}
+	return home, false
 }
