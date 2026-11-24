@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 10
     outputs:
       version: ${{ steps.version.outputs.version }}
-      # The commit the published files were built from.
+      # The commit the tag names; its sources are the ones that were built.
       sha: ${{ steps.version.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
@@ -62,9 +62,13 @@ jobs:
             reused=$(gh api "repos/$GITHUB_REPOSITORY/contents/VERSION?ref=$sha" --jq .content | base64 -d | tr -d '[:space:]')
             [ "$reused" = "$version" ] || { echo "::error::Run $REUSE_RUN built $reused, not $version"; exit 1; }
             git merge-base --is-ancestor "$sha" "$GITHUB_SHA" || { echo "::error::$sha is not on main"; exit 1; }
+            # The tag is made on this run's commit: the workflow token may not
+            # create a ref whose workflow files differ from main. Only the
+            # CI configuration may differ from the commit that was built.
+            git diff --quiet "$sha" "$GITHUB_SHA" -- . ':(exclude).github' || { echo "::error::Sources changed since run $REUSE_RUN built $sha"; exit 1; }
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
   windows:
     needs: check
     if: inputs.reuse_run == ''
@@ -169,12 +173,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.check.outputs.version }}
-          BUILT_SHA: ${{ needs.check.outputs.sha }}
+          TARGET_SHA: ${{ needs.check.outputs.sha }}
         run: |
           tag="v$VERSION"
           files="$RUNNER_TEMP/release-files"
-          # The tag names the commit the files were built from.
-          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$BUILT_SHA" --draft \
+          # This run's main commit; the check job confirmed its sources are the ones built.
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$TARGET_SHA" --draft \
             --title "Cage lite $VERSION" --notes-file "docs/releases/$tag.md" "$files"/*
           check="$RUNNER_TEMP/release-check"
           mkdir "$check"
