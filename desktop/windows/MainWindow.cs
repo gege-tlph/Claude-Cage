@@ -40,7 +40,7 @@ internal sealed class MainWindow : Form
         Activated += (_, _) => PublishFocus(true);
         Deactivate += (_, _) => { PublishFocus(false); Script("window.dispatchEvent(new Event('cage-window-deactivated'));"); };
         AutoScaleMode = AutoScaleMode.Dpi; AutoScaleDimensions = new SizeF(96, 96);
-        Text = "Cage";
+        Text = "Cage lite";
         chrome = WindowChrome.SystemDefault();
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = chrome.Background;
@@ -60,7 +60,7 @@ internal sealed class MainWindow : Form
         AddTrayItem("打开 Cage lite", TrayIconKind.Open, (_, _) => RestoreWindow());
         AddTrayItem("检查应用更新…", TrayIconKind.CheckUpdates, (_, _) => updater!.Handle("check"));
         AddTrayItem("关于 Cage lite", TrayIconKind.About, (_, _) => MessageBox.Show(this,
-            $"Cage {AppUpdater.Version}\n" + InterfaceLanguage.Text("本机隔离编码工作区"),
+            $"Cage lite {AppUpdater.Version}\n" + InterfaceLanguage.Text("本机隔离编码工作区"),
             InterfaceLanguage.Text("关于 Cage lite")));
         trayMenu.Items.Add(new ToolStripSeparator());
         AddTrayItem("退出 Cage lite…", TrayIconKind.Quit, (_, _) => RequestQuit(), destructive: true);
@@ -69,7 +69,7 @@ internal sealed class MainWindow : Form
                 if (item.Tag is TrayItemMetadata meta) item.Text = InterfaceLanguage.Text(meta.SourceKey);
             (chrome ?? WindowChrome.SystemDefault()).ApplyMenu(trayMenu);
         };
-        tray = new NotifyIcon { Icon = Icon, Text = "Cage", Visible = true, ContextMenuStrip = trayMenu };
+        tray = new NotifyIcon { Icon = Icon, Text = "Cage lite", Visible = true, ContextMenuStrip = trayMenu };
         tray.DoubleClick += (_, _) => RestoreWindow();
         tray.BalloonTipClicked += (_, _) => {
             RestoreWindow();
@@ -437,7 +437,7 @@ internal sealed class MainWindow : Form
             }
             var entry = UpdatePolicy.Entry(data.Text("url")); expectedPort = entry.Port;
             smokePhase = "loading_workbench";
-            Text = controllerNeedsUpdate ? InterfaceLanguage.Text("Cage lite（更新待完成）") : "Cage";
+            Text = controllerNeedsUpdate ? InterfaceLanguage.Text("Cage lite（更新待完成）") : "Cage lite";
             web.CoreWebView2.Navigate(entry.AbsoluteUri);
         }
         catch (OperationCanceledException) { if (!lifetime.IsCancellationRequested) Error(InterfaceLanguage.Text("启动工作台失败：等待本机后台响应超时。请点击“重试连接”；仍失败时请保留此提示并反馈给维护者。")); }
@@ -659,7 +659,7 @@ internal sealed class MainWindow : Form
                     retry.Text = InterfaceLanguage.Text("重试连接");
                     existing.Text = InterfaceLanguage.Text("打开现有环境保存文件");
                     complete.Text = InterfaceLanguage.Text("保存后停止环境并完成更新");
-                    Text = controllerNeedsUpdate ? InterfaceLanguage.Text("Cage lite（更新待完成）") : "Cage";
+                    Text = controllerNeedsUpdate ? InterfaceLanguage.Text("Cage lite（更新待完成）") : "Cage lite";
                     result = true; break;
                 case "appearance":
                     var mode = request.Text("mode"); var background = request.Text("background");

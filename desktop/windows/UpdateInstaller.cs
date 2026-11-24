@@ -18,7 +18,8 @@ internal static class UpdateInstaller
             throw new IOException("安装包下载后发生变化，请重新下载");
         Authenticode.SamePublisher(path, publisher);
         var metadata = FileVersionInfo.GetVersionInfo(path);
-        if (metadata.ProductName != "Cage" || metadata.ProductVersion != version)
+        // Installers built before the Cage lite rename name the product "Cage".
+        if (metadata.ProductName is not ("Cage lite" or "Cage") || metadata.ProductVersion != version)
             throw new IOException("安装包产品身份或版本不匹配");
     }
 
