@@ -480,8 +480,9 @@ def settings_flags(args):
     return flags
 
 
-# Only local behavior is shared. Never copy env, apiKeyHelper, login/org
-# constraints, OAuth metadata, or account-synced remote configuration.
+# Only local behavior is shared. Never copy apiKeyHelper, login/org
+# constraints, OAuth metadata, account-synced remote configuration, or an
+# env variable that could select a provider, carry a credential or redirect traffic.
 SHARED_SETTINGS = frozenset({"model", "permissions", "hooks", "statusLine", "attribution", "language",
                              "effortLevel", "alwaysThinkingEnabled", "includeCoAuthoredBy", "respectGitignore",
                              "spinnerTipsEnabled", "outputStyle", "disableAllHooks", "includeGitInstructions",
@@ -489,6 +490,25 @@ SHARED_SETTINGS = frozenset({"model", "permissions", "hooks", "statusLine", "att
 # The terminal status line also records quota readings; a copied user status
 # line would disable that for terminals, and Desktop does not draw one.
 PROFILE_SETTINGS = SHARED_SETTINGS - {"statusLine"}
+
+SHARED_ENV_PREFIXES = ("CLAUDE_CODE_", "DISABLE_", "ENABLE_", "MAX_", "BASH_", "MCP_")
+PRIVATE_ENV_PREFIXES = ("CLAUDE_CODE_USE_", "CLAUDE_CODE_SKIP_", "CLAUDE_CODE_CLIENT_", "CLAUDE_CODE_OAUTH", "CLAUDE_CODE_API_")
+PRIVATE_ENV_WORDS = frozenset({"KEY", "TOKEN", "SECRET", "PASSWORD", "AUTH", "OAUTH", "CREDENTIAL", "CREDENTIALS", "COOKIE",
+                               "PROXY", "URL", "HOST", "ENDPOINT", "REGION", "PROJECT", "PROFILE", "ACCOUNT", "ORG",
+                               "HELPER", "CERT", "CERTS", "CA",
+                               # Locations: a shared default must not move where an account reads or writes.
+                               "DIR", "DIRS", "PATH", "PATHS", "FILE", "FILES", "TMPDIR"})
+# BASH_ENV makes every non-interactive bash source a file; it is no CLI toggle.
+PRIVATE_ENV_NAMES = frozenset({"BASH_ENV"})
+
+
+def shared_env_variable(name):
+    """A shared env variable may toggle CLI behavior but never routing or login."""
+    if not isinstance(name, str) or not re.fullmatch(r"[A-Z][A-Z0-9_]*", name):
+        return False
+    if not name.startswith(SHARED_ENV_PREFIXES) or name.startswith(PRIVATE_ENV_PREFIXES) or name in PRIVATE_ENV_NAMES:
+        return False
+    return not PRIVATE_ENV_WORDS.intersection(name.split("_"))
 
 
 def file_digest(path):
@@ -2483,6 +2503,12 @@ def shared_launch_arguments_locked(base, args, settings_fd):
     shared_keys = SHARED_SETTINGS
     if isinstance(common_settings, dict):
         settings.update({key: value for key, value in common_settings.items() if key in shared_keys})
+        # Feature flags such as Code Mode are switched on through env.
+        if isinstance(common_settings.get("env"), dict):
+            shared_env = {name: value for name, value in common_settings["env"].items()
+                          if isinstance(value, str) and shared_env_variable(name)}
+            if shared_env:
+                settings["env"] = shared_env
     # Hook groups already present in the profile's own settings (including
     # those copied there for Desktop) run from that file. Pass only the rest.
     _, own_settings = json_snapshot(config_directory(base) / "settings.json")
@@ -2510,6 +2536,11 @@ def shared_launch_arguments_locked(base, args, settings_fd):
             # so project or account hooks must not disable the shared ones.
             for key in shared_keys & stored.keys() - {"hooks"}:
                 settings.pop(key, None)
+            if isinstance(stored.get("env"), dict) and isinstance(settings.get("env"), dict):
+                for name in stored["env"]:
+                    settings["env"].pop(name, None)
+                if not settings["env"]:
+                    settings.pop("env")
         if isinstance(stored, dict) and "autoMemoryDirectory" in stored:
             settings["autoMemoryDirectory"] = stored["autoMemoryDirectory"]
     result, iterator = [], iter(args)
@@ -2521,6 +2552,9 @@ def shared_launch_arguments_locked(base, args, settings_fd):
             value = next(iterator) if arg == "--settings" else arg.split("=", 1)[1]
             supplied = json.loads(value) if value.lstrip().startswith("{") else json.loads(Path(value).read_text(encoding="utf-8"))
             hooks = merged_hooks(settings.get("hooks"), supplied.get("hooks")) if isinstance(supplied, dict) else None
+            if isinstance(supplied, dict) and isinstance(supplied.get("env"), dict) and isinstance(settings.get("env"), dict):
+                # Explicit launch settings win variable by variable.
+                supplied = {**supplied, "env": {**settings["env"], **supplied["env"]}}
             settings.update(supplied)
             if hooks is not None:
                 settings["hooks"] = hooks

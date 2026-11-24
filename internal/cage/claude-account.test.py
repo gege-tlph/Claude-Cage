@@ -550,6 +550,31 @@ printf '%s\\n' "$@"
         write_common({})
         self.assertEqual(share(),{**original,"theme":"mine"})
 
+    def test_shared_env_flags_reach_accounts_without_provider_settings(self):
+        with patch.dict(os.environ,self.env,clear=True),patch.object(helper.Path,"cwd",return_value=self.home):
+            common=self.home/".claude";common.mkdir(parents=True,exist_ok=True)
+            (common/"settings.json").write_text(json.dumps({"effortLevel":"xhigh","env":{
+                "CLAUDE_CODE_EXPERIMENTAL_CODE_MODE":"1","MAX_THINKING_TOKENS":"8000",
+                "ANTHROPIC_API_KEY":"private","ANTHROPIC_BASE_URL":"https://other.invalid",
+                "CLAUDE_CODE_USE_BEDROCK":"1","CLAUDE_CODE_OAUTH_TOKEN":"private","HTTPS_PROXY":"http://proxy.invalid",
+                "CLAUDE_CODE_API_KEY_HELPER_TTL_MS":"1","CLAUDE_CODE_CLIENT_CERT":"/tmp/cert","DISABLE_AUTH_CHECK":"1",
+                "CLAUDE_CODE_NON_STRING":1,"claude_code_lower":"1","CLAUDE_CONFIG_DIR":"/tmp/other",
+                "BASH_ENV":"/tmp/rc","CLAUDE_CODE_TMPDIR":"/tmp/x","CLAUDE_CODE_DEBUG_LOGS_DIR":"/tmp/logs",
+                "CLAUDE_CODE_GIT_BASH_PATH":"/tmp/bash","BASH_MAX_TIMEOUT_MS":"600000"}}))
+            base=helper.profile(FIRST);config=helper.config_directory(base);config.mkdir(parents=True)
+            settings=json.loads(Path(helper.shared_launch_arguments(base,[])[1]).read_text())
+            self.assertEqual(settings["effortLevel"],"xhigh")
+            self.assertEqual(settings["env"],{"CLAUDE_CODE_EXPERIMENTAL_CODE_MODE":"1","MAX_THINKING_TOKENS":"8000",
+                                              "BASH_MAX_TIMEOUT_MS":"600000"})
+            # The account's own settings keep their usual precedence.
+            (config/"settings.json").write_text(json.dumps({"env":{"CLAUDE_CODE_EXPERIMENTAL_CODE_MODE":"0"}}))
+            settings=json.loads(Path(helper.shared_launch_arguments(base,[])[1]).read_text())
+            self.assertEqual(settings["env"],{"MAX_THINKING_TOKENS":"8000","BASH_MAX_TIMEOUT_MS":"600000"})
+            # Explicit launch settings win over shared defaults variable by variable.
+            flags=helper.shared_launch_arguments(base,["--settings",json.dumps({"env":{"MAX_THINKING_TOKENS":"1","EXTRA":"x"}})])
+            self.assertEqual(json.loads(Path(flags[1]).read_text())["env"],{"MAX_THINKING_TOKENS":"1","EXTRA":"x",
+                                                                             "BASH_MAX_TIMEOUT_MS":"600000"})
+
     def test_desktop_share_withdraws_to_the_original_and_keeps_concurrent_edits(self):
         fixture=patch.dict(os.environ,self.env,clear=True);fixture.start();self.addCleanup(fixture.stop)
         common=self.home/".claude";common.mkdir()
