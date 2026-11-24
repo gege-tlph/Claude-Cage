@@ -3099,6 +3099,9 @@
   "Apple Virtualization": "Apple Virtualization",
   "设备已改名": "Device renamed",
   "待登录 Desktop": "Desktop (not signed in)",
+  "至少保留一个 Desktop 实例，不能删除最后一个": "Keep at least one Desktop instance. The last one can't be deleted",
+  "默认 Desktop 已删除，请从实例列表打开其他 Desktop": "Default Desktop was deleted. Open another Desktop from the list",
+  "已删除的默认 Desktop 记录无效": "Invalid record of the deleted default Desktop",
   "私有配置": "Private config",
   "私有格式，无法导入；请改用服务商提供的 Clash/Mihomo 订阅": "Private format, cannot be imported; use the Clash/Mihomo subscription from your provider"
 }
