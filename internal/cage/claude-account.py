@@ -21,6 +21,10 @@ runtime_source = Path(__file__).resolve()
 runtime_path = runtime_source.with_name("client_runtime.py")
 if not runtime_path.exists():
     runtime_path = runtime_source.parent.parent / "client_runtime.py"
+if not runtime_path.exists():
+    # In the guest this helper runs from /usr/local/libexec and the shared
+    # runtime is installed in /usr/local/bin (#605).
+    runtime_path = runtime_source.parent.parent / "bin" / "client_runtime.py"
 _runtime = runpy.run_path(runtime_path, init_globals={"_controller_context": _controller_context})
 PRIVATE_MODE = _runtime.get("PRIVATE_MODE", 0o700)
 
