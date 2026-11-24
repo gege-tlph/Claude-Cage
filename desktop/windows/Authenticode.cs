@@ -12,7 +12,7 @@ internal static class Authenticode
     // opts to upgrade in-place to a signed release; signed installations
     // always pin to their own running signature. Upstream releases carry a
     // different publisher and are refused.
-    public const string OfficialPublisherKey = "9B620E58574AC469AD3D35493AC0F3804C3E407F8A3DD8CB83D409A3820AA763";
+    public const string OfficialPublisherKey = "17068FB7C318F6F627AC8319741EF78BA8D6EAD9DDDAC1831207C1059338E451";
     public const string OfficialPublisherOrganization = "CN\ngege-tlph";
 
     private static readonly Lazy<(string Key, string Organization)> Own = new(() => Identity(Environment.ProcessPath!, currentApp: true));
