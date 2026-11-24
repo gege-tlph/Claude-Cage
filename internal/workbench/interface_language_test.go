@@ -25,7 +25,7 @@ func TestInterfaceLanguageStaysOnDesktopProfile(t *testing.T) {
 	if got := request(s, "POST", endpoint, "https://untrusted.example", `{"language":"ar"}`, true).Code; got != 403 {
 		t.Fatalf("foreign origin: %d", got)
 	}
-	if got := request(s, "POST", endpoint, s.origin, `{"language":"en"}`, true).Code; got != 400 {
+	if got := request(s, "POST", endpoint, s.origin, `{"language":"ar"}`, true).Code; got != 400 {
 		t.Fatalf("unsupported language: %d", got)
 	}
 	get := func(language string) {
@@ -47,7 +47,7 @@ func TestInterfaceLanguageStaysOnDesktopProfile(t *testing.T) {
 	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("reading a fresh profile wrote a preference: %v", err)
 	}
-	for _, language := range []string{"ar", "system"} {
+	for _, language := range []string{"en", "system"} {
 		w := request(s, "POST", endpoint, s.origin, `{"language":"`+language+`"}`, true)
 		if w.Code != 200 {
 			t.Fatalf("POST language: %d %s", w.Code, w.Body.String())
