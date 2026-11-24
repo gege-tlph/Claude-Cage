@@ -19,53 +19,42 @@ body:
   - type: input
     id: version
     attributes:
-      label: Cage 版本号
+      label: Cage lite 版本号
       description: 填写发生问题时使用的完整版本号，包括预发行或开发版本后缀。
-      placeholder: 例如 v0.1.7 或 v0.1.7-rc.1
+      placeholder: 例如 v0.2.1
     validations:
       required: true
   - type: input
     id: commit
     attributes:
       label: 提交号（Commit SHA）
-      description: 源码构建请填写构建所用的提交号，可在源码目录运行 git rev-parse HEAD；使用安装包且不知道提交号时，请填写“未知（安装包）”，并在下方注明下载来源。
-      placeholder: 完整或短提交号；未知（安装包）
+      description: 在“设置 → 关于 → 构建提交”查看；源码构建可在源码目录运行 git rev-parse HEAD。
+      placeholder: 完整或短提交号
     validations:
       required: true
   - type: input
     id: installation
     attributes:
       label: 安装或构建来源
-      description: 填写 Release 链接、安装包文件名、CI 构建链接或源码构建方式；若问题发生在更新后，请补充更新前的版本。
-      placeholder: GitHub Releases 安装包 / CI 构建 / 本地源码构建
-    validations:
-      required: true
-  - type: dropdown
-    id: host-system
-    attributes:
-      label: 主机系统
-      description: 主机是运行 Cage 的电脑。Issue 会按所选系统添加标签，交给对应平台的维护者。
-      options:
-        - macOS
-        - Windows
-        - Linux
+      description: 填写 Release 链接、安装包文件名或源码构建方式；若问题发生在更新后，请补充更新前的版本。
+      placeholder: GitHub Releases 安装包 / 本地源码构建
     validations:
       required: true
   - type: input
     id: host-os
     attributes:
-      label: 主机版本与架构
-      description: 填写系统名称、完整版本（Windows 请含构建号）及处理器架构；远程连接时也请注明远程主机系统。
-      placeholder: macOS 26.4 arm64 / Windows 11 24H2（26100.x）x64 / Ubuntu 24.04 x86_64
+      label: Windows 版本与架构
+      description: 填写完整版本（含构建号）及处理器架构；远程连接时也请注明远程主机系统。
+      placeholder: Windows 11 24H2（26100.x）x64
     validations:
       required: true
   - type: textarea
     id: steps
     attributes:
       label: 复现步骤
-      description: 从打开 Cage 开始按顺序说明，包含相关设置和必要前提；环境尚未装好或无法启动时，注明停在哪一步。偶发问题请说明已知触发条件与出现频率。
+      description: 从打开 Cage lite 开始按顺序说明，包含相关设置和必要前提；环境尚未装好或无法启动时，注明停在哪一步。偶发问题请说明已知触发条件与出现频率。
       placeholder: |
-        1. 打开 Cage，选择……
+        1. 打开 Cage lite，选择……
         2. 设置……
         3. 点击……
         4. 出现……（每次出现 / 偶尔出现）

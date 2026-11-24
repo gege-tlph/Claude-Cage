@@ -1,1 +1,5 @@
 blank_issues_enabled: false
+contact_links:
+  - name: 上游 Claude Cage
+    url: https://github.com/Lee-xeo/Claude-Cage/issues
+    about: 上游本身的问题请到上游反馈。Cage lite 只发布 Windows 版。
