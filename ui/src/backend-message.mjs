@@ -36,8 +36,30 @@ const PROGRESS_TEMPLATES = [
   [/^独立配置 (\S+)$/, "独立配置 {0}"],
 ];
 
+// Errors that carry a value: [pattern, catalog key, indexes of values that
+// are messages themselves and are localized in turn]. From internal/cage
+// storage.go, internal/workbench failure_message.go, storage.go, runtime.go,
+// internal/managedproxy interface.go, preflight.go and internal/vm
+// stop_windows.go.
+const VALUE_TEMPLATES = [
+  [/^服务返回 HTTP (\d+)，尚未取得可识别的具体原因$/, "服务返回 HTTP {0}，尚未取得可识别的具体原因", []],
+  [/^无法核验虚拟机进程记录 (.+)$/, "无法核验虚拟机进程记录 {0}", []],
+  [/^请先停止虚拟机 (.+)，再迁移环境$/, "请先停止虚拟机 {0}，再迁移环境", []],
+  [/^恢复迁移：([\s\S]+)$/, "恢复迁移：{0}", [0]],
+  [/^无法移走 (.+?)：([\s\S]+)$/, "无法移走 {0}：{1}", [1]],
+  [/^环境存储待恢复，请在设置中恢复后继续。([\s\S]*)$/, "环境存储待恢复，请在设置中恢复后继续。{0}", [0]],
+  [/^代理核心当前绑定的出口网卡（(.+)）已失效或不再是默认物理网卡（当前为 (.+)）；请重启代理核心以重新绑定$/, "代理核心当前绑定的出口网卡（{0}）已失效或不再是默认物理网卡（当前为 {1}）；请重启代理核心以重新绑定", []],
+  [/^无法为候选代理探测分配本机端口：([\s\S]+)$/, "无法为候选代理探测分配本机端口：{0}", [0]],
+  [/^候选代理核心启动失败：([\s\S]+)$/, "候选代理核心启动失败：{0}", [0]],
+  [/^但重启内置代理核心失败：([\s\S]+)$/, "但重启内置代理核心失败：{0}", [0]],
+  [/^宿主代理已退出但环境处于异常状态（(.+)），无法确认安全停止；请查看 hostagent 日志$/, "宿主代理已退出但环境处于异常状态（{0}），无法确认安全停止；请查看 hostagent 日志", []],
+];
+
 export const backendMessageKeys = [
   ...PROGRESS_TEMPLATES.map(([, key]) => key),
+  ...VALUE_TEMPLATES.map(([, key]) => key),
+  "代理核心当前绑定的出口网卡或节点路由接口已变化；请重启代理核心以重新绑定",
+  "内置代理不支持当前系统",
   // Issue #749: local proxy node validation & migration
   "本机代理端口不能用作节点。请导入原客户端的具体节点，在 Cage lite 中按中转到最终出口的顺序重新配置并应用",
   "原代理链包含本机代理端口。请导入各跳的具体节点后重建代理链",
@@ -422,6 +444,13 @@ export function localizeBackendMessage(message, localize = translate) {
   }
   if ((m = trimmed.match(/^程序提前结束（退出码 (-?\d+)），未返回可识别的原因$/))) {
     return translateTemplate(localize, "程序提前结束（退出码 {0}），未返回可识别的原因", m[1]) ?? trimmed;
+  }
+  // Messages with values whose detail may itself be a known message.
+  for (const [pattern, key, nested] of VALUE_TEMPLATES) {
+    if ((m = trimmed.match(pattern))) {
+      const values = m.slice(1).map((value, index) => (nested.includes(index) ? localizeBackendMessage(value, localize) : value));
+      return translateTemplate(localize, key, ...values) ?? trimmed;
+    }
   }
   // Job progress the backend builds from a system name, a size or a path.
   for (const [pattern, key] of PROGRESS_TEMPLATES) {
