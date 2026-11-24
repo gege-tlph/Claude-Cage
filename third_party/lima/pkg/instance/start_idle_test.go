@@ -1,6 +1,7 @@
 package instance
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"os"
@@ -151,37 +152,56 @@ func TestWatchHostAgentEventsStallsDespiteHeartbeats(t *testing.T) {
 	}
 }
 
-// A cloud-init monitor that stops before cloud-init reports completion, such
-// as one whose SSH session ended, sends a last event without Completed. The
-// start then ends with the running VM instead of waiting for a completion
-// that will not come, and does not log "done" (#828).
-func TestWatchHostAgentEventsUnconfirmedCloudInit(t *testing.T) {
+// Port forwarding and vsock events repeat the last cloud-init progress. Each
+// cloud-init line, and the completion, must be printed once (#828).
+func TestWatchHostAgentEventsPrintsCloudInitProgressOnce(t *testing.T) {
+	var logs bytes.Buffer
+	out, level := logrus.StandardLogger().Out, logrus.GetLevel()
+	logrus.SetOutput(&logs)
+	logrus.SetLevel(logrus.InfoLevel)
+	t.Cleanup(func() {
+		logrus.SetOutput(out)
+		logrus.SetLevel(level)
+	})
+
 	dir := t.TempDir()
 	stdout, stderr := filepath.Join(dir, "ha.stdout.log"), filepath.Join(dir, "ha.stderr.log")
 	begin := time.Now().Add(-time.Second)
-	writeHostAgentEvent(t, stdout, hostagentevents.Status{SSHLocalPort: 60022, CloudInitProgress: &hostagentevents.CloudInitProgress{Active: true}})
-	writeHostAgentEvent(t, stdout, hostagentevents.Status{SSHLocalPort: 60022, CloudInitProgress: &hostagentevents.CloudInitProgress{LogLine: "Cloud-init monitoring ended before cloud-init reported completion"}})
-	writeHostAgentEvent(t, stdout, hostagentevents.Status{SSHLocalPort: 60022, PortForward: &hostagentevents.PortForwardEvent{}})
-	writeHostAgentEvent(t, stdout, hostagentevents.Status{Running: true, SSHLocalPort: 60022})
-
-	var log strings.Builder
-	saved := logrus.StandardLogger().Out
-	logrus.SetOutput(&log)
-	defer logrus.SetOutput(saved)
-	ctx := WithWatchHostAgentIdleTimeout(WithWatchHostAgentTimeout(context.Background(), 30*time.Second), 5*time.Second)
+	heartbeat := &hostagentevents.PortForwardEvent{}
+	started := &hostagentevents.CloudInitProgress{Active: true}
+	line := &hostagentevents.CloudInitProgress{Active: true, LogLine: "Setting up git ..."}
+	done := &hostagentevents.CloudInitProgress{Completed: true, LogLine: "Cloud-init v. 1 finished"}
+	monitorDone := &hostagentevents.CloudInitProgress{Completed: true, LogLine: "Cloud-init monitoring completed successfully"}
+	for _, status := range []hostagentevents.Status{
+		{SSHLocalPort: 60022, CloudInitProgress: started},
+		{SSHLocalPort: 60022, CloudInitProgress: started, PortForward: heartbeat},
+		{SSHLocalPort: 60022, CloudInitProgress: line},
+		{SSHLocalPort: 60022, CloudInitProgress: line, PortForward: heartbeat},
+		{SSHLocalPort: 60022, CloudInitProgress: line, Vsock: &hostagentevents.VsockEvent{}},
+		{SSHLocalPort: 60022, CloudInitProgress: done},
+		{SSHLocalPort: 60022, CloudInitProgress: done, PortForward: heartbeat},
+		{SSHLocalPort: 60022, CloudInitProgress: monitorDone},
+		{SSHLocalPort: 60022, CloudInitProgress: monitorDone, PortForward: heartbeat},
+		{Running: true, SSHLocalPort: 60022, CloudInitProgress: monitorDone},
+	} {
+		writeHostAgentEvent(t, stdout, status)
+	}
+	ctx := WithWatchHostAgentIdleTimeout(WithWatchHostAgentTimeout(context.Background(), 30*time.Second), 10*time.Second)
 	plain := true
-	inst := &limatype.Instance{Config: &limatype.LimaYAML{Plain: &plain}}
-	started := time.Now()
+	inst := &limatype.Instance{Name: "test", Dir: dir, Config: &limatype.LimaYAML{Plain: &plain}}
 	if err := watchHostAgentEvents(ctx, inst, stdout, stderr, begin, true); err != nil {
-		t.Fatalf("unconfirmed cloud-init ended the start with %v", err)
+		t.Fatal(err)
 	}
-	if elapsed := time.Since(started); elapsed > 4*time.Second {
-		t.Fatalf("the start waited %v for a completion that was never reported", elapsed)
-	}
-	if strings.Contains(log.String(), "monitoring done") {
-		t.Fatalf("unconfirmed cloud-init logged as done:\n%s", log.String())
-	}
-	if n := strings.Count(log.String(), "ended before cloud-init reported completion"); n != 1 {
-		t.Fatalf("end of monitoring logged %d times:\n%s", n, log.String())
+	got := logs.String()
+	for text, want := range map[string]int{
+		"Cloud-init provisioning started...":                        1,
+		"[cloud-init] Setting up git ...":                           1,
+		"[cloud-init] Cloud-init v. 1 finished":                     1,
+		"[cloud-init] Cloud-init monitoring completed successfully": 1,
+		"Cloud-init progress monitoring done.":                      1,
+	} {
+		if n := strings.Count(got, text); n != want {
+			t.Errorf("%q printed %d times, want %d:\n%s", text, n, want, got)
+		}
 	}
 }
