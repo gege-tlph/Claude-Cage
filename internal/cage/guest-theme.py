@@ -353,8 +353,12 @@ class _UnixHTTPConnection(http.client.HTTPConnection):
         if af_unix is None:
             raise OSError("unix sockets unavailable")
         sock = socket.socket(af_unix, socket.SOCK_STREAM)
-        sock.settimeout(self.timeout)
-        sock.connect(self._socket_path)
+        try:
+            sock.settimeout(self.timeout)
+            sock.connect(self._socket_path)
+        except OSError:
+            sock.close()
+            raise
         self.sock = sock
 
 
@@ -376,7 +380,7 @@ def notify_desktop_portal(runtime_dir: Path, variant: str) -> None:
         )
         resp = conn.getresponse()
         resp.read()
-    except OSError:
+    except (OSError, http.client.HTTPException):
         pass
     finally:
         conn.close()
