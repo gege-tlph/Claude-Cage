@@ -769,7 +769,6 @@ button.large {
 .download-actions .download-reveal { width: 26px; height: 26px; margin-left: auto; }
 .browser-download-empty { display: grid; justify-items: center; gap: 10px; padding: 36px 16px; color: var(--muted); }
 .browser-download-empty strong { color: var(--strong); font-size: 0.9286rem; font-weight: 500; }
-.browser-download-empty p { margin: 0; font-size: 0.8571rem; }
 .browser-download-button { flex: none; }
 .browser-download-button.icon-button { position: relative; }
 .browser-download-warning { position: absolute; top: 3px; right: 3px; width: 5px; height: 5px; border-radius: 50%; background: var(--danger, #b42318); }

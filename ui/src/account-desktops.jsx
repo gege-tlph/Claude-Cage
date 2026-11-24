@@ -713,8 +713,8 @@ export const DesktopPanes = forwardRef(function DesktopPanes(
           onPointerDownCapture={() => setFocusedID(a.id)} onFocusCapture={() => setFocusedID(a.id)}>
           {panes.length > 1 && <header className="split-default-header">
             <span className="account-desktop-title"><DesktopAccountLabel account={a} /></span>
-            <DesktopRowAction label={translate("退出分屏")} icon={Columns2}
-              onClick={() => model.hidePane(a.id)} />
+            {/* A text button like the instance pane's, so both title bars are one height. */}
+            <button onClick={() => model.hidePane(a.id)}>{tr("退出分屏")}</button>
           </header>}
           {renderDefault?.(activePaneID === a.id)}
         </section>
