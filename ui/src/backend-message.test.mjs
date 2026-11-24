@@ -22,6 +22,7 @@ test("localizeBackendMessage translates ErrLocalProxyNode and dynamic backend er
     `节点 "local-socks" 需要迁移：${errLocalNode}`,
     `没有可导入的节点，已跳过 2 个；第 1 个节点 "socks1"：${errLocalNode}；第 2 个节点 "bad"：节点协议暂不支持`,
     `没有可导入的节点，已跳过 1 个；第 1 个节点 "hk"：Clash Verge Ninja 专用协议，无法导入，请改用标准 Mihomo 节点`,
+    `没有可导入的节点，已跳过 1 个；第 1 个节点 "neo"：Clash Neo 专用协议，无法导入，请改用标准 Mihomo 节点`,
     `订阅更新移除或跳过了当前出口或中转节点 "HK-01"：节点未包含在更新中；原配置已保留，请先应用其他节点再更新`,
     "订阅服务器返回 HTTP 403",
     "环境存储目录已不存在：E:\CageData",

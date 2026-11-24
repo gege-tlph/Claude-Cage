@@ -66,6 +66,7 @@ export const backendMessageKeys = [
   "节点名称重复，无法确定代理链引用",
   "节点协议暂不支持",
   "Clash Verge Ninja 专用协议，无法导入，请改用标准 Mihomo 节点",
+  "Clash Neo 专用协议，无法导入，请改用标准 Mihomo 节点",
   "节点服务器缺失或过长",
   "SSH 节点的 private-key 必须直接填写私钥内容，不能引用本机文件",
   "节点不能引用本机文件、网络接口或额外路由",

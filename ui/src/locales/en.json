@@ -2817,6 +2817,7 @@
   "节点不能引用本机文件、网络接口或额外路由": "Nodes can't reference local files, network interfaces or extra routes",
   "节点协议暂不支持": "Node protocol not supported yet",
   "Clash Verge Ninja 专用协议，无法导入，请改用标准 Mihomo 节点": "Clash Verge Ninja protocol, cannot be imported. Use a standard Mihomo node",
+  "Clash Neo 专用协议，无法导入，请改用标准 Mihomo 节点": "Clash Neo protocol, cannot be imported. Use a standard Mihomo node",
   "节点名称为空或过长": "Node name is empty or too long",
   "节点名称重复，无法确定代理链引用": "Duplicate node names make the chain reference ambiguous",
   "节点字段 {0} 存在重复写法，请仅保留一种": "Node field {0} is written more than one way. Keep only one",
