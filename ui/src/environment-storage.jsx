@@ -14,6 +14,8 @@ export function EnvironmentStorage({ status, onConfirm }) {
   const [error, setError] = useState("");
   const job = status.job;
   const recovery = status.storage_recovery?.required ? status.storage_recovery : location?.recovery;
+  // Neither missing nor recoverable: only a rebuild leaves it (#846).
+  const unavailable = !recovery?.required ? location?.unavailable : null;
   const storageJob = job?.kind === "storage" || job?.kind === "storage-recovery";
   const busy = submitting || Boolean(pending) || Boolean(job?.running);
   useEffect(() => {
@@ -60,6 +62,21 @@ export function EnvironmentStorage({ status, onConfirm }) {
     } catch (e) { setError(e.message); }
     finally { setSubmitting(false); }
   };
+  const reset = async () => {
+    if (busy || !(await onConfirm({
+      title: "重建环境？",
+      body: "原存储移到归档文件夹，不会删除。",
+      confirm: "重建环境",
+      danger: true,
+    }))) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      const accepted = await api("/environment/storage/reset", {});
+      setPending({ id: accepted.id, previousJob: job?.id });
+    } catch (e) { setError(e.message); }
+    finally { setSubmitting(false); }
+  };
   const recover = async (repair) => {
     if (busy) return;
     setSubmitting(true);
@@ -73,19 +90,24 @@ export function EnvironmentStorage({ status, onConfirm }) {
   return <section className="environment-versions environment-storage" aria-label={tr("本机环境存储")}>
     <h4>{tr("本机环境存储")}</h4>
     {recovery?.required ? <>
-      <p className="field-help">{tr("环境存储需要恢复。请连接迁移使用的磁盘后重试。恢复完成后可以启动环境。")}</p>
       <p role="alert" className="error-message"><SafetyMessage message={recovery.error} /></p>
       <div className="storage-actions">
         <button type="button" disabled={busy} onClick={() => recover(false)}>{tr("重试恢复")}</button>
         {recovery.repair_allowed && <button type="button" disabled={busy} onClick={() => recover(true)}>{tr("修复系统助手并恢复")}</button>}
+        <button type="button" disabled={busy} onClick={reset}>{tr("重建环境")}</button>
       </div>
-      {recovery.repair_allowed && <p className="field-help storage-repair-help">{tr("修复系统助手需要 Windows 系统授权。完成后会继续恢复原环境。")}</p>}
+    </> : unavailable ? <>
+      <p role="alert" className="error-message"><SafetyMessage message={unavailable.error} /></p>
+      <div className="storage-actions">
+        <button type="button" disabled={busy} onClick={reset}>{tr("重建环境")}</button>
+      </div>
     </> : <>
     <div className="setting-summary-row"><span>{tr("当前环境目录")}</span><strong>{location?.directory || (error ? tr("无法读取环境目录") : tr("正在读取…"))}</strong></div>
     {status.environment_identity_directory && status.environment_identity_directory !== status.environment_directory &&
       <p className="field-help">{tr("原工作目录中的文件保留在") + " "}<code>{status.environment_identity_directory}</code></p>}
     {location?.missing && location.error && <p role="alert" className="error-message"><SafetyMessage message={location.error} /></p>}
     {location?.backup && <p className="field-help">{tr("迁移前的备份保存在") + " "}<code>{location.backup}</code></p>}
+    {location?.reset && <p className="field-help">{tr("重建前的存储保存在") + " "}<code>{location.reset}</code></p>}
     <label>{tr("新存储位置")}
       <input value={directory} onChange={(e) => { setDirectory(e.target.value); setError(""); }} spellCheck="false"
         disabled={busy || !location?.directory} placeholder={tr("本地磁盘上专用空文件夹的完整路径")} />
@@ -98,6 +120,6 @@ export function EnvironmentStorage({ status, onConfirm }) {
     </div>
     </>}
     {storageJob && job.running && <p role="status" className="field-help">{localizeBackendMessage(job.message, tr)}</p>}
-    {error && error !== recovery?.error && <p role="alert" className="error-message"><SafetyMessage message={error} /></p>}
+    {error && error !== recovery?.error && error !== unavailable?.error && <p role="alert" className="error-message"><SafetyMessage message={error} /></p>}
   </section>;
 }

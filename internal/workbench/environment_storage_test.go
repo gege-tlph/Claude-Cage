@@ -178,7 +178,8 @@ func TestDeletedStorageDirectoryCanBeReplaced(t *testing.T) {
 	if err := os.RemoveAll(filepath.Dir(next)); err != nil {
 		t.Fatal(err)
 	}
-	if code, unplugged, raw := query(); code == http.StatusOK || unplugged.Missing || !strings.Contains(raw, "重新连接原磁盘") {
+	// Reported as unavailable (#846: the page offers a rebuild), never missing.
+	if code, unplugged, raw := query(); code != http.StatusOK || unplugged.Missing || !strings.Contains(raw, `"unavailable"`) || !strings.Contains(raw, "重新连接原磁盘") {
 		t.Fatal("a missing parent was treated as deleted storage", code, raw)
 	}
 }

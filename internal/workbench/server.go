@@ -461,6 +461,7 @@ func (s *Server) handler() http.Handler {
 	mux.HandleFunc("GET /api/environment/storage", s.environmentStorage)
 	mux.HandleFunc("POST /api/environment/storage", s.environmentStorage)
 	mux.HandleFunc("POST /api/environment/storage/recover", s.recoverEnvironmentStorage)
+	mux.HandleFunc("POST /api/environment/storage/reset", s.resetEnvironmentStorage)
 	mux.HandleFunc("GET /api/environment/resources", s.resourceStatus)
 	mux.HandleFunc("POST /api/environment/resources", s.applyResources)
 	mux.HandleFunc("POST /api/environment/update", s.updateEnvironment)

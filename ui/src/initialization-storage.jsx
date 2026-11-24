@@ -11,7 +11,11 @@ export function InitializationStorage({ value, onChange, disabled }) {
     if (value) return;
     let live = true;
     api("/environment/storage").then(location => {
-      if (live) onChange({ location, directory: location.suggested_directory || location.directory });
+      if (!live) return;
+      // Unusable or recovering storage has no directory to offer (#846).
+      const blocked = location.unavailable || location.recovery;
+      if (blocked) setError(blocked.error || "无法读取环境目录");
+      else onChange({ location, directory: location.suggested_directory || location.directory });
     }).catch(error => { if (live) setError(error.message); });
     return () => { live = false; };
   }, [Boolean(value), onChange, attempt]);

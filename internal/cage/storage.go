@@ -28,6 +28,8 @@ type StorageLocation struct {
 	// Missing marks a custom directory deleted while its parent remains; the
 	// location is then returned together with ErrStorageMissing.
 	Missing bool `json:"missing,omitempty"`
+	// Reset is the latest folder ResetStorage set an unusable storage aside in.
+	Reset string `json:"reset,omitempty"`
 }
 
 // ErrStorageMissing lets a new, empty location replace one whose directory
@@ -233,6 +235,9 @@ func getStorageLocation(profile string) (StorageLocation, error) {
 	}
 	if len(r.Backups) > 0 {
 		loc.Backup = r.Backups[len(r.Backups)-1]
+	}
+	if resets, _ := filepath.Glob(filepath.Join(profile, resetPrefix+"*")); len(resets) > 0 {
+		loc.Reset = resets[len(resets)-1]
 	}
 	entries, err := os.ReadDir(filepath.Join(anchor, "lima"))
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -687,6 +692,56 @@ func claimStorageTarget(dir, id string) error {
 		err = f.Sync()
 	}
 	return errors.Join(err, f.Close())
+}
+
+const resetPrefix = "state-reset-"
+
+// ResetStorage sets aside a storage Cage can neither use nor recover: the
+// state anchor (a directory, or a link to a custom location), the location
+// record, an unfinished move's journal, staging link and backups. They are
+// moved, never deleted, into one new folder in the profile, which is
+// returned; a custom location's own files stay where they are. The
+// environment then uses the default location and is prepared again (#846).
+// The exclusive lock is taken without replaying the journal, which is what
+// cannot complete.
+func ResetStorage(profile string) (string, error) {
+	f, err := os.OpenFile(filepath.Join(profile, "environment-storage.lock"), os.O_CREATE|os.O_RDWR, 0600)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	if ok, err := lockStorageFile(f, true); err != nil || !ok {
+		if err == nil {
+			err = errors.New("环境正在运行或迁移中，请停止环境并等待当前操作完成")
+		}
+		return "", err
+	}
+	// Names sort by time, so the location reports the latest one.
+	stamp := time.Now().Format("20060102-150405")
+	archive := filepath.Join(profile, resetPrefix+stamp)
+	for n := 2; ; n++ {
+		if err = os.Mkdir(archive, 0700); !errors.Is(err, os.ErrExist) {
+			break
+		}
+		archive = filepath.Join(profile, fmt.Sprintf("%s%s-%d", resetPrefix, stamp, n))
+	}
+	if err != nil {
+		return "", err
+	}
+	entries, err := os.ReadDir(profile)
+	if err != nil {
+		return archive, err
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if name == "state" || name == locationFile || name == pendingFile ||
+			strings.HasPrefix(name, "state-backup-") || strings.HasPrefix(name, ".storage-link-") {
+			if err = renameStorage(filepath.Join(profile, name), filepath.Join(archive, name)); err != nil {
+				return archive, fmt.Errorf("无法移走 %s：%w", name, err)
+			}
+		}
+	}
+	return archive, syncStorageDir(profile)
 }
 
 func recoverStorage(profile string) error {

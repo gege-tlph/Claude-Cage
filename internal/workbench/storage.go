@@ -59,7 +59,7 @@ func storageRecoveryRoute(r *http.Request) bool {
 		return true
 	}
 	switch path {
-	case "/api/account", "/api/session", "/api/launch", "/api/handoff", "/api/remote/manifest", "/api/environment/storage/recover":
+	case "/api/account", "/api/session", "/api/launch", "/api/handoff", "/api/remote/manifest", "/api/environment/storage/recover", "/api/environment/storage/reset":
 		return true
 	}
 	if r.Method == http.MethodGet {
@@ -105,6 +105,48 @@ func (s *Server) recoverEnvironmentStorage(w http.ResponseWriter, r *http.Reques
 	})
 }
 
+// resetEnvironmentStorage rebuilds an environment whose storage cannot be
+// recovered or read: the broken storage is set aside, not deleted, and the
+// default location is prepared again (#846). Usable or merely deleted storage
+// keeps its own flows.
+func (s *Server) resetEnvironmentStorage(w http.ResponseWriter, r *http.Request) {
+	if !s.hasTrustedView(r) {
+		http.Error(w, "请在已信任的 Cage 窗口重建环境", http.StatusForbidden)
+		return
+	}
+	if !s.localVMStorage() {
+		http.Error(w, "请在虚拟机所在电脑上重建环境", http.StatusConflict)
+		return
+	}
+	if !s.storageRecoveryStatus().Required {
+		if _, err := cage.GetStorageLocation(s.profile); err == nil || errors.Is(err, cage.ErrStorageMissing) {
+			http.Error(w, "当前环境存储无需重建", http.StatusConflict)
+			return
+		}
+	}
+	if !readJSON(w, r, &struct{}{}) {
+		return
+	}
+	s.launchRequest(w, r, "storage-recovery", func() error {
+		s.setMessage("正在重建环境存储…")
+		archive, err := cage.ResetStorage(s.profile)
+		if err != nil {
+			diagnostics.Log("error", "storage", "environment storage reset failed: "+err.Error())
+			return err
+		}
+		diagnostics.Log("warn", "storage", "unusable environment storage set aside in "+archive)
+		s.mu.Lock()
+		s.storageRecoveryError = ""
+		s.ready = false
+		s.mu.Unlock()
+		if err := s.prepareEnvironment(); err != nil {
+			return s.failStorageRecovery(err)
+		}
+		s.setMessage("环境存储已重建")
+		return nil
+	})
+}
+
 func (s *Server) environmentStorage(w http.ResponseWriter, r *http.Request) {
 	if !s.localVMStorage() {
 		http.Error(w, "仅本机虚拟机支持调整存储位置", http.StatusConflict)
@@ -129,7 +171,9 @@ func (s *Server) environmentStorage(w http.ResponseWriter, r *http.Request) {
 				jsonReply(w, map[string]any{"recovery": s.storageRecoveryStatus()})
 				return
 			}
-			requestError(w, err)
+			// Neither missing nor recoverable: name the cause so the page
+			// can offer a rebuild instead of an unreadable form (#846).
+			jsonReply(w, map[string]any{"unavailable": map[string]string{"error": err.Error()}})
 			return
 		}
 		suggested := ""
