@@ -98,3 +98,18 @@ func TestExecutionFailureNamesLimaHomeConflict(t *testing.T) {
 		}
 	}
 }
+
+// #913: a deep configuration path makes Lima refuse the base VM. The summary
+// names the path length, also when redaction cut the line after the path.
+func TestExecutionFailureNamesTooLongLimaPath(t *testing.T) {
+	for _, output := range []string{
+		"Creating base VM...\nError: instance name `base-building` too long: `C:\\Users\\a\\deep\\state\\lima\\base-building\\ssh.sock.1234567890123456` must be less than UNIX_PATH_MAX=108 characters, but is 130\nError: Failed to create base VM. Full log: C:\\x\\setup.log\n",
+		"Creating base VM...\nError: instance name `base-building` too long: `[home path]\nError: Failed to create base VM. Full log: [home path]\n",
+		"Error: could not clone the base template into 'p':\nVM name too long: its sockets in C:/x would need 120 characters, at most 107\n",
+	} {
+		message := executionFailure("安装环境", errors.New("exit status 1"), output).Error()
+		if !strings.Contains(message, "路径太长") || strings.Contains(message, "可识别") {
+			t.Fatalf("%q: %q", output, message)
+		}
+	}
+}
