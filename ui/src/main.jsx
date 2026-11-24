@@ -2000,7 +2000,11 @@ function App() {
                           ? tr("为 Claude 准备独立工作区")
                           : "Claude Cage"}
                   </h1>
-                  {(busy || (running && (!status.ready || network.mode !== "open"))) && (
+                  {/* One line under the title holds the job or connection
+                      state, or else the steps while the environment is
+                      stopped, so starting does not move the card. */}
+                  <div className="welcome-status">
+                  {busy || (running && (!status.ready || network.mode !== "open")) ? (
                     <p className="welcome-subtitle">
                       <SafetyMessage message={busy
                         ? localizeBackendMessage(status.job.message, tr)
@@ -2008,8 +2012,7 @@ function App() {
                           ? status.environment_update_error || "浏览器连接暂时不可用"
                           : tr(network.label)} />
                     </p>
-                  )}
-                  {!running && (
+                  ) : !running && (
                     <ol className="onboarding-steps" aria-label={tr("开始使用 Cage")}>
                       {["配置代理", "启动环境", "开始工作"].map(
                         (label, index) => (
@@ -2028,6 +2031,7 @@ function App() {
                       )}
                     </ol>
                   )}
+                  </div>
                   <div className="start-project-box">
                     <div className="start-project-row">
                       <div className="environment-summary">

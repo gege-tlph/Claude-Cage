@@ -2408,7 +2408,8 @@ svg {
   position: absolute;
   inset: 0;
   display: grid;
-  place-items: center;
+  justify-items: center;
+  align-items: start;
   padding: 40px 24px;
   overflow: auto;
   background:
@@ -2418,8 +2419,12 @@ svg {
 :root[data-preset="high-contrast"] .welcome {
   background: var(--paper);
 }
+/* Anchored at the top, about where centring puts the stopped home page:
+   what changes while the environment starts (system picker, errors) grows
+   downwards instead of re-centring the logo and title. */
 .welcome-content {
   width: min(100%, 460px);
+  margin-top: max(0px, calc(50vh - 199px));
   text-align: center;
   padding-bottom: 40px;
   animation: surface-enter 220ms var(--ease-out);
@@ -2444,6 +2449,22 @@ svg {
 }
 .welcome h1:has(+ .welcome-subtitle) {
   margin-bottom: 0;
+}
+.welcome h1:has(+ .welcome-status) {
+  margin-bottom: 14px;
+}
+/* The status line keeps its height whether it shows a state, the steps or
+   nothing. */
+.welcome-status {
+  min-height: calc(0.9286rem * 1.65);
+  margin-bottom: 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.welcome-status > .welcome-subtitle,
+.welcome-status > .onboarding-steps {
+  margin: 0;
 }
 .welcome-subtitle {
   font-size: 0.9286rem;
@@ -3033,6 +3054,10 @@ svg {
   color: var(--strong);
   font-weight: 560;
   font-size: 1rem;
+  /* One line: the button beside it changes width while the environment starts. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .environment-summary small {
   color: var(--muted);
