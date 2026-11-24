@@ -383,7 +383,7 @@ func watchHostAgentEvents(ctx context.Context, inst *limatype.Instance, haStdout
 	var (
 		printedSSHLocalPort  bool
 		receivedRunningEvent bool
-		cloudInitCompleted   bool
+		cloudInitEnded       bool
 		err                  error
 	)
 
@@ -410,9 +410,15 @@ func watchHostAgentEvents(ctx context.Context, inst *limatype.Instance, haStdout
 				logrus.Infof("[cloud-init] %s", progress.LogLine)
 			}
 
-			if progress.Completed {
-				cloudInitCompleted = true
-				logrus.Infof("Cloud-init progress monitoring done.")
+			// The monitor's last event has Active unset. Without Completed it
+			// stopped before cloud-init reported completion and has said so in
+			// LogLine; the start does not wait for a completion it will not
+			// report (#828).
+			if !progress.Active && !cloudInitEnded {
+				cloudInitEnded = true
+				if progress.Completed {
+					logrus.Infof("Cloud-init progress monitoring done.")
+				}
 			}
 		}
 		if len(ev.Status.Errors) > 0 {
@@ -434,7 +440,7 @@ func watchHostAgentEvents(ctx context.Context, inst *limatype.Instance, haStdout
 				return true
 			}
 
-			if showProgress && !cloudInitCompleted {
+			if showProgress && !cloudInitEnded {
 				return false
 			}
 
@@ -468,7 +474,7 @@ func watchHostAgentEvents(ctx context.Context, inst *limatype.Instance, haStdout
 	}
 	// Watch also returns when a deadline ends the wait for cloud-init. The VM
 	// runs, but its provisioning is not known to be complete.
-	if showProgress && !cloudInitCompleted {
+	if showProgress && !cloudInitEnded {
 		if idleExpired() {
 			return fmt.Errorf("cloud-init did not report completion: no boot progress for %v (hint: see %#q)", watchHostAgentIdleTimeout(ctx), haStderrPath)
 		}
@@ -478,9 +484,9 @@ func watchHostAgentEvents(ctx context.Context, inst *limatype.Instance, haStdout
 	return nil
 }
 
-// bootProgress identifies the boot state an event reports. Each status event
-// carries the latest cloud-init line and state, so an event that differs only
-// in port forwarding or vsock repeats the previous progress.
+// bootProgress identifies the boot state an event reports. A cloud-init line
+// comes in its own event, and port forwarding and vsock events repeat the
+// rest of the status, so they are not progress unless that changes.
 func bootProgress(status hostagentevents.Status) string {
 	return fmt.Sprintf("%v|%v|%v|%q|%d|%+v", status.Running, status.Degraded, status.Exiting, status.Errors, status.SSHLocalPort, status.CloudInitProgress)
 }
