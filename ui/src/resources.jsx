@@ -114,15 +114,15 @@ export function ResourceSettings({ status, onConfirm, onDirtyChange }) {
     {draft ? <form className="resource-allocation" onSubmit={save}>
       <fieldset disabled={busy} className="resource-fields">
         <legend className="sr-only">{tr("资源配置")}</legend>
-        <label><span>{tr("内存上限")}</span>
+        <label><span>{tr("内存上限")}{status.restart_pending?.includes("memory") && <span className="restart-tag">{tr("待重启")}</span>}</span>
           <span className="resource-input"><input aria-label={tr("内存上限（GiB）")} aria-describedby="resource-memory-help" type="number" min={data.min_memory_gib || 2} max={data.max_memory_gib} step="1" required value={draft.memory_gib} onChange={(e) => edit("memory_gib", e.target.value)} /><span aria-hidden="true">GiB</span></span>
           <small id="resource-memory-help">{tr("默认") + " "}{gib(data.recommended_memory_bytes)}{" " + tr("· 可调") + " "}{data.min_memory_gib || 2}–{data.max_memory_gib} GiB</small>
         </label>
-        <label><span>{tr("CPU 上限")}</span>
+        <label><span>{tr("CPU 上限")}{status.restart_pending?.includes("cpus") && <span className="restart-tag">{tr("待重启")}</span>}</span>
           <span className="resource-input"><input aria-label={tr("CPU 逻辑核心数")} aria-describedby="resource-cpu-help" type="number" min={data.min_cpus || 1} max={data.max_cpus} step="1" required value={draft.cpus} onChange={(e) => edit("cpus", e.target.value)} /><span aria-hidden="true">{tr("逻辑核心")}</span></span>
           <small id="resource-cpu-help">{tr("默认") + " "}{data.recommended_cpus}{" " + tr("个 · 可调") + " "}{data.min_cpus || 1}–{data.max_cpus}{" " + tr("个")}</small>
         </label>
-        <label><span>{tr("硬盘上限")}</span>
+        <label><span>{tr("硬盘上限")}{status.restart_pending?.includes("disk") && <span className="restart-tag">{tr("待重启")}</span>}</span>
           <span className="resource-input"><input aria-label={tr("硬盘上限（GiB）")} aria-describedby="resource-disk-help" type="number" min={data.min_disk_gib || 16} max={data.max_disk_gib || 256} step="1" required value={draft.disk_gib ?? ""} onChange={(e) => edit("disk_gib", e.target.value)} /><span aria-hidden="true">GiB</span></span>
           <small id="resource-disk-help">{tr("默认") + " "}{gib(data.recommended_disk_bytes || 24 * 1073741824)}{" " + tr("· 可调") + " "}{data.min_disk_gib || 16}–{data.max_disk_gib || 256} GiB</small>
         </label>
@@ -132,9 +132,7 @@ export function ResourceSettings({ status, onConfirm, onDirtyChange }) {
         <button className="text-button" type="button" disabled={busy || draft.automatic} onClick={reset}>{tr("恢复默认")}</button>
         <button type="submit" disabled={busy || !dirty}>{starting ? tr("正在保存…") : tr("保存资源配置")}</button>
       </div>
-      <p role={saved ? "status" : undefined} className="field-help resource-save-note">
-        {saved ? tr("已保存，") : tr("保存后，")}{data.running ? tr("重启环境后生效。") : shrinkingDisk ? tr("点击下方按钮后生效。") : tr("下次启动环境时生效。")}
-      </p>
+      {saved && <p role="status" className="field-help resource-save-note">{tr("已保存")}</p>}
       {!data.running && data.disk_change_pending && !dirty && (
         <div className="resource-actions">
           <button className="text-button" type="button" disabled={busy} onClick={apply}>

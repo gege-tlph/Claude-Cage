@@ -336,7 +336,7 @@
   "写入剪贴板": "Write to clipboard",
   "准备继续原安装，已有文件和磁盘会保留。": "Ready to resume the original installation; existing files and disks are kept.",
   "减少动态效果": "Reduce motion",
-  "减少读取项目文件时与本机的往返。在本机上所做的改动最多 20 秒后在环境中可见，也可以在项目栏点“刷新项目文件”立即同步。下次启动环境时生效。": "Fewer round trips to this computer when reading project files. Changes made on this computer appear in the environment within 20 seconds, or right away with \"Refresh project files\" in the project bar. Takes effect the next time the environment starts.",
+  "减少读取项目文件时与本机的往返。在本机上所做的改动最多 20 秒后在环境中可见，也可以在项目栏点“刷新项目文件”立即同步。": "Fewer round trips to this computer when reading project files. Changes made on this computer appear in the environment within 20 seconds, or right away with \"Refresh project files\" in the project bar.",
   "出口待确认": "Exit unconfirmed",
   "出口规则": "Exit rules",
   "切换到 SSH 主机": "Switch to SSH host",
@@ -1860,7 +1860,7 @@
   "键盘习惯": "Keyboard style",
   "阻止网页读取 Canvas 图像": "Block pages from reading Canvas images",
   "附件已保存到 Cage，路径已插入终端": "Attachment saved to Cage; its path was inserted into the terminal",
-  "降低浏览器和 Claude Desktop 的清晰度，Linux 环境同时减少 Claude Desktop 的动效。下次启动环境时生效。": "Lowers the sharpness of the browser and Claude Desktop; in Linux environments also reduces Claude Desktop animations. Takes effect the next time the environment starts.",
+  "降低浏览器和 Claude Desktop 的清晰度，Linux 环境同时减少 Claude Desktop 的动效。": "Lowers the sharpness of the browser and Claude Desktop; in Linux environments also reduces Claude Desktop animations.",
   "随应用附带": "Bundled with the app",
   "隐私 cookie 网站数据 权限 清除 浏览记录": "privacy cookies site data permissions clear history",
   "隐私与网站数据": "Privacy and site data",
@@ -3055,5 +3055,10 @@
   "仅存于本机": "Stored on this computer only",
   "客机设备配置": "Guest device profile",
   "环境存储目录已不存在": "Environment storage folder no longer exists",
-  "环境存储不可用，请重新连接原磁盘": "Environment storage unavailable; reconnect the original disk"
+  "环境存储不可用，请重新连接原磁盘": "Environment storage unavailable; reconnect the original disk",
+  "重启环境以应用更改": "Restart to apply changes",
+  "终端会话会结束，文件会保留。": "Terminal sessions end; files are kept.",
+  "立即重启": "Restart now",
+  "稍后": "Later",
+  "待重启": "Restart pending"
 }

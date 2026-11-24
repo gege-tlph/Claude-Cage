@@ -3525,3 +3525,6 @@ html[dir="rtl"] .browser-header-cell { direction: rtl; }
 .sidebar-project-folders button:hover { background: var(--hover); color: var(--strong); }
 .sidebar-project-folders span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sidebar-project-folders small { font-size: 10px; }
+/* A saved setting the running environment applies at its next start. */
+.restart-tag { display: inline-block; margin-inline-start: 8px; padding: 0 6px; border-radius: 6px; font-size: 12px; font-weight: 500; line-height: 1.6; color: var(--accent); background: var(--accent-soft); vertical-align: middle; white-space: nowrap; }
+.status-bar .status-restart-pending { color: var(--accent); }

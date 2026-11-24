@@ -31,6 +31,7 @@ import { usePasswordVault } from "./password-vault";
 import { SettingsPanel } from "./settings";
 import { SetupProgress } from "./setup-progress";
 import { GuestSystemPicker, validGuestChoice } from "./guest-system-picker";
+import { newlyPending, restartDialog } from "./restart-pending.mjs";
 import { AppearanceProvider } from "./appearance";
 import { EnvironmentShield } from "./environment-shield";
 import { TailscalePanel } from "./tailscale";
@@ -477,6 +478,22 @@ function App() {
   };
   const confirm = (options) =>
     new Promise((resolve) => setDialog({ ...options, resolve }));
+  // Settings saved while the environment runs that apply at its next start:
+  // ask once when they become pending; "Later" leaves the status bar item.
+  const restartPending = status?.vm_running ? status.restart_pending ?? [] : [];
+  const restartSeen = useRef(null);
+  const askRestart = async (pending) => {
+    if (!(await confirm(restartDialog(pending, tr)))) return;
+    try { await api("/environment/restart", {}); }
+    catch (error) { notify(error.message); }
+  };
+  const restartKey = restartPending.join(",");
+  useEffect(() => {
+    if (!status) return;
+    const added = newlyPending(restartSeen.current, restartPending);
+    restartSeen.current = restartPending;
+    if (added.length && !status.job?.running) askRestart(restartPending);
+  }, [restartKey, Boolean(status)]);
   const openSettings = (section = "keyboard") => {
     setSafetyOpen(false);
     setSettingsSection(section);
@@ -1614,7 +1631,7 @@ function App() {
           onClose={dialog.pending ? undefined : () => finishDialog(false)}
           footer={
             <>
-              <button disabled={dialog.pending} onClick={() => finishDialog(false)}>{tr("取消")}</button>
+              <button disabled={dialog.pending} onClick={() => finishDialog(false)}>{tr(dialog.cancel || "取消")}</button>
               {dialog.secondary && (
                 <button disabled={dialog.pending} onClick={() => finishDialog("secondary")}>
                   {tr(dialog.secondary)}
@@ -1627,7 +1644,7 @@ function App() {
           }
         >
           <div className="modal-body">
-            <p>{tr(dialog.body)}</p>
+            {(Array.isArray(dialog.body) ? dialog.body : [dialog.body]).map((line, index) => <p key={index}>{tr(line)}</p>)}
             {dialog.check && <label className="modal-check">
               <input type="checkbox" checked={Boolean(dialog.checked)} disabled={dialog.pending}
                 onChange={event => setDialog(current => current && { ...current, checked: event.target.checked })} />
@@ -2271,6 +2288,12 @@ function App() {
             <MicrophoneIndicator mic={mic} />
             <AudioControls audio={audio} />
             <EnvironmentClock timezone={settings.timezone} clock12Hour={settings.clock_12_hour} />
+            {running && restartPending.length > 0 && (
+              <button className="status-restart-pending" disabled={busy} onClick={() => askRestart(restartPending)}>
+                <RefreshCw size={12} />
+                <span>{tr("待重启")}</span>
+              </button>
+            )}
             <button
               onClick={stop}
               disabled={

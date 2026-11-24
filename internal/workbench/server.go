@@ -92,6 +92,7 @@ type Server struct {
 	profile, configPath, exe, origin, token, session string
 	mu                                               sync.Mutex
 	preferences                                      Preferences
+	applied                                          *appliedSettings // restart-time settings in use (restart_pending.go)
 	jobs                                             jobManager
 	desktopOnboardingUntil                           time.Time
 	desktopOnboardingReleased                        bool
@@ -486,6 +487,7 @@ func (s *Server) handler() http.Handler {
 	mux.HandleFunc("POST /api/restore", s.restore)
 	mux.HandleFunc("POST /api/start", s.start)
 	mux.HandleFunc("POST /api/stop", s.stop)
+	mux.HandleFunc("POST /api/environment/restart", s.restartEnvironment)
 	mux.HandleFunc("POST /api/safety/check", s.safetyCheck)
 	mux.HandleFunc("POST /api/safety/close", s.pauseNetwork)
 	mux.HandleFunc("GET /api/safety/report", s.safetyExport)
@@ -791,6 +793,7 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	running := s.vmRunning()
+	saved := s.savedRestartSettings()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	_, e := os.Stat(filepath.Join(s.profile, "previous-profile.json"))
@@ -814,6 +817,7 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 		"network_paused": s.networkPaused, "network_open": s.networkOpenLocked(time.Now()),
 		"safety": s.safety, "environment_update_required": s.guestUpdateRequired, "environment_update_error": s.guestUpdateError,
 		"abandoned_guests": s.abandonedGuestList(), "abandoned_environment": s.abandonedEnvironmentSystem(),
+		"restart_pending": s.restartPendingLocked(running, saved),
 	}
 	if system, err := s.installedLinuxSystem(); err != nil {
 		view["guest_system_error"] = err.Error()

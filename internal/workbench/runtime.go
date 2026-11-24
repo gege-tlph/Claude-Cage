@@ -509,6 +509,7 @@ func (s *Server) startEnvironment(syncTimezone bool) error {
 		defer job.setSetupProgress(nil)
 	}
 	s.setMessage("正在启动浏览器、编辑器与共享文件…")
+	s.markApplied()
 	if err = s.runCage("up"); err != nil {
 		return err
 	}

@@ -625,16 +625,16 @@ export function SettingsPanel({
                     <input type="checkbox" role="switch" checked={!draft.reuse_claude_login}
                       onChange={(event) => update("reuse_claude_login", !event.target.checked)} />
                   </label>}
-                  {typeof current.balanced_display === "boolean" && <label className="settings-row settings-switch-row" title={tr("降低浏览器和 Claude Desktop 的清晰度，Linux 环境同时减少 Claude Desktop 的动效。下次启动环境时生效。")}>
+                  {typeof current.balanced_display === "boolean" && <label className="settings-row settings-switch-row" title={tr("降低浏览器和 Claude Desktop 的清晰度，Linux 环境同时减少 Claude Desktop 的动效。")}>
                     <span className="settings-row-copy">
-                      <strong>{tr("优先流畅")}</strong>
+                      <strong>{tr("优先流畅")}</strong>{status.restart_pending?.includes("balanced_display") && <span className="restart-tag">{tr("待重启")}</span>}
                     </span>
                     <input type="checkbox" role="switch" checked={draft.balanced_display}
                       onChange={(event) => update("balanced_display", event.target.checked)} />
                   </label>}
-                  {typeof current.project_file_cache === "boolean" && <label className="settings-row settings-switch-row" title={tr("减少读取项目文件时与本机的往返。在本机上所做的改动最多 20 秒后在环境中可见，也可以在项目栏点“刷新项目文件”立即同步。下次启动环境时生效。")}>
+                  {typeof current.project_file_cache === "boolean" && <label className="settings-row settings-switch-row" title={tr("减少读取项目文件时与本机的往返。在本机上所做的改动最多 20 秒后在环境中可见，也可以在项目栏点“刷新项目文件”立即同步。")}>
                     <span className="settings-row-copy">
-                      <strong>{tr("项目文件缓存")}</strong>
+                      <strong>{tr("项目文件缓存")}</strong>{status.restart_pending?.includes("project_file_cache") && <span className="restart-tag">{tr("待重启")}</span>}
                     </span>
                     <input type="checkbox" role="switch" checked={draft.project_file_cache}
                       onChange={(event) => update("project_file_cache", event.target.checked)} />
