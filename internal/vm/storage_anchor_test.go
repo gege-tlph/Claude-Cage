@@ -16,6 +16,11 @@ func TestStorageMoveKeepsLimaIdentityAndSocketPaths(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The test folder sits in %LOCALAPPDATA%\Temp, which Windows storage
+	// targets may not use (#676). Point the user folders elsewhere.
+	t.Setenv("LOCALAPPDATA", filepath.Join(root, "AppData", "Local"))
+	t.Setenv("APPDATA", filepath.Join(root, "AppData", "Roaming"))
+	t.Setenv("USERPROFILE", root)
 	profile := filepath.Join(root, "profile")
 	home := filepath.Join(profile, "state", "lima")
 	if err := os.MkdirAll(filepath.Join(home, "guest"), 0700); err != nil {
