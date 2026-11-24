@@ -215,7 +215,7 @@ export function ClaudeDesktop({
                 <button
                   className="quiet-button"
                   disabled={busy}
-                  onClick={refresh}
+                  onClick={() => refresh()}
                 >
                   {tr("重新读取状态")}
                 </button>
