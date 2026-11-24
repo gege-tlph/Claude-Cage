@@ -204,10 +204,10 @@ func probeExitIPServices(ctx context.Context, client *http.Client, services []ex
 		// connectivity address has a handshake problem.
 		if reachability != "" && ctx.Err() == nil {
 			if reached, _ := proxyReaches(ctx, client, reachability); !reached {
-				return "", usererror.New("代理节点无法连通", strings.Join(reported, "；"), "通过所选代理访问连通性检查地址也未成功，节点可能无法连通；请检查节点地址、端口、账号密码以及本机到节点的网络，或切换节点；外网保持关闭。", ErrProxyConnectFailed)
+				return "", usererror.Titled("代理节点无法连通", strings.Join(reported, "；"), "通过所选代理访问连通性检查地址也未成功，节点可能无法连通；请检查节点地址、端口、账号密码以及本机到节点的网络，或切换节点；外网保持关闭。", ErrProxyConnectFailed)
 			}
 		}
-		return "", usererror.New("TLS 握手失败", strings.Join(reported, "；"), "所选代理链路在 TLS 握手阶段中断（如返回 EOF），可尝试在“设置 → 网络与代理”开启“TLS ClientHello 分段传输兼容模式”；若使用未设置 client-fingerprint 的 VMess/VLESS/Trojan 等 TLS/gRPC 节点，也可尝试在节点 YAML 中添加 client-fingerprint: safari 或 firefox 后重新导入并应用，或切换代理节点；外网保持关闭。", ErrTLSHandshakeFailed)
+		return "", usererror.Titled("TLS 握手失败", strings.Join(reported, "；"), "所选代理链路在 TLS 握手阶段中断（如返回 EOF），可尝试在“设置 → 网络与代理”开启“TLS ClientHello 分段传输兼容模式”；若使用未设置 client-fingerprint 的 VMess/VLESS/Trojan 等 TLS/gRPC 节点，也可尝试在节点 YAML 中添加 client-fingerprint: safari 或 firefox 后重新导入并应用，或切换代理节点；外网保持关闭。", ErrTLSHandshakeFailed)
 	}
 	if allTimedOut {
 		title := "实时出口采样超时"
@@ -231,10 +231,10 @@ func probeExitIPServices(ctx context.Context, client *http.Client, services []ex
 				next = "通过所选代理访问连通性检查地址同样超时，节点可能无法连通；请检查节点地址、端口、账号密码以及本机到节点的网络，或切换节点；若节点使用 TLS/gRPC 且未设置 client-fingerprint（如 VMess+gRPC+TLS），可尝试在节点 YAML 中添加 client-fingerprint: safari 或 firefox 后重新导入并应用，或尝试在“设置 → 网络与代理”开启“TLS ClientHello 分段传输兼容模式”；外网保持关闭。"
 			}
 		}
-		return "", usererror.New(title, strings.Join(reported, "；"), next, cause)
+		return "", usererror.Titled(title, strings.Join(reported, "；"), next, cause)
 	}
 	if allProxyConnectFailed {
-		return "", usererror.New("代理连接失败", strings.Join(reported, "；"), "未能通过所选代理建立连接，请检查代理核心与节点状态；外网保持关闭。", ErrProxyConnectFailed)
+		return "", usererror.Titled("代理连接失败", strings.Join(reported, "；"), "未能通过所选代理建立连接，请检查代理核心与节点状态；外网保持关闭。", ErrProxyConnectFailed)
 	}
 	return "", errors.New("通过所选代理查询出口 IP 失败：" + strings.Join(reported, "；") + "。未能确认出口时，外网保持关闭。")
 }

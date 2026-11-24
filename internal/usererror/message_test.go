@@ -12,6 +12,18 @@ import (
 	"testing"
 )
 
+// A title that already names the outcome is not followed by another "失败".
+func TestTitledKeepsTheTitleAndCause(t *testing.T) {
+	cause := errors.New("eof")
+	err := Titled("TLS 握手超时", "主检测服务：等待响应超时。", "外网保持关闭。", cause)
+	if got := err.Error(); got != "TLS 握手超时：主检测服务：等待响应超时。外网保持关闭。" || !errors.Is(err, cause) {
+		t.Fatalf("Titled = %q", got)
+	}
+	if got := New("连接代理", "超时", "重试。", nil).Error(); got != "连接代理失败：超时。重试。" {
+		t.Fatalf("New = %q", got)
+	}
+}
+
 func TestKnownFailureIsReadableAndPreservesCause(t *testing.T) {
 	for _, tc := range []struct {
 		cause  error

@@ -28,7 +28,13 @@ func (e *failure) Error() string { return e.message }
 func (e *failure) Unwrap() error { return e.cause }
 
 func New(action, reason, next string, cause error) error {
-	return &failure{message: action + "失败：" + strings.TrimRight(reason, "。；;") + "。" + next, cause: cause}
+	return Titled(action+"失败", reason, next, cause)
+}
+
+// Titled is New for a title that already names the outcome, such as
+// "TLS 握手超时": New would make it "TLS 握手超时失败".
+func Titled(title, reason, next string, cause error) error {
+	return &failure{message: title + "：" + strings.TrimRight(reason, "。；;") + "。" + next, cause: cause}
 }
 
 func Wrap(action string, cause error, next string) error {
