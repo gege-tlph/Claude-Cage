@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -38,10 +39,38 @@ type mobilePairing struct {
 	serving          context.CancelFunc
 	record           *phoneRecord
 	status           string
+	link             string
 	closed           bool
 	powerCtx         context.Context
 	powerDone        <-chan struct{}
 	power            keepawake.State
+}
+
+// officialMobileRelay is the relay used when none is saved. Tests point it at
+// a local relay.
+var officialMobileRelay = mobilelink.OfficialRelay
+
+// errRelayUnconfirmed: the official relay is a server the user did not set up,
+// reached over the host network. A pairing request must name it before Cage
+// contacts it (#740).
+var errRelayUnconfirmed = errors.New("请先确认官方中继")
+
+// relayHost is how the settings page names a relay: its host, no scheme.
+func relayHost(origin string) string {
+	if u, err := url.Parse(origin); err == nil && u.Host != "" {
+		return u.Host
+	}
+	return origin
+}
+
+// setLink records the saved phone's relay link for the attachment that
+// owns ctx; a stopped attachment must not overwrite a newer one.
+func (p *mobilePairing) setLink(ctx context.Context, state string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.powerCtx == ctx && ctx.Err() == nil {
+		p.link = state
+	}
 }
 
 func (s *Server) phoneFile() string { return filepath.Join(s.profile, "mobile-paired-device.json") }
@@ -97,9 +126,13 @@ func (s *Server) attachPhone(r phoneRecord) {
 			}
 		})
 	}()
+	s.phones.link = "正在连接"
 	go func() {
 		delay := time.Second
-		for ctx.Err() == nil {
+		for attempt := 0; ctx.Err() == nil; attempt++ {
+			if attempt > 0 {
+				s.phones.setLink(ctx, "正在重连")
+			}
 			start := time.Now()
 			err := s.phoneRoom(ctx, r)
 			if ctx.Err() != nil {
@@ -142,6 +175,9 @@ func (s *Server) phoneRoom(ctx context.Context, r phoneRecord) error {
 	roomCtx, cancelRoom := context.WithCancel(ctx)
 	p.roomProof = proof
 	p.roomCtx = roomCtx
+	if p.powerCtx == ctx {
+		p.link = "已连接"
+	}
 	p.mu.Unlock()
 	defer func() {
 		cancelRoom()
@@ -170,6 +206,7 @@ func (s *Server) stopPhone() {
 	done := p.powerDone
 	p.powerCtx = nil
 	p.power = keepawake.State{}
+	p.link = ""
 	p.mu.Unlock()
 	if done != nil {
 		<-done
@@ -179,12 +216,15 @@ func (s *Server) phoneStatus(w http.ResponseWriter, r *http.Request) {
 	p := &s.phones
 	p.mu.Lock()
 	var device *mobilelink.DeviceInfo
+	reply := map[string]any{"official_relay": relayHost(officialMobileRelay)}
 	if p.record != nil {
 		device = p.record.Device
+		reply["relay"] = relayHost(p.record.Relay)
+		reply["link"] = p.link
 	}
 	paired, status, power := p.record != nil, p.status, p.power
 	p.mu.Unlock()
-	reply := map[string]any{"paired": paired, "status": status, "device": device, "keep_awake": power}
+	reply["paired"], reply["status"], reply["device"], reply["keep_awake"] = paired, status, device, power
 	if _, access := s.account.accessStateFor(false, true); access == accountAccessDesktopOnly {
 		reply["mobile_access_blocked"] = true
 		reply["mobile_access_reason"] = s.account.desktopOnlyMobileMessage()
@@ -249,12 +289,14 @@ func (s *Server) removePhone(w http.ResponseWriter, r *http.Request) {
 	p.roomProof = ""
 	p.roomCtx = nil
 	p.status = ""
+	p.link = ""
 	jsonReply(w, map[string]bool{"paired": false})
 }
 func (s *Server) pairPhone(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Admin string `json:"admin"`
-		Relay string `json:"relay"`
+		Admin   string `json:"admin"`
+		Relay   string `json:"relay"`
+		Confirm string `json:"confirm"`
 	}
 	if !readJSON(w, r, &input, 8192) {
 		return
@@ -268,10 +310,14 @@ func (s *Server) pairPhone(w http.ResponseWriter, r *http.Request) {
 	origin := s.preferences.MobileRelay
 	s.mu.Unlock()
 	if origin == "" {
-		origin = mobilelink.OfficialRelay
+		origin = officialMobileRelay
 	}
-	if input.Admin != "" && (origin == mobilelink.OfficialRelay || origin != input.Relay) {
+	if input.Admin != "" && (origin == officialMobileRelay || origin != input.Relay) {
 		requestError(w, errors.New("请先保存自建中继地址"))
+		return
+	}
+	if origin == officialMobileRelay && input.Confirm != relayHost(origin) {
+		http.Error(w, errRelayUnconfirmed.Error(), http.StatusPreconditionRequired)
 		return
 	}
 	p := &s.phones

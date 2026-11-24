@@ -12,6 +12,8 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
   const [paired, setPaired] = useState(false);
   const [device, setDevice] = useState(null);
   const [power, setPower] = useState(null);
+  const [link, setLink] = useState(null);
+  const [officialRelay, setOfficialRelay] = useState("");
   const [mobileAccessBlocked, setMobileAccessBlocked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
@@ -26,6 +28,8 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
         setPaired(state.paired);
         setDevice(state.paired ? state.device ?? null : null);
         setPower(state.paired ? state.keep_awake ?? null : null);
+        setLink(state.paired && state.relay ? { relay: state.relay, state: state.link || "" } : null);
+        setOfficialRelay(state.official_relay || "");
         setMobileAccessBlocked(Boolean(state.mobile_access_blocked));
         if (state.paired) setCode(null);
         else if (code && Date.now() >= Date.parse(code.expires)) {
@@ -47,6 +51,17 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
     };
   }, [code]);
   async function generate() {
+    // The official relay is reached over the host network. Name it and ask
+    // before Cage sends it anything (#740).
+    if (
+      !custom &&
+      !(await onConfirm({
+        title: "连接 Cage 官方中继？",
+        body: `${officialRelay} · ${tr("直连")}`,
+        confirm: "连接",
+      }))
+    )
+      return;
     setBusy(true);
     setNotice("");
     setCode(null);
@@ -55,6 +70,7 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
         await api("/mobile-pair", {
           relay: savedRelay,
           admin: custom ? token : "",
+          confirm: custom ? "" : officialRelay,
         }),
       );
     } catch (e) {
@@ -81,6 +97,7 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
       setPaired(false);
       setDevice(null);
       setPower(null);
+      setLink(null);
       setNotice("");
     } catch (e) {
       setNotice(e.message);
@@ -108,6 +125,13 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
             ) : (
               <span>{tr("型号待获取，请更新手机端 Cage 后重新连接。")}</span>
             )}
+          </p>
+        )}
+        {link && (
+          <p className="remote-pair-device remote-pair-relay" aria-label={tr("中继")}>
+            <span>{tr("中继")}</span>
+            <strong>{link.relay}</strong>
+            {link.state && <span>{tr(link.state)}</span>}
           </p>
         )}
         {mobileAccessBlocked && (
@@ -146,7 +170,7 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
             <button
               type="button"
               className="primary"
-              disabled={busy || relay !== savedRelay || (custom && !relay)}
+              disabled={busy || relay !== savedRelay || (custom && !relay) || (!custom && !officialRelay)}
               onClick={generate}
             >
               <QrCode size={18} />
