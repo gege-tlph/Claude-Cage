@@ -76,8 +76,12 @@ export function ClientRoot({ children }) {
     if (!["none", "local", "remote"].includes(value.mode))
       throw new Error("客户端未返回有效的工作环境，请更新 Cage。");
     const next = identity(value);
-    if (currentIdentity.current && currentIdentity.current !== next) {
-      // Destroy callbacks, local files in flight and input handlers from the previous generation.
+    const previous = currentIdentity.current;
+    // Destroy callbacks, local files in flight and input handlers from the
+    // previous generation. A "none" generation never mounts the workbench, so
+    // choosing the first environment at startup keeps the page (and the
+    // startup splash) instead of loading it again.
+    if (previous && previous !== next && !previous.startsWith("none:")) {
       location.reload();
       return value;
     }
@@ -780,7 +784,7 @@ function Environment({ context, refresh, children }) {
         {ready ? (
           <div className="client-workbench">{children}</div>
         ) : defaultLocal && !error && candidate?.connection?.state !== "failed" && !expanded ? (
-          <StartupStage status={tr("正在打开 Cage 工作台…")} />
+          <StartupStage status={tr("正在打开工作台…")} />
         ) : (
           <main className="environment-picker">
             <div>
