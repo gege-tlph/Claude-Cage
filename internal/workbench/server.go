@@ -899,6 +899,10 @@ func (s *Server) probe(w http.ResponseWriter, r *http.Request) {
 		requestError(w, err)
 		return
 	}
+	if err := s.ensureProxyInterfaceBeforeUse(r.Context()); err != nil {
+		requestError(w, err)
+		return
+	}
 	old, err := loadConfig(s.configPath)
 	if err != nil {
 		requestError(w, err)
