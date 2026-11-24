@@ -22,7 +22,10 @@ import (
 	"github.com/lima-vm/lima/v2/pkg/sshutil"
 )
 
-func (a *HostAgent) waitForRequirements(label string, requirements []requirement) error {
+// waitForRequirements stops retrying once ctx ends: a host agent shutting
+// down, for example stopped right after a start, does not keep probing a
+// guest it is powering off.
+func (a *HostAgent) waitForRequirements(ctx context.Context, label string, requirements []requirement) error {
 	const sleepDuration = 3 * time.Second
 	retries := 200
 	if *a.instConfig.OS == limatype.DARWIN && *a.instConfig.VMType == limatype.QEMU {
@@ -58,7 +61,12 @@ func (a *HostAgent) waitForRequirements(label string, requirements []requirement
 				errs = append(errs, fmt.Errorf("failed to satisfy the %s requirement %d of %d %#q: %s: %w", label, i+1, len(requirements), req.description, req.debugHint, err))
 				break retryLoop
 			}
-			time.Sleep(sleepDuration)
+			select {
+			case <-ctx.Done():
+				logrus.Infof("Stopped waiting for the %s requirements: %v", label, ctx.Err())
+				return errors.Join(append(errs, ctx.Err())...)
+			case <-time.After(sleepDuration):
+			}
 		}
 	}
 	return errors.Join(errs...)
