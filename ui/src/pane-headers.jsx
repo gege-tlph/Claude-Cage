@@ -10,12 +10,12 @@ import { BrowserHistory } from "./browser-history";
 import { BrowserAddressBar } from "./browser-address-bar";
 import { tabName } from "./workspace-state.mjs";
 import { shortcut } from "./platform.mjs";
-import logo from "./logo.png";
+import { CageLogo } from "./cage-logo.jsx";
 import { useTranslation } from "./interface-language.mjs";
 
 export const ExpandSidebar = ({ onClick }) => { const tr = useTranslation(); return  <button className="icon-button sidebar-expand"
   aria-label={tr("展开侧栏")} onClick={onClick}>
-  <img className="sidebar-expand-logo" src={logo} alt="" />
+  <CageLogo className="sidebar-expand-logo" />
   <PanelLeftOpen className="sidebar-expand-icon" size={18} />
 </button>; };
 

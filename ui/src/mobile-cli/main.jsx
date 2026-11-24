@@ -4,7 +4,7 @@ import { Archive, ArrowLeft, ArrowUp, LoaderCircle, Monitor, RefreshCw, Settings
 import { RemoteDisplay } from "./remote-browser";
 import { CodeNavigation, ProjectTree, WorkspaceDrawer, workspaceTools } from "./workspace-drawer";
 import { deviceCommand } from "./device-navigation.mjs";
-import cageLogo from "../logo.png";
+import { CageLogo } from "../cage-logo.jsx";
 import { accessDenied, request, sessionPath } from "./transport.mjs";
 import { recoverPendingMessage, retryableSessionError, sessionFailureMessage, sessionRetryDelay, sessionRetryLimit } from "./session-recovery.mjs";
 import { SessionActionDialog, sortSessions } from "./session-row";
@@ -259,8 +259,8 @@ function App() {
     <header className="topbar workspace-topbar">
       {phoneWorkspace
         ? <button type="button" className="icon-button" aria-haspopup="dialog" aria-expanded={drawer} aria-label="展开侧栏"
-          onClick={() => setDrawer(true)}><img className="brand-mark" src={cageLogo} alt="Cage" /></button>
-        : <a className="icon-button" href="/" aria-label="返回工作台"><img className="brand-mark" src={cageLogo} alt="Cage" /></a>}
+          onClick={() => setDrawer(true)}><CageLogo className="brand-mark" label="Cage" /></button>
+        : <a className="icon-button" href="/" aria-label="返回工作台"><CageLogo className="brand-mark" label="Cage" /></a>}
       {phoneWorkspace && (current.tool === "browser" || current.tool === "claude") && <div className="workspace-address-slot" ref={setAddressSlot} />}
       <div className="top-actions">{phoneWorkspace
         ? <span className="workspace-tool-icon" role="img" aria-label={activeTool?.name || "Claude Code"}><ActiveToolIcon size={19} aria-hidden="true" /></span>

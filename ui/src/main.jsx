@@ -8,7 +8,7 @@ import {
   maxSidebarWidth,
   nextSidebarWidth,
 } from "./sidebar-width.mjs";
-import logo from "./logo.png";
+import { CageLogo } from "./cage-logo.jsx";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Clock3,
@@ -1972,7 +1972,7 @@ function App() {
             {showHome && (
               <div className="welcome">
                 <div className="welcome-content">
-                  <img className="welcome-logo" src={logo} alt="Cage" />
+                  <CageLogo className="welcome-logo" label="Cage" />
                   {storageRecovery ? <>
                     <h1>{tr("环境存储需要恢复")}</h1>
                     <p className="welcome-subtitle"><SafetyMessage message={status.storage_recovery.error} /></p>

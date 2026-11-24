@@ -19,7 +19,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { EnvironmentShield } from "./environment-shield";
-import logo from "./logo.png";
+import { CageLogo } from "./cage-logo.jsx";
 import claudeLogo from "./claude-logo.svg";
 import { dropAfter, moveItem, projectName } from "./workspace-state.mjs";
 import { WorkspaceTabs } from "./workspace-tabs";
@@ -152,7 +152,7 @@ export function WorkspaceSidebar({
           aria-current={home ? "page" : undefined}
           title={tr("工作台")}
         >
-          <img className="brand-logo" src={logo} alt="" />
+          <CageLogo className="brand-logo" />
           <span>Cage</span>
         </button>
         <button

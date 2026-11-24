@@ -33,7 +33,7 @@
 .ssh-sidebar-body .ssh-host-row { justify-content:flex-start; }
 .environment-picker { flex:1; min-width:0; overflow:auto; display:grid; align-items:start; justify-items:center; padding:clamp(40px,12vh,140px) 24px 32px; background:var(--paper); }
 .environment-picker > div { width:min(100%,492px); }
-.environment-logo { width:40px; height:40px; object-fit:contain; margin-bottom:12px; }
+.environment-logo { width:40px; height:40px; border-radius:10px; margin-bottom:12px; }
 .environment-picker h1 { font-size:1.7rem; margin:0 0 8px; color:var(--strong); }
 .environment-picker p { line-height:1.65; margin:0 0 18px; color:var(--muted); }
 .environment-actions, .remote-button-row { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }

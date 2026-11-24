@@ -41,51 +41,47 @@
   animation: splash-glow 2.4s ease-in-out infinite;
 }
 
-.cage-mark {
+/* The logo is the shared CageLogo; the splash only animates its parts. The
+   splash shows before the theme loads, so it sets the cage colour itself. */
+.startup-splash .cage-mark {
+  --cage-mark-tile: transparent;
+  --cage-mark-cage: var(--splash-bars);
   position: relative;
   width: 132px;
   height: 132px;
   overflow: visible;
-  shape-rendering: crispEdges;
 }
-.cage-mark-crab rect {
+.startup-splash .cage-mark-crab rect {
   fill: var(--splash-crab);
 }
-.cage-mark-crab .cage-mark-eyes rect {
+.startup-splash .cage-mark-crab .cage-mark-eyes rect {
   fill: var(--splash-eyes);
 }
-.cage-mark-crab {
+.startup-splash .cage-mark-crab {
   animation: splash-crab-bob 1.1s steps(1, end) infinite;
 }
-.cage-mark-legs-a {
+.startup-splash .cage-mark-legs-a {
   animation: splash-legs 0.55s steps(1, end) infinite;
 }
-.cage-mark-legs-b {
+.startup-splash .cage-mark-legs-b {
   animation: splash-legs 0.55s steps(1, end) infinite reverse;
 }
-.cage-mark-eyes {
+.startup-splash .cage-mark-eyes {
   transform-box: fill-box;
   transform-origin: center;
   animation: splash-blink 3.2s ease-in-out infinite;
 }
-.cage-mark-frame {
-  fill: none;
-  stroke: var(--splash-bars);
-  stroke-width: 7.2;
-  /* Square caps close the corner where the drawn stroke starts and ends. */
-  stroke-linecap: square;
-  stroke-linejoin: miter;
+.startup-splash .cage-mark-frame {
   stroke-dasharray: 100;
   stroke-dashoffset: 100;
   animation: splash-frame 0.7s cubic-bezier(.6, 0, .3, 1) 0.05s forwards;
 }
-.cage-mark-bar {
-  fill: var(--splash-bars);
+.startup-splash .cage-mark-bar {
   transform: translateY(-110px);
   animation: splash-bar 0.45s cubic-bezier(.3, 1.4, .5, 1) forwards;
 }
-.cage-mark-bar-1 { animation-delay: 0.55s; }
-.cage-mark-bar-2 { animation-delay: 0.72s; }
+.startup-splash .cage-mark-bar-1 { animation-delay: 0.55s; }
+.startup-splash .cage-mark-bar-2 { animation-delay: 0.72s; }
 
 .startup-splash-status {
   height: 1.5em;
@@ -152,8 +148,8 @@
     animation: none !important;
     transition: none !important;
   }
-  .cage-mark-frame { stroke-dashoffset: 0; }
-  .cage-mark-bar { transform: none; }
+  .startup-splash .cage-mark-frame { stroke-dashoffset: 0; }
+  .startup-splash .cage-mark-bar { transform: none; }
 }
-:root[data-reduced-motion="true"] .cage-mark-frame { stroke-dashoffset: 0; }
-:root[data-reduced-motion="true"] .cage-mark-bar { transform: none; }
+:root[data-reduced-motion="true"] .startup-splash .cage-mark-frame { stroke-dashoffset: 0; }
+:root[data-reduced-motion="true"] .startup-splash .cage-mark-bar { transform: none; }

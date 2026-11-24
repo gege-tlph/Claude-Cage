@@ -16,7 +16,7 @@ import { needsEnvironmentRestart, needsProxySetup } from "./onboarding-state.mjs
 import { beginInstall, formatSpeed, mirrorNames } from "./debian-mirrors.mjs";
 import { networkState } from "./safety-state.mjs";
 import { useSSHNavigation } from "./remote-hosts";
-import logo from "./logo.png";
+import { CageLogo } from "./cage-logo.jsx";
 import "./initialization.css";
 import { useTranslation } from "./interface-language.mjs";
 import { LanguageSettings } from "./language-settings";
@@ -27,7 +27,7 @@ function InitializationFrame({ children }) {
   const tr = useTranslation();
   return <main className="initialization">
     <header className="initialization-brand">
-      <img src={logo} alt="" /><strong>Cage</strong><span>{tr("首次设置")}</span>
+      <CageLogo /><strong>Cage</strong><span>{tr("首次设置")}</span>
       <div className="startup-language-slot"><LanguageSettings compact /></div>
     </header>
     {children}
