@@ -3010,5 +3010,11 @@
   "来源不明（重复历史）": "Unknown source (duplicate history)",
   "已移除的账号配置": "Removed account profile",
   "独立配置 {0}": "Separate profile {0}",
-  "无法读取环境目录": "Can't read the environment folder"
+  "无法读取环境目录": "Can't read the environment folder",
+  "测试加密 DNS": "Test encrypted DNS",
+  "经所选节点解析 {0}": "Resolve {0} through the selected node",
+  "解析 {0}": "Resolve {0}",
+  "可用 · {0}": "Works · {0}",
+  "没有地址": "No address",
+  "返回错误 · {0}": "Error · {0}"
 }

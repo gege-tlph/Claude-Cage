@@ -473,6 +473,7 @@ func (s *Server) handler() http.Handler {
 	mux.HandleFunc("POST /api/appearance", s.saveAppearance)
 	mux.HandleFunc("GET /api/appearance/codex", s.codexAppearance)
 	mux.HandleFunc("POST /api/settings/probe", s.probe)
+	mux.HandleFunc("POST /api/settings/dns-check", s.dnsCheck)
 	mux.HandleFunc("GET /api/proxy", s.proxyStatus)
 	mux.HandleFunc("GET /api/proxy/local-configs", s.proxyLocalConfigs)
 	mux.HandleFunc("POST /api/proxy/delay", s.proxyDelay)
@@ -897,6 +898,28 @@ func (s *Server) probe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonReply(w, loc)
+}
+
+// dnsCheck queries a settings draft's encrypted DNS endpoints for the Debian
+// source through the selected proxy. A first installation whose APT cannot
+// resolve can test and change them before continuing (#815).
+func (s *Server) dnsCheck(w http.ResponseWriter, r *http.Request) {
+	v, ok := s.proposed(w, r)
+	if !ok {
+		return
+	}
+	if err := v.Config.RequireManagedProxy(s.profile); err != nil {
+		requestError(w, err)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), time.Minute)
+	defer cancel()
+	checks, err := cage.CheckDNS(ctx, v.Config, cage.DNSCheckHost)
+	if err != nil {
+		requestError(w, err)
+		return
+	}
+	jsonReply(w, map[string]any{"host": cage.DNSCheckHost, "endpoints": checks})
 }
 func (s *Server) saveSettings(w http.ResponseWriter, r *http.Request) {
 	v, saveStaticDraft, ok := s.proposedWithOptions(w, r)
