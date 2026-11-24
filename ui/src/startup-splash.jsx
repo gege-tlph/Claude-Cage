@@ -46,9 +46,27 @@ const FIRST_STAGE_WAIT = 4000;
 const STAGE_GAP = 180;
 const LEAVE_DURATION = 420;
 
+// The desktop window may already show the same splash while the backend
+// starts (desktop/windows/StartupSplash.cs). The first page then continues
+// it in the window's colours instead of starting the intro again.
+const handoff = typeof window === "object" ? window.cageStartupSplash : undefined;
+function handoffStyle() {
+  if (!handoff || !/^#[0-9a-f]{6}$/i.test(handoff.background)) return undefined;
+  // Every animation carries on from where the window's splash has got to.
+  const elapsed = Number.isFinite(handoff.shown) ? Math.min(Math.max(Date.now() - handoff.shown, 0), 10000) : 0;
+  return {
+    "--splash-bg": handoff.background,
+    "--splash-bars": handoff.dark ? "#ece7df" : "#282828",
+    "--splash-text": handoff.dark ? "#a8a8a8" : "#6b6b6b",
+    "--splash-elapsed": Math.round(elapsed) + "ms",
+  };
+}
+
 export function StartupSplash() {
   const { active, status } = useSyncExternalStore(subscribe, () => snapshot);
   const [phase, setPhase] = useState("shown");
+  // Only the first splash continues the window's; a later one is the page's own.
+  const [continued, setContinued] = useState(handoffStyle);
   useEffect(() => {
     if (active) {
       setPhase("shown");
@@ -59,12 +77,20 @@ export function StartupSplash() {
   }, [active]);
   useEffect(() => {
     if (phase !== "leaving") return undefined;
-    const timer = setTimeout(() => setPhase("gone"), LEAVE_DURATION);
+    const timer = setTimeout(() => {
+      setContinued(undefined);
+      setPhase("gone");
+    }, LEAVE_DURATION);
     return () => clearTimeout(timer);
   }, [phase]);
   if (phase === "gone") return null;
   return (
-    <div className={`startup-splash${phase === "leaving" ? " leaving" : ""}`} role="status" aria-live="polite">
+    <div
+      className={`startup-splash${continued ? " continued" : ""}${phase === "leaving" ? " leaving" : ""}`}
+      style={continued}
+      role="status"
+      aria-live="polite"
+    >
       <div className="startup-splash-stage">
         <div className="startup-splash-glow" aria-hidden="true" />
         <CageLogo />

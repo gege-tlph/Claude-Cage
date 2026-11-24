@@ -12,8 +12,8 @@
   align-items: center;
   justify-content: center;
   gap: 22px;
-  background: var(--paper, #fbfaf7);
-  color: var(--muted, #6b6b6b);
+  background: var(--splash-bg, var(--paper, #fbfaf7));
+  color: var(--splash-text, var(--muted, #6b6b6b));
   transition: opacity 420ms ease, transform 420ms ease, filter 420ms ease;
 }
 :root[data-theme="dark"] .startup-splash {
@@ -82,6 +82,19 @@
 }
 .startup-splash .cage-mark-bar-1 { animation-delay: 0.55s; }
 .startup-splash .cage-mark-bar-2 { animation-delay: 0.72s; }
+/* Continuing the desktop window's splash: every animation starts as far in
+   as the window's has got (--splash-elapsed), so the hand-over is invisible. */
+.startup-splash.continued .startup-splash-glow,
+.startup-splash.continued .cage-mark-crab,
+.startup-splash.continued .cage-mark-legs-a,
+.startup-splash.continued .cage-mark-legs-b,
+.startup-splash.continued .cage-mark-eyes,
+.startup-splash.continued .startup-splash-dots i:nth-child(1) { animation-delay: calc(0ms - var(--splash-elapsed)); }
+.startup-splash.continued .startup-splash-dots i:nth-child(2) { animation-delay: calc(400ms - var(--splash-elapsed)); }
+.startup-splash.continued .startup-splash-dots i:nth-child(3) { animation-delay: calc(800ms - var(--splash-elapsed)); }
+.startup-splash.continued .cage-mark-frame { animation-delay: calc(50ms - var(--splash-elapsed)); }
+.startup-splash.continued .cage-mark-bar-1 { animation-delay: calc(550ms - var(--splash-elapsed)); }
+.startup-splash.continued .cage-mark-bar-2 { animation-delay: calc(720ms - var(--splash-elapsed)); }
 
 .startup-splash-status {
   height: 1.5em;

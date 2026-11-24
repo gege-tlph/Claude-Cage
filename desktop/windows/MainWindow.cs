@@ -10,7 +10,7 @@ internal sealed class MainWindow : Form
     private WebView2 web = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly NativeInput nativeInput;
     private readonly Label message = new() { AutoSize = true, MaximumSize = new Size(720, 0), Text = InterfaceLanguage.Text("正在启动 Cage 工作台…"), Margin = new Padding(12) };
-    private readonly FlowLayoutPanel status = new() { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, Padding = new Padding(48), WrapContents = false };
+    private readonly FlowLayoutPanel status = new() { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, Padding = new Padding(48), WrapContents = false, Visible = false };
     private readonly Button retry = new() { Text = InterfaceLanguage.Text("重试连接"), AutoSize = true, Visible = false };
     private readonly Button existing = new() { Text = InterfaceLanguage.Text("打开现有环境保存文件"), AutoSize = true, Visible = false };
     private readonly Button complete = new() { Text = InterfaceLanguage.Text("保存后停止环境并完成更新"), AutoSize = true, Visible = false };
@@ -19,6 +19,11 @@ internal sealed class MainWindow : Form
     private int expectedPort;
     private bool controllerNeedsUpdate, allowQuit, bootstrapping, webFailed;
     private bool completingSmoke;
+    // Until the first workbench page (or an error) the window shows the
+    // startup splash page rather than the status text.
+    private bool starting = true, splashPending;
+    private ulong? splashNavigation;
+    private string? splashHandoff;
     // Bridge requests still running on the UI thread, such as refreshSession's "desktop".
     private int nativeRequests;
     private string smokePhase = "starting";
@@ -78,6 +83,7 @@ internal sealed class MainWindow : Form
         updater = new AppUpdater(PublishUpdate, () => { allowQuit = true; Close(); }, () => _ = Bootstrap(), report: message => _ = Backend.Report(message));
         Shown += async (_, _) => {
             if (Program.SmokeOutput != null) _ = SmokeDeadline();
+            _ = RevealStartupText();
             await Initialize();
         };
         Resize += (_, _) => PublishVisibility(); VisibleChanged += (_, _) => PublishVisibility();
@@ -194,7 +200,24 @@ internal sealed class MainWindow : Form
     private void Error(string text)
     {
         _ = Backend.Report(text);
+        EndStartup();
         message.Text = text; status.Show(); status.BringToFront(); retry.Show(); web.Hide();
+    }
+
+    private void EndStartup()
+    {
+        starting = false; splashPending = false;
+        if (splashHandoff == null) return;
+        try { web.CoreWebView2?.RemoveScriptToExecuteOnDocumentCreated(splashHandoff); }
+        catch (Exception error) when (error is InvalidOperationException or System.Runtime.InteropServices.COMException) { }
+        splashHandoff = null;
+    }
+
+    private async Task RevealStartupText()
+    {
+        try { await Task.Delay(TimeSpan.FromSeconds(4), lifetime.Token); }
+        catch (OperationCanceledException) { return; }
+        if (starting && !web.Visible) { status.Show(); status.BringToFront(); }
     }
 
     private async Task Initialize(bool recreate = false)
@@ -217,7 +240,13 @@ internal sealed class MainWindow : Form
             core.Settings.IsStatusBarEnabled = false; core.Settings.IsZoomControlEnabled = false;
             core.Settings.AreBrowserAcceleratorKeysEnabled = false;
             core.Settings.IsPasswordAutosaveEnabled = false; core.Settings.IsGeneralAutofillEnabled = false;
-            core.NavigationStarting += (_, e) => { if (!UpdatePolicy.IsWorkbench(e.Uri, expectedPort)) e.Cancel = true; };
+            core.NavigationStarting += (_, e) => {
+                if (splashPending && (e.Uri.StartsWith("data:text/html", StringComparison.Ordinal) || e.Uri == "about:blank"))
+                {
+                    splashPending = false; splashNavigation = e.NavigationId; return;
+                }
+                if (!UpdatePolicy.IsWorkbench(e.Uri, expectedPort)) e.Cancel = true;
+            };
             core.NewWindowRequested += (_, e) => e.Handled = true;
             core.DownloadStarting += (_, e) => e.Cancel = true;
             core.PermissionRequested += (_, e) => {
@@ -228,7 +257,20 @@ internal sealed class MainWindow : Form
             };
             core.WebMessageReceived += Receive;
             core.ProcessFailed += (_, _) => { webFailed = true; Error(InterfaceLanguage.Text("工作台显示进程已退出。后台任务保留，可重试连接。")); };
-            core.NavigationCompleted += (_, e) => {
+            core.NavigationCompleted += async (_, e) => {
+                if (e.NavigationId == splashNavigation)
+                {
+                    splashNavigation = null;
+                    // A workbench load that already replaced it shows itself.
+                    if (!e.IsSuccess || !starting || status.Visible) return;
+                    var shown = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    web.Show(); PublishVisibility();
+                    // The workbench's first page continues this splash.
+                    try { splashHandoff = await core.AddScriptToExecuteOnDocumentCreatedAsync(StartupSplash.HandoffScript(BackColor, shown)); }
+                    catch (Exception error) when (error is InvalidOperationException or System.Runtime.InteropServices.COMException) { }
+                    if (!starting) EndStartup();
+                    return;
+                }
                 if (!e.IsSuccess) {
                     Error(e.WebErrorStatus.ToString() switch {
                         "Timeout" => InterfaceLanguage.Text("打开工作台失败：等待本机后台响应超时。请点击“重试连接”；仍失败时请保留此错误提示并反馈给维护者。后台任务不会因此自动结束。"),
@@ -237,11 +279,17 @@ internal sealed class MainWindow : Form
                         _ => InterfaceLanguage.Format("打开工作台失败：内置网页组件未能加载本机工作台（错误代码 {0}）。请点击“重试连接”；仍失败时请保留此错误提示并反馈给维护者。后台任务不会因此自动结束。", e.WebErrorStatus.ToString()),
                     }); return;
                 }
+                EndStartup();
                 status.Hide(); web.Show(); web.Focus(); PublishVisibility();
             };
             await core.AddScriptToExecuteOnDocumentCreatedAsync(BridgeScript);
             if (Program.SmokeOutput != null) await core.AddScriptToExecuteOnDocumentCreatedAsync(SmokeDiagnosticsScript);
             webFailed = false;
+            if (starting && !recreate)
+            {
+                splashPending = true;
+                core.NavigateToString(StartupSplash.Html(BackColor));
+            }
             await Bootstrap();
         }
         catch (WebView2RuntimeNotFoundException)
@@ -372,7 +420,8 @@ internal sealed class MainWindow : Form
     {
         if (bootstrapping || web.CoreWebView2 == null) return;
         bootstrapping = true;
-        message.Text = InterfaceLanguage.Text("正在连接 Cage 工作台…"); status.Show(); status.BringToFront();
+        message.Text = InterfaceLanguage.Text("正在连接 Cage 工作台…");
+        if (!starting) { status.Show(); status.BringToFront(); }
         retry.Hide(); existing.Hide(); complete.Hide();
         try
         {
@@ -383,7 +432,8 @@ internal sealed class MainWindow : Form
             controllerNeedsUpdate = data.Text("status") != "ready";
             if (data.Text("status") == "upgrade_pending")
             {
-                message.Text = data.Text("message"); existing.Show(); complete.Show(); return;
+                if (starting) { EndStartup(); web.Hide(); }
+                message.Text = data.Text("message"); status.Show(); status.BringToFront(); existing.Show(); complete.Show(); return;
             }
             var entry = UpdatePolicy.Entry(data.Text("url")); expectedPort = entry.Port;
             smokePhase = "loading_workbench";
