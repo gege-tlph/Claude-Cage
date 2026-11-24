@@ -56,6 +56,11 @@ try {
     const [left, right] = [await defaultPane.boundingBox(), await instancePane.boundingBox()];
     assert.ok(left.x + left.width <= right.x + 1, `${entry}: the default Desktop is not on the left`);
     assert.ok(Math.abs(left.width - right.width) <= 2, `${entry}: the two panes differ in width (${left.width} / ${right.width})`);
+    // Both title bars are one height, so the two screens start on one line.
+    const [leftHeader, rightHeader] = [await defaultPane.locator(":scope > header").boundingBox(), await instancePane.locator(":scope > header").boundingBox()];
+    assert.equal(leftHeader.height, rightHeader.height, `${entry}: title bars differ in height (${leftHeader.height} / ${rightHeader.height})`);
+    const [leftScreen, rightScreen] = [await defaultPane.locator(".remote-canvas").boundingBox(), await instancePane.locator(".account-desktop-screen").boundingBox()];
+    assert.equal(leftScreen.y, rightScreen.y, `${entry}: the screens start at different heights (${leftScreen.y} / ${rightScreen.y})`);
     assert.deepEqual(starts, [], `${entry}: a running Desktop was started again`);
   };
 
