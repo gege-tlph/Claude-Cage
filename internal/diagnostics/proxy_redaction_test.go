@@ -30,6 +30,10 @@ func TestRedactProxyAddresses(t *testing.T) {
 		{"Could not connect to 10.0.2.2:7890 (10.0.2.2). - connect (110: Connection timed out)", "Could not connect to [ip] ([ip]). - connect (110: Connection timed out)"},
 		{"Err:1 https://deb.debian.org/debian trixie InRelease", "Err:1 [url] trixie InRelease"},
 		{"E: Unable to locate package ripgrep", "E: Unable to locate package ripgrep"},
+		// #791: the browser command that timed out stays readable.
+		{"Login browser open failed: Browser command timed out: Page.navigate", "Login browser open failed: Browser command timed out: Page.navigate"},
+		{"Target.createTarget failed near static.example-provider.io:1337", "Target.createTarget failed near [host]"},
+		{"page.example-provider.io target.createtarget.example", "[host] [host]"},
 		{"2026-11-14T10:20:30+08:00 v0.1.7 HTTP 502 dns resolve failed: context deadline exceeded", "2026-11-14T10:20:30+08:00 v0.1.7 HTTP 502 dns resolve failed: context deadline exceeded"},
 	} {
 		t.Run(tc.input, func(t *testing.T) {
@@ -178,5 +182,58 @@ func TestGuestRunnerRedactsProxyAddresses(t *testing.T) {
 	assertProxyFailureRedacted(t, string(out))
 	if want := Redact(input) + "\n"; string(out) != want {
 		t.Fatalf("host and guest redaction differ: got %q, want %q", out, want)
+	}
+}
+
+// The guest applies the exported table with Python's re module; it must give
+// the host's result. Runs wherever a Python interpreter is installed.
+func TestGuestRulesMatchHostRedaction(t *testing.T) {
+	python := ""
+	for _, name := range []string{"python3", "python"} {
+		if path, err := exec.LookPath(name); err == nil {
+			python = path
+			break
+		}
+	}
+	if python == "" {
+		t.Skip("python unavailable")
+	}
+	inputs := []string{
+		proxyFailure,
+		"Login browser open failed: Browser command timed out: Page.navigate",
+		"Target.createTarget failed near static.example-provider.io:1337 [::ffff:192.0.2.8]:443",
+		"page.example-provider.io token=private-token 0123456789abcdef01234567",
+	}
+	dir := t.TempDir()
+	rules := filepath.Join(dir, "rules.json")
+	if err := os.WriteFile(rules, []byte(guestRules()), 0600); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := json.Marshal(inputs)
+	lines := filepath.Join(dir, "inputs.json")
+	if err := os.WriteFile(lines, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	program := `import json, re, sys
+rules = [(re.compile(p), r) for p, r in json.load(open(sys.argv[1], encoding="utf-8"))]
+out = []
+for line in json.load(open(sys.argv[2], encoding="utf-8")):
+    for pattern, replacement in rules:
+        line = pattern.sub(lambda m: m.expand(replacement), line)
+    out.append(line)
+sys.stdout.write(json.dumps(out))
+`
+	output, err := exec.Command(python, "-I", "-c", program, rules, lines).Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	if err := json.Unmarshal(output, &got); err != nil {
+		t.Fatalf("%v: %s", err, output)
+	}
+	for i, input := range inputs {
+		if got[i] != Redact(input) {
+			t.Errorf("guest %q, host %q", got[i], Redact(input))
+		}
 	}
 }

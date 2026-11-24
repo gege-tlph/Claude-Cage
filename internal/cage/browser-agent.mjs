@@ -7,7 +7,7 @@ import { open } from "node:fs/promises";
 import http from "node:http";
 import { auditBrowser } from "./browser-audit.mjs";
 import { BrowserVault } from "./browser-vault.mjs";
-import { LoginBrowser, isClaudeSignIn } from "./browser-login.mjs";
+import { LoginBrowser, isClaudeSignIn, startNavigation } from "./browser-login.mjs";
 import { PrivateBrowser } from "./browser-private.mjs";
 import { browserCookies, AccountLoginCookies } from "./browser-cookies.mjs";
 import { BrowserExtensions, extensionUploadLimit } from "./browser-extensions.mjs";
@@ -586,7 +586,7 @@ async function newTab(url = homeURL, incognito = false) {
       targets.set(tab.targetId, tab);
       await activate(tab.targetId, true);
     });
-    await cdp("Page.navigate", { url: address }, await session(result.id));
+    await startNavigation(cdp, address, await session(result.id));
     return result;
   }
   const { targetId } = await cdp("Target.createTarget", {
@@ -597,7 +597,7 @@ async function newTab(url = homeURL, incognito = false) {
   if (!targets.has(targetId))
     targets.set(targetId, { targetId, type: "page", url: "about:blank", title: "" });
   await activate(targetId, true);
-  await cdp("Page.navigate", { url: address }, await session(targetId));
+  await startNavigation(cdp, address, await session(targetId));
   return { id: targetId };
 }
 async function browserSettings(section = "general") {
@@ -1086,11 +1086,7 @@ const server = http.createServer(async (req, res) => {
           break;
         }
         case "/navigate":
-          await cdp(
-            "Page.navigate",
-            { url: checkedURL(input.url) },
-            await session(id),
-          );
+          await startNavigation(cdp, checkedURL(input.url), await session(id));
           break;
         case "/reload":
           await cdp("Page.reload", {}, await session(id));

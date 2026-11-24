@@ -18,6 +18,23 @@ export function isClaudeSignIn(address, explicitLogin = false) {
   } catch { return false; }
 }
 
+// Page.navigate answers only once the server starts to respond (#791). A
+// sign-in page behind a slow route can take longer than a browser command
+// may wait, while the window it opened is fine. Wait briefly so an immediate
+// failure still reaches the caller, then let the page load in the window.
+export async function startNavigation(cdp, url, sessionId, { settle = 2000, limit = 120_000 } = {}) {
+  let finished = false;
+  const navigation = cdp("Page.navigate", { url }, sessionId, limit).finally(() => { finished = true; });
+  let timer;
+  const settled = new Promise(resolve => { timer = setTimeout(resolve, settle); });
+  try {
+    await Promise.race([navigation, settled]);
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!finished) navigation.catch(error => console.error("Page navigation did not finish:", error?.message || error));
+}
+
 // Chrome accepts TCP proxy URLs. The only upstream of this loopback listener
 // is the selected account's Unix socket; the relay resolves every name there.
 async function accountProxy(route) {
@@ -45,9 +62,10 @@ async function accountProxy(route) {
 // A login controls only its own targets. Even in a regular profile, redirects
 // and popup URLs must never expose codes or state to the controller.
 export class LoginBrowser {
-  constructor(cdp, cookies) {
+  constructor(cdp, cookies, navigation) {
     this.cookies = cookies;
     this.cdp = cdp;
+    this.navigation = navigation;
     this.logins = new Map();
     this.contexts = new Map();
     this.targets = new Map();
@@ -111,7 +129,7 @@ export class LoginBrowser {
       entry.targets.add(targetId);
       this.targets.set(targetId, entry);
       const sessionId = await activate({ targetId, ...context, type: "page", url: url.href });
-      await this.cdp("Page.navigate", { url: url.href }, sessionId);
+      await startNavigation(this.cdp, url.href, sessionId, this.navigation);
       return { id: targetId, incognito: privateLogin };
     } catch (error) {
       console.error("Login browser open failed:", error?.message || error);

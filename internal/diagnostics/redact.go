@@ -35,10 +35,17 @@ var patterns = []struct {
 	{regexp.MustCompile(`\b` + ipv4Address + `\b(?::[0-9]+)?`), "[ip]"},
 	// Older logs already contain masked IPs with their original ports attached.
 	{regexp.MustCompile(`\[ip\]:[0-9]+`), "[ip]"},
+	// Browser command names such as Page.navigate look like hostnames. They
+	// name the failing step (#791), so the next rule passes over them.
+	{regexp.MustCompile(`\b(` + cdpDomains + `)\.([a-z][A-Za-z]+)\b`), "${1}#${2}"},
 	// Core errors contain bare endpoints as well as URLs. Remove the complete
 	// hostname and optional port, including punycode labels and DNS trailing dots.
 	{regexp.MustCompile(`(?i)\b(?:[a-z0-9_][a-z0-9_-]*\.)+(?:xn--[a-z0-9-]+|[a-z]{2,})\b\.?(?::[0-9]+)?`), "[host]"},
+	{regexp.MustCompile(`\b(` + cdpDomains + `)#([a-z][A-Za-z]+)\b`), "${1}.${2}"},
 }
+
+// Chrome DevTools Protocol domains, capitalized as the protocol spells them.
+const cdpDomains = `Accessibility|Animation|Audits|Browser|CSS|CacheStorage|Cast|DOM|DOMDebugger|DOMSnapshot|DOMStorage|Debugger|Emulation|Fetch|HeapProfiler|IO|IndexedDB|Input|Inspector|Log|Media|Memory|Network|Overlay|Page|Performance|Profiler|Runtime|Security|ServiceWorker|Storage|SystemInfo|Target|Tracing|WebAuthn`
 
 func Redact(s string) string {
 	for _, p := range patterns {

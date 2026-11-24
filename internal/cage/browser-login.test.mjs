@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AccountLoginCookies } from "./browser-cookies.mjs";
-import { LoginBrowser, isClaudeSignIn } from "./browser-login.mjs";
+import { LoginBrowser, isClaudeSignIn, startNavigation } from "./browser-login.mjs";
 
 test("login redirects and popups stay private, closing one login leaves the other open", async () => {
   const closed = [];
@@ -80,4 +80,46 @@ test("only official sign-in paths opt external links into login handling", () =>
   for (const address of ["https://claude.ai/chat/123","https://claude.ai.example.org/login","https://docs.example.org/login","https://claude.ai:445/login","https://api.workos.com/sso/authorize","https://api.workos.com/sso/authorize?redirect_uri=https://example.org/auth","https://accounts.google.com/o/oauth2/v2/auth?redirect_uri=https://claude.ai.example.org/auth"])
     assert.equal(isClaudeSignIn(address), false, address);
   assert.equal(isClaudeSignIn("https://api.workos.com/sso/authorize", true), true);
+});
+
+// #791: Page.navigate answers only when the server starts to respond. A slow
+// sign-in page must not close the window it opened; an immediate failure
+// still does.
+test("a slow sign-in page keeps its window open, an immediate failure closes it", async () => {
+  const disposed = [];
+  let navigate;
+  const browser = new LoginBrowser(async (method, params, sessionId, timeout) => {
+    if (method === "Target.createBrowserContext") return { browserContextId: "ctx" };
+    if (method === "Target.createTarget") return { targetId: "tab" };
+    if (method === "Target.disposeBrowserContext") disposed.push(params.browserContextId);
+    if (method === "Page.navigate") return navigate(timeout);
+  }, undefined, { settle: 20 });
+  const address = "https://claude.ai/oauth/authorize?state=slow";
+  let limit;
+  navigate = timeout => { limit = timeout; return new Promise(() => {}); };
+  assert.deepEqual(await browser.open("a".repeat(24), address, async () => "page"), { id: "tab", incognito: true });
+  assert.deepEqual(disposed, [], "a page still loading closed its window");
+  assert.ok(limit >= 60_000, "navigation kept the short command timeout");
+  await browser.finish("a".repeat(24));
+
+  navigate = () => Promise.reject(new Error("Browser command timed out: Page.navigate"));
+  disposed.length = 0;
+  await assert.rejects(browser.open("b".repeat(24), address, async () => "page"), /授权页面未能打开/);
+  assert.deepEqual(disposed, ["ctx"]);
+});
+
+test("a navigation that fails after the wait is only logged", async () => {
+  const logged = [];
+  const original = console.error;
+  console.error = (...args) => logged.push(args.join(" "));
+  try {
+    let fail;
+    const pending = new Promise((_, reject) => { fail = reject; });
+    await startNavigation(async () => pending, "https://example.invalid/", "page", { settle: 10 });
+    fail(new Error("net::ERR_TIMED_OUT"));
+    await new Promise(resolve => setImmediate(resolve));
+    assert.match(logged.join("\n"), /Page navigation did not finish: net::ERR_TIMED_OUT/);
+  } finally {
+    console.error = original;
+  }
 });

@@ -2,19 +2,14 @@ package diagnostics
 
 import (
 	"encoding/json"
-	"strings"
+	"regexp"
 )
 
 // GuestRunner uses the same redaction expressions as the host, before journald
 // receives service output. stdin and systemd notify sockets remain inherited.
 func GuestRunner() string {
-	rules := make([][2]string, 0, len(patterns))
-	for _, p := range patterns {
-		rules = append(rules, [2]string{p.re.String(), strings.ReplaceAll(p.replacement, "${1}", `\g<1>`)})
-	}
-	b, _ := json.Marshal(rules)
 	return "#!/usr/bin/python3\n" + `import json, os, re, signal, subprocess, sys
-rules = [(re.compile(pattern), replacement) for pattern, replacement in json.loads(` + string(mustJSON(string(b))) + `)]
+rules = [(re.compile(pattern), replacement) for pattern, replacement in json.loads(` + string(mustJSON(guestRules())) + `)]
 # Handle stop signals before the child exists, so a stop that arrives while
 # it is starting is still forwarded and reported as requested.
 child = None
@@ -61,3 +56,16 @@ sys.exit(code if code >= 0 else 128-code)
 `
 }
 func mustJSON(v string) []byte { b, _ := json.Marshal(v); return b }
+
+var goGroup = regexp.MustCompile(`\$\{([0-9]+)\}`)
+
+// guestRules is the redaction table as JSON pairs of a Python pattern and its
+// replacement template.
+func guestRules() string {
+	rules := make([][2]string, 0, len(patterns))
+	for _, p := range patterns {
+		rules = append(rules, [2]string{p.re.String(), goGroup.ReplaceAllString(p.replacement, `\g<${1}>`)})
+	}
+	b, _ := json.Marshal(rules)
+	return string(b)
+}
