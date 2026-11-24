@@ -22,12 +22,12 @@
 ### 安装
 
 1. 从 [Releases](https://github.com/gege-tlph/Claude-Cage/releases) 下载 `Cage-X.Y.Z-windows-amd64-setup.exe`。
-2. 第一次安装前，导入签名根证书 `cage-lite-signing.cer`。它附在每个 Release 里，仓库中的位置是 `packaging/windows/`。
+2. 运行安装包。在安装选项页勾选“信任 Cage lite 发布者证书”（默认已勾选），Windows 弹出确认时选“是”。已经装了上游 Cage 的，直接覆盖安装，环境和数据都会保留。
+3. 备用：如果安装时没有勾选这一项，或者用的是静默安装，可以手动导入根证书 `cage-lite-signing.cer`。它附在每个 Release 里，仓库中的位置是 `packaging/windows/`。
    ```powershell
    Import-Certificate -FilePath .\cage-lite-signing.cer -CertStoreLocation Cert:\CurrentUser\Root
    ```
-   不导入也能安装，但 Windows 会显示发布者未知，应用内更新也不能自动安装。
-3. 运行安装包。已经装了上游 Cage 的，直接覆盖安装，环境和数据都会保留。
+   不信任这个证书也能使用，但 Windows 会显示发布者未知，应用内更新也不能自动安装。
 
 以下是上游 Claude Cage 的介绍，其中的下载和更新地址指向上游。
 
