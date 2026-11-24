@@ -30,6 +30,7 @@ import "./proxy.css";
 import { activeInterfaceLanguage, translate, useTranslation } from "./interface-language.mjs";
 import { localizeBackendMessage } from "./backend-message.mjs";
 import { usePrivacyMask } from "./privacy-mask.mjs";
+import { isSourceFormDirty } from "./proxy-source-form.mjs";
 
 const bytes = (v) => {
   const n = Math.max(0, Number(v) || 0);
@@ -365,10 +366,12 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
     (!manualSSH || manual.username.trim() &&
       (manual.sshAuth === "password" ? manual.password : manual.privateKey.includes("PRIVATE KEY"))),
   );
+  // Only a form with changes of its own holds setup back (upstream #915).
+  const sourceDirty = initializing && isSourceFormDirty(form, mode, manual, proxy?.sources || [], nodeEdit);
   useEffect(() => {
-    onDirty?.(routeChanged || initializing && Boolean(form));
+    onDirty?.(routeChanged || sourceDirty);
     return () => onDirty?.(false);
-  }, [onDirty, routeChanged, initializing, Boolean(form)]);
+  }, [onDirty, routeChanged, sourceDirty]);
   useEffect(() => {
     const el = regionBarRef.current;
     if (!el) { setRegionsOverflow(false); return; }
