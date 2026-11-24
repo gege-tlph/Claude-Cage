@@ -18,7 +18,8 @@
   transition: border-color 180ms var(--ease-out), color 180ms var(--ease-out);
 }
 .setup-stages li[aria-current="step"] { color: var(--strong); font-weight: 600; border-color: var(--accent); }
-.setup-transfer { margin: 28px 0 20px; }
+/* Room for a one-line error, so a failed stage keeps the card's height. */
+.setup-transfer { margin: 28px 0 20px; min-height: 76px; }
 .setup-transfer-heading { display: flex; align-items: center; gap: 12px; }
 .setup-transfer-icon {
   width: 38px; height: 38px; display: grid; place-items: center; flex: none;
@@ -29,7 +30,7 @@
   font-size: 1.1429rem; font-weight: 600; line-height: 1.5; color: var(--strong);
   margin: 0; overflow-wrap: anywhere;
 }
-.setup-transfer-bytes { font-size: .8571rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.setup-transfer-bytes { display: block; font-size: .8571rem; line-height: 1.5; color: var(--muted); font-variant-numeric: tabular-nums; }
 .setup-transfer-number { font-size: 1.7143rem; font-weight: 600; color: var(--strong); font-variant-numeric: tabular-nums; }
 .setup-transfer-number small { font-size: .9286rem; padding-left: 2px; }
 .setup-meter { height: 6px; overflow: hidden; margin-top: 16px; border-radius: 8px; background: var(--chrome-dark); }
@@ -37,7 +38,6 @@
 .setup-meter-active span { width: 28%; animation: setup-meter-scan 1.8s ease-in-out infinite alternate; }
 @keyframes setup-meter-scan { from { transform: translateX(0); } to { transform: translateX(257%); } }
 .setup-transfer-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.setup-transfer-actions button { font-size: .8571rem; }
 .setup-transfer-error { color: var(--danger); font-size: .9286rem; line-height: 1.6; overflow-wrap: anywhere; margin: 12px 0 0; }
 .setup-transfer-hint { color: var(--muted); font-size: .8571rem; line-height: 1.6; margin: 8px 0 0; }
 @media (prefers-reduced-motion: reduce) {

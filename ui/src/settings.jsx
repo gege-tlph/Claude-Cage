@@ -359,7 +359,7 @@ export function SettingsPanel({
                       />
                     </label>
                     <label>
-                      {tr("备用加密 DNS（每行一个，最多 4 个）")}
+                      {tr("备用加密 DNS")}
                       <textarea
                         rows={2}
                         value={(draft.dns_fallback_urls ?? []).join("\n")}

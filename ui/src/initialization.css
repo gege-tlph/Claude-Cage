@@ -1,14 +1,10 @@
 .initialization {
-  height: 100%; min-height: 0; overflow: auto; color: var(--ink);
+  height: 100%; min-height: 0; overflow: auto; scrollbar-gutter: stable; color: var(--ink);
   background:
     radial-gradient(60% 38% at 50% 0%, color-mix(in srgb, var(--accent) 5%, transparent), transparent 72%),
     var(--paper);
 }
 :root[data-preset="high-contrast"] .initialization { background: var(--paper); }
-.initialization-brand { display: flex; align-items: center; gap: 10px; padding: 24px 32px; }
-.initialization-brand .cage-mark { width: 28px; height: 28px; border-radius: 7px; }
-.initialization-brand strong { font-size: 18px; color: var(--strong); letter-spacing: -0.02em; }
-.initialization-brand > span { margin-inline-start: 8px; color: var(--muted); font-size: 14px; }
 .initialization-content { width: min(720px, calc(100% - 64px)); margin: 32px auto 60px; line-height: 1.65; animation: initialization-enter 180ms var(--ease-out, ease-out); }
 .initialization-steps { display: flex; gap: 24px; list-style: none; padding: 0; margin: 0 0 36px; color: var(--muted); font-size: 14px; }
 .initialization-steps li { display: flex; align-items: center; gap: 8px; }
@@ -24,7 +20,7 @@
 .initialization .host-clone-summary { padding: 18px; gap: 10px; background: var(--chrome); }
 .initialization .environment-storage { padding-top: 22px; border-top: 1px solid var(--line); }
 .initialization-storage { padding-top: 22px; border-top: 1px solid var(--line); }
-.initialization-storage > label { font-size: 16px; font-weight: 550; color: var(--strong); }
+.initialization-storage > label { font-size: 14px; font-weight: 550; color: var(--strong); }
 .initialization-storage > p { color: var(--muted); font-size: 14px; margin: 8px 0 16px; }
 .initialization-directory-control { display: flex; gap: 10px; }
 .initialization-directory-control input { flex: 1; min-width: 0; min-height: 42px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; background: var(--input); color: var(--ink); font: inherit; transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out); }
@@ -40,7 +36,8 @@
 .initialization .setting-summary-row strong { font-weight: 500; overflow-wrap: anywhere; }
 .initialization .proxy-manager { margin: 0; }
 .initialization-dns { margin-top: 22px; padding-top: 22px; border-top: 1px solid var(--line); }
-.initialization-dns > summary { display: flex; align-items: baseline; gap: 10px; cursor: pointer; font-size: 16px; font-weight: 550; color: var(--strong); }
+/* Expandable blocks share the block-title style (T2, T4). */
+.initialization-dns > summary, .initialization .guest-profile-options > summary { display: flex; align-items: baseline; gap: 10px; cursor: pointer; font-size: 16px; font-weight: 600; line-height: 1.5; color: var(--strong); }
 .initialization-dns > summary small { color: var(--muted); font-size: 14px; font-weight: 400; overflow-wrap: anywhere; }
 .initialization-dns label { display: grid; gap: 8px; margin: 16px 0 0; font-size: 14px; }
 .initialization-dns input, .initialization-dns textarea { width: 100%; box-sizing: border-box; min-height: 40px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; background: var(--input); color: var(--ink); font: inherit; resize: vertical; }
@@ -60,18 +57,24 @@
 .initialization-support { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px; color: var(--muted); }
 .initialization .settings-group { margin-top: 22px; }
 .initialization-notice { padding: 16px; margin: 16px 0; border: 1px solid var(--line); border-radius: 10px; overflow-wrap: anywhere; }
-.initialization-notice h2 { font-size: 17px; margin: 0 0 8px; }
+.initialization-notice h2 { font-size: 16px; font-weight: 600; line-height: 1.5; margin: 0 0 8px; }
 .initialization-notice button { margin-top: 10px; margin-inline-end: 10px; }
 .initialization-notice pre, .initialization .job-log { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; }
+/* Step 3 shows one of three cards; one height keeps the buttons below in place (J6). */
+.initialization { --install-card-height: 233px; }
 .initialization-operation { padding: 24px; background: var(--chrome); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-xs); }
-.initialization-operation p { margin: 8px 0 16px; }
+.initialization-operation, .initialization-ready, .initialization .setup-progress { min-height: var(--install-card-height); box-sizing: border-box; }
+.initialization-ready { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+/* The spinner sits in the status line, so starting a job does not push the text down. */
+.initialization-operation { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; }
+.initialization-operation p { display: flex; align-items: center; gap: 8px; margin: 8px 0 16px; }
 .initialization-recovery { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
 .initialization-ready { padding: 32px 24px; border: 1px solid color-mix(in srgb, var(--success) 28%, var(--line)); border-radius: 14px; background: color-mix(in srgb, var(--success) 5%, var(--chrome)); text-align: center; box-shadow: var(--shadow-xs); }
 .initialization-ready svg { color: var(--success); }
-.initialization-ready h2 { margin: 12px 0; font-size: 20px; }
-.initialization-ready p, .initialization-network { color: var(--muted); font-size: 14px; }
+.initialization-ready h2 { margin: 12px 0 0; font-size: 16px; font-weight: 600; line-height: 1.5; }
+.initialization-ready p { color: var(--muted); font-size: 14px; }
 @keyframes initialization-enter { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
-@media (max-width: 600px) { .initialization-brand { padding: 18px 20px; } .initialization-content { width: calc(100% - 40px); margin-top: 20px; } .initialization-steps { gap: 12px; flex-wrap: wrap; font-size: 13px; margin-bottom: 26px; } .initialization h1 { font-size: 25px; } .initialization .guest-system-picker { grid-template-columns: 1fr; } .initialization .storage-actions { flex-wrap: wrap; } }
+@media (max-width: 600px) { .initialization-content { width: calc(100% - 40px); margin-top: 20px; } .initialization-steps { gap: 12px; flex-wrap: wrap; font-size: 13px; margin-bottom: 26px; } .initialization h1 { font-size: 25px; } .initialization .guest-system-picker { grid-template-columns: 1fr; } .initialization .storage-actions { flex-wrap: wrap; } }
 @media (prefers-reduced-motion: reduce) { .initialization-content, .initialization-stage { animation: none; } .initialization button { transition: none; } }
 .initialization-checks { padding-inline-start: 22px; font-size: 14px; }
 .initialization-actions:dir(rtl) .lucide-chevron-left { transform: scaleX(-1); }

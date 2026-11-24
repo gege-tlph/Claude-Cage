@@ -79,13 +79,13 @@ export function InitializationDNS({ status, disabled, open }) {
     <label>{tr("加密 DNS")}
       <input value={draft.dns_url} onChange={(e) => update("dns_url", e.target.value)} disabled={busy} spellCheck="false" />
     </label>
-    <label>{tr("备用加密 DNS（每行一个，最多 4 个）")}
+    <label>{tr("备用加密 DNS")}
       <textarea rows={2} value={(draft.dns_fallback_urls ?? []).join("\n")} disabled={busy} spellCheck="false" placeholder="https://…/dns-query"
         onChange={(e) => update("dns_fallback_urls", e.target.value.split(/\r?\n/))} />
     </label>
     <div className="initialization-dns-actions">
       <button type="button" disabled={busy} onClick={check} title={tr("经所选节点解析 {0}", "deb.debian.org")}>
-        {checking && <LoaderCircle size={15} className="spin" />}{tr("测试加密 DNS")}
+        {checking && <LoaderCircle size={15} className="spin" />}{tr("检查加密 DNS")}
       </button>
       <button type="button" className="primary" disabled={busy || !dirty} onClick={save}>
         {jobId && <LoaderCircle size={15} className="spin" />}{tr("保存")}

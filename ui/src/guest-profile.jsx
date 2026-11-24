@@ -63,7 +63,7 @@ export function GuestProfileOptions({ value, onChange, disabled, system }) {
     catch (error) { setError(error.message); }
     finally { setGenerating(false); }
   }
-  return <details className="guest-profile-options"><summary>{tr("客机名称与初始设备配置")}</summary>
+  return <details className="guest-profile-options"><summary>{tr("客机设备配置")}</summary>
     {error && <p role="alert"><SafetyMessage message={error} /></p>}
     {loaded && !editable && null}
     {loaded && (editable || saved) && <fieldset disabled={locked}>

@@ -60,6 +60,9 @@
   --shadow-lg: 0 24px 64px rgb(0 0 0 / 0.16), 0 4px 16px rgb(0 0 0 / 0.08);
   --sidebar-width: 272px;
 }
+/* A bare "monospace" falls back to a CJK font on Chinese Windows, which
+   spaces "deb.debian.org" as "deb. debian. org". */
+code, kbd, samp, pre { font-family: var(--code-font-family); }
 :root[data-theme="dark"] {
   --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
   --accent-ring: color-mix(in srgb, var(--accent) 28%, transparent);

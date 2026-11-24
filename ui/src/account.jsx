@@ -20,12 +20,12 @@ import {
 import { api, native, nativeAvailable, writeClipboard } from "./api";
 import { getClientContext, isRemoteClient } from "./client-context.mjs";
 import { CageLogo } from "./cage-logo.jsx";
+import { StartupBrand } from "./startup-brand.jsx";
 import "./account.css";
 import { Modal } from "./modal";
 import { TokenUsagePanel } from "./token-usage.jsx";
 import { translate, useTranslation } from "./interface-language.mjs";
 import { localizeBackendMessage } from "./backend-message.mjs";
-import { LanguageSettings } from "./language-settings";
 
 const AccountContext = createContext(null);
 export const useAccount = () => useContext(AccountContext);
@@ -274,14 +274,9 @@ export function AccountGate({ children }) {
   };
   return (
     <main className="account-gate">
-      <header className="account-gate-header">
-        <div className="account-brand">
-          <CageLogo />
-          Cage
-        </div>
-        <div className="startup-language-slot"><LanguageSettings compact /></div>
-      </header>
-      <section
+      <StartupBrand label={creating ? tr("首次设置") : ""} />
+      {/* Shown once the account is read, at its final size (no jump). */}
+      {(account || connectionError) ? <section
         className="account-entry"
         aria-label={creating ? isRemoteClient() ? tr("创建云端账户") : tr("创建本地账户") : tr("解锁 Cage")}
       >
@@ -292,7 +287,7 @@ export function AccountGate({ children }) {
         )}
         <h1>
           {creating
-            ? tr("注册 Cage 账户")
+            ? isRemoteClient() ? tr("创建云端账户") : tr("创建本地账户")
             : account
               ? tr("欢迎回来，{0}", (account.username))
               : tr("正在连接 Cage")}
@@ -390,12 +385,12 @@ export function AccountGate({ children }) {
         )}
         <p className="account-local-note">
           <LockKeyhole size={14} />
-          {isRemoteClient() ? tr("账户资料保存在当前云端主机") : tr("账户资料仅保存在这台设备上")}
+          {isRemoteClient() ? tr("存于云端主机") : tr("仅存于本机")}
         </p>
         {account && !account.trusted_local && <p className="account-recovery-note">
           {!creating && !account?.recovery_ready && tr("此账户尚未设置恢复密钥。登录后前往「设置 → 账户」设置。")}
         </p>}
-      </section>
+      </section> : <div className="account-entry-pending"><p className="sr-only" role="status">{tr("正在连接 Cage")}</p></div>}
       {nativeAvailable() && (
         <button
           className="text-button account-exit-app"

@@ -9,30 +9,17 @@
   color: var(--ink);
   padding: 24px;
   overflow: auto;
+  line-height: 1.65;
 }
 :root[data-preset="high-contrast"] .account-gate {
   background: var(--paper);
 }
-.account-brand {
-  align-self: flex-start;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 18px;
-  font-weight: 650;
-  color: var(--strong);
-}
-.account-gate-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  width: 100%;
-}
-.account-brand .cage-mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-}
+.account-gate > .startup-brand { margin: -24px -24px 0; }
+/* Field names as on the first-run setup pages. */
+.account-entry .account-field { font-size: 14px; font-weight: 550; }
+/* Holds the card's place while the account loads, so the exit button stays at the bottom. */
+.account-entry-pending { flex: 1; }
+.account-gate .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .account-entry {
   width: min(100%, 420px);
   margin: auto;
@@ -45,10 +32,10 @@
   animation: surface-enter 200ms var(--ease-out, ease-out);
 }
 .account-entry h1 {
-  font-size: 24px;
-  font-weight: 620;
-  letter-spacing: -0.02em;
-  line-height: 1.35;
+  font-size: 28px;
+  font-weight: 550;
+  letter-spacing: -0.4px;
+  line-height: 1.3;
   margin: 18px 0 8px;
   color: var(--strong);
   overflow-wrap: anywhere;

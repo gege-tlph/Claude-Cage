@@ -39,8 +39,8 @@ export function SetupProgress({ job, onDetails, onStop, onRetry, disconnected })
         <span className="setup-transfer-icon"><Icon size={19} aria-hidden="true" /></span>
         <div className="setup-transfer-description">
           <h2>{label ? localizeBackendMessage(label, tr) : stage?.[1] ? tr(stage[1]) : tr("正在准备环境")}</h2>
-          {meter && <span className="setup-transfer-bytes">{meter}</span>}
-          {hasBytes && operation !== "verify" && Number.isFinite(bytes_per_second) && bytes_per_second > 0 && <span className="setup-transfer-bytes"> · {bytes(bytes_per_second)}/s</span>}
+          {/* Always one line, so stages with and without byte counts keep the card's height. */}
+          <span className="setup-transfer-bytes">{meter || "\u00a0"}{hasBytes && operation !== "verify" && Number.isFinite(bytes_per_second) && bytes_per_second > 0 && ` · ${bytes(bytes_per_second)}/s`}</span>
         </div>
         {knownSize && <strong className="setup-transfer-number">{percent}<small>%</small></strong>}
       </div>
