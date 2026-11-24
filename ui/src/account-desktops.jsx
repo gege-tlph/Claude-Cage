@@ -26,6 +26,7 @@ import { runtimeSocketURL } from "./client-context.mjs";
 import { translate, useTranslation } from "./interface-language.mjs";
 import { localizeBackendMessage } from "./backend-message.mjs";
 import {
+  addDesktopBeside,
   desktopClipboardState,
   desktopMergeNoticeTarget,
   desktopTitle,
@@ -124,9 +125,22 @@ export function useAccountDesktops(onShow, onHide, notify, confirm, visible, rev
         setPending(account.id);
       }
       if (action === "start" && account.id === "default") {
-        setPanes([]); onShow(); return true;
+        setPanes((old) => beside ? addDesktopBeside(old, account, account) : []);
+        onShow(); focus(account.id); return true;
       }
       if (action === "start" && panesRef.current.some(p => p.id === account.id) && account.running) {
+        onShow(); focus(account.id); return true;
+      }
+      const showAccount = (old) => {
+        if (old.some((pane) => pane.id === account.id)) return old;
+        if (!beside) return [account];
+        const defaultEntry = !catalog?.redirects?.default
+          ? catalog?.instances?.find(item => item.id === "default") || { id: "default", label: translate("默认 Desktop") }
+          : null;
+        return addDesktopBeside(old, account, defaultEntry);
+      };
+      if (action === "start" && beside && account.running) {
+        setPanes(showAccount);
         onShow(); focus(account.id); return true;
       }
       let job = await api(entry(account.id) + "/" + action, {});
@@ -136,11 +150,7 @@ export function useAccountDesktops(onShow, onHide, notify, confirm, visible, rev
       }
       if (job.error || job.canceled) throw new Error(job.error || "操作已取消");
       if (action === "start") {
-        setPanes((old) => {
-          if (old.some((pane) => pane.id === account.id)) return old;
-          if (!beside || !old.length) return [account];
-          return [old[0], account];
-        });
+        setPanes(showAccount);
         onShow();
       } else {
         const closingOnly = panesRef.current.length === 1 && panesRef.current[0].id === account.id;
@@ -201,6 +211,7 @@ export function useAccountDesktops(onShow, onHide, notify, confirm, visible, rev
     rename,
     remove,
     refresh,
+    hidePane: (id) => setPanes((old) => old.filter((pane) => pane.id !== id)),
     clear: () => setPanes([]),
     toggle: () => {
       setExpanded(!expanded);
@@ -218,7 +229,7 @@ export function DesktopList({ model, disabled, selected, defaultRunning = false,
   const original = instances.find(a => a.id === "default");
   const defaultEntry = original || { id: "default", label: tr("默认 Desktop") };
   const isDefaultRunning = Boolean(defaultEntry.running || defaultRunning);
-  const defaultSelected = selected && panes.length === 0;
+  const defaultSelected = selected && (!panes.length || panes.some((p) => p.id === "default"));
   const focusRowActions = (event) => {
     event.preventDefault();
     event.currentTarget.focus();
@@ -256,6 +267,10 @@ export function DesktopList({ model, disabled, selected, defaultRunning = false,
                 <DesktopAccountLabel account={defaultEntry} />
                 {isDefaultRunning ? <span className="account-desktop-status" aria-hidden="true">●</span> : null}
               </button>
+              {catalog?.supported && panes.length > 0 && !panes.some((p) => p.id === "default") && (
+                <DesktopRowAction label={tr("并排打开")} className="desktop-split-action" icon={Columns2}
+                  disabled={Boolean(pending) || disabled} onClick={() => model.act(defaultEntry, "start", true)} />
+              )}
               {((isDefaultRunning && onDefaultStop) || (catalog?.supported && onRename)) && (
                 <div className="terminal-row-actions" role="group" aria-label={tr("{0} 的操作", title(defaultEntry))}>
                   {isDefaultRunning && onDefaultStop && (
@@ -298,15 +313,16 @@ export function DesktopList({ model, disabled, selected, defaultRunning = false,
                     <DesktopAccountLabel account={a} />
                     {pending === a.id || a.running ? <span className="account-desktop-status" aria-hidden="true">{pending === a.id ? "…" : "●"}</span> : null}
                   </button>
-                  <div className="terminal-row-actions" role="group" aria-label={tr("{0} 的操作", title(a))}>
-                    {panes.length > 0 && !panes.some((p) => p.id === a.id) && (
+                  {(panes.length > 0 || !catalog?.redirects?.default) && !panes.some((p) => p.id === a.id) && (
                       <DesktopRowAction
                         label={tr("并排打开")}
+                        className="desktop-split-action"
                         icon={Columns2}
                         disabled={Boolean(pending) || disabled}
                         onClick={() => model.act(a, "start", true)}
                       />
-                    )}
+                  )}
+                  <div className="terminal-row-actions" role="group" aria-label={tr("{0} 的操作", title(a))}>
                     {a.running && (
                       <DesktopRowAction
                         label={tr("关闭")}
@@ -615,6 +631,9 @@ export const DesktopPanes = forwardRef(function DesktopPanes(
     onFallback,
     sidebarCollapsed,
     onExpand,
+    renderDefault,
+    defaultControl,
+    onActivePane,
   },
   ref,
 ) {
@@ -626,28 +645,26 @@ export const DesktopPanes = forwardRef(function DesktopPanes(
     if (control) controls.current.set(id, control);
     else controls.current.delete(id);
   }, []);
-  const activePaneID = model.panes.some((pane) => pane.id === focusedID)
+  const panes = model.panes.length ? model.panes : [{ id: "default", label: translate("默认 Desktop") }];
+  const activePaneID = panes.some((pane) => pane.id === focusedID)
     ? focusedID
-    : (model.panes[model.panes.length - 1]?.id || "");
+    : panes[panes.length - 1].id;
+  useEffect(() => onActivePane?.(activePaneID), [activePaneID, onActivePane]);
   useImperativeHandle(
     ref,
     () => ({
       edit: (action) => {
-        const target = controls.current.get(activePaneID);
-        if (target?.edit(action)) return true;
-        for (const control of controls.current.values()) {
-          if (control.edit(action)) return true;
-        }
-        return false;
+        const target = activePaneID === "default" ? defaultControl?.current : controls.current.get(activePaneID);
+        return target?.edit(action) || false;
       },
       pasteText: (text) => {
-        const target = controls.current.get(activePaneID) || controls.current.values().next().value;
+        const target = activePaneID === "default" ? defaultControl?.current : controls.current.get(activePaneID);
         target?.pasteText(text);
       },
     }),
-    [activePaneID],
+    [activePaneID, defaultControl],
   );
-  const paneIDs = new Set(model.panes.map((pane) => pane.id));
+  const paneIDs = new Set(model.panes.filter((pane) => pane.id !== "default").map((pane) => pane.id));
   const paneUploads = uploads.filter((item) => item.desktop && paneIDs.has(item.desktop));
   const directoryRequest = paneUploads.find((item) => item.directory && item.id !== closedChooser);
   return (
@@ -690,7 +707,17 @@ export const DesktopPanes = forwardRef(function DesktopPanes(
           }}
         />
       )}
-      {model.panes.map((a) => (
+      {panes.map((a) => a.id === "default" ? (
+        <section key={a.id} id="desktop-pane-default" className="account-desktop-pane split-default-pane"
+          onPointerDownCapture={() => setFocusedID(a.id)} onFocusCapture={() => setFocusedID(a.id)}>
+          {panes.length > 1 && <header className="split-default-header">
+            <span className="account-desktop-title"><DesktopAccountLabel account={a} /></span>
+            <DesktopRowAction label={translate("退出分屏")} icon={Columns2}
+              onClick={() => model.hidePane(a.id)} />
+          </header>}
+          {renderDefault?.(activePaneID === a.id)}
+        </section>
+      ) : (
         <DesktopPane
           key={a.id}
           account={a}

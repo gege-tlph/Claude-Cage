@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  addDesktopBeside,
   desktopClipboardState,
   desktopMergeNoticeTarget,
   desktopTitle,
@@ -10,6 +11,23 @@ import {
 
 const instanceA = { id: "a".repeat(24), number: 1, label: "工作账号", running: true };
 const instanceB = { id: "b".repeat(24), number: 2, label: "备用账号", running: true };
+const defaultDesktop = { id: "default", label: "默认 Desktop", running: true };
+
+test("default and independent Desktop split left/right from either entry without duplicating an instance", () => {
+  assert.deepEqual(addDesktopBeside([], instanceA, defaultDesktop), [defaultDesktop, instanceA]);
+  assert.deepEqual(addDesktopBeside([instanceA], defaultDesktop, defaultDesktop), [defaultDesktop, instanceA]);
+  assert.deepEqual(addDesktopBeside([defaultDesktop, instanceA], instanceA, defaultDesktop), [defaultDesktop, instanceA]);
+  assert.deepEqual(addDesktopBeside([defaultDesktop, instanceA], instanceB, defaultDesktop), [defaultDesktop, instanceB]);
+  assert.deepEqual(addDesktopBeside([], instanceA, null), [instanceA]);
+});
+
+test("catalog refresh keeps the mixed split, but merging accounts never shows the same guest twice", () => {
+  const mixed = [defaultDesktop, instanceA];
+  assert.deepEqual(reconcileAccountDesktopPanes(mixed, { instances: [defaultDesktop, instanceA] }), mixed);
+  assert.deepEqual(reconcileAccountDesktopPanes(mixed, { instances: [instanceA] }), mixed);
+  assert.deepEqual(reconcileAccountDesktopPanes(mixed, { instances: [instanceA], redirects: { default: instanceA.id } }), [instanceA]);
+  assert.deepEqual(reconcileAccountDesktopPanes(mixed, { instances: [defaultDesktop] }), [defaultDesktop]);
+});
 
 test("isolated desktop clipboard stays connected across window occlusion and pauses polling only", () => {
   const active = desktopClipboardState({

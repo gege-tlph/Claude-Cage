@@ -104,7 +104,9 @@
 .account-desktop-panes {position:relative;height:100%;min-width:0;}
 .account-desktop-pane {display:flex;flex:1;flex-direction:column;min-width:0;position:relative;}
 .account-desktop-pane + .account-desktop-pane {border-inline-start:1px solid var(--line);}
-.account-desktop-pane header {align-items:center;justify-content:space-between;gap:10px;padding:6px 12px;border-bottom:1px solid var(--line);}
+.account-desktop-pane > header {align-items:center;justify-content:space-between;gap:10px;padding:6px 12px;border-bottom:1px solid var(--line);}
+.split-default-pane > .claude-desktop-view {flex:1;min-height:0;height:auto;}
+.account-desktop-row > .desktop-split-action {flex:none;margin-inline-end:3px;}
 .account-desktop-title {display:flex;align-items:center;gap:10px;min-width:0;}
 .account-desktop-screen {min-height:0;flex:1;overflow:hidden;}
 .account-desktop-message {position:absolute;inset:auto 8px 8px;background:var(--paper);padding:6px;}
