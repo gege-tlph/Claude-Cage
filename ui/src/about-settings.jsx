@@ -87,8 +87,8 @@ export function AboutSettings() {
       if (!controller.signal.aborted) setBusy(false);
     }
   };
-  return <section className="about-settings" aria-label={tr("关于 Cage")}>
-    <div className="section-title"><h3>{tr("关于")}</h3><p>{tr("Cage 的版本与更新信息")}</p></div>
+  return <section className="about-settings" aria-label={tr("关于 Cage lite")}>
+    <div className="section-title"><h3>{tr("关于")}</h3><p>{tr("Cage lite 的版本与更新信息")}</p></div>
     <dl className="about-build">
       <div><dt>{tr("软件版本")}</dt><dd>{loading ? tr("正在读取…") : build?.version || tr("未知")}</dd></div>
       <div><dt>{tr("构建提交")}</dt><dd>{build?.commit ? <code title={build.commit}>{build.commit.slice(0, 12)}</code> : loading ? tr("正在读取…") : tr("未记录")}</dd></div>

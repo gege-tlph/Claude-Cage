@@ -34,7 +34,7 @@ const (
 
 // errPluginSecretsLocked is a plugin that cannot receive its secrets while
 // Cage is locked.
-var errPluginSecretsLocked = errors.New("Cage 已锁定，解锁后插件会重新启动")
+var errPluginSecretsLocked = errors.New("Cage lite 已锁定，解锁后插件会重新启动")
 
 type pluginSettingsRecord struct {
 	Values map[string]string `json:"values,omitempty"`
@@ -357,7 +357,7 @@ func (s *Server) savePluginSettings(name string, values map[string]*string, conf
 			return nil
 		})
 		if errors.Is(err, errPluginSecretsLocked) {
-			return errors.New("请先解锁 Cage")
+			return errors.New("请先解锁 Cage lite")
 		}
 		if err != nil {
 			return err

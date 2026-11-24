@@ -249,7 +249,7 @@ export function SafetyPanel({
               <strong>{tr(site.name)}</strong>
               <small>{site.source}</small>
               <button disabled={!online || busy} onClick={() => open(site.url)}>
-                {tr("在 Cage 中打开")}
+                {tr("在 Cage lite 中打开")}
                 <ArrowUpRight size={14} />
               </button>
               {site.attribution && (

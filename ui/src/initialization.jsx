@@ -60,7 +60,7 @@ export function InitializationGate({ children }) {
     return () => { live = false; };
   }, [remote, attempt]);
   if (remote) return children;
-  if (error) return <InitializationFrame><section className="initialization-content"><h1>{tr("继续准备 Cage")}</h1><p role="alert"><SafetyMessage message={error} /></p><button className="primary" onClick={() => retry(value => value + 1)}>{tr("重新连接")}</button><DiagnosticSettings /></section></InitializationFrame>;
+  if (error) return <InitializationFrame><section className="initialization-content"><h1>{tr("继续准备 Cage lite")}</h1><p role="alert"><SafetyMessage message={error} /></p><button className="primary" onClick={() => retry(value => value + 1)}>{tr("重新连接")}</button><DiagnosticSettings /></section></InitializationFrame>;
   if (!state) return <InitializationFrame><section className="initialization-content"><h1>{tr("正在读取环境状态")}</h1><p role="status"><LoaderCircle size={18} className="spin" />{tr("正在检查已有配置和安装进度…")}</p></section></InitializationFrame>;
   return state.required ? <Initialization initial={state} onComplete={() => setState({ required: false })} /> : children;
 }

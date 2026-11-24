@@ -14,7 +14,7 @@ for (const platform of ["darwin", "windows", "linux"]) {
     });
     const { browser, page, errors } = fixture;
     try {
-      const start = page.getByRole("button",{name:"启动 Cage 环境",exact:true});
+      const start = page.getByRole("button",{name:"启动环境",exact:true});
       await start.waitFor();
       assert.equal(await page.locator(".guest-system-picker").count(), 0);
       assert.equal(await page.getByRole("combobox",{name:"客户机系统"}).count(), 0);
@@ -63,7 +63,7 @@ for (const [system, name, available, reason] of [
       await region.waitFor({state:"hidden"});
       assert.equal(withdrawn, 1);
       const submitted = page.waitForRequest(req => req.url().endsWith("/api/start") && req.method()==="POST");
-      await page.getByRole("button",{name:"启动 Cage 环境",exact:true}).click();
+      await page.getByRole("button",{name:"启动环境",exact:true}).click();
       assert.deepEqual((await submitted).postDataJSON(), {guest_system:"debian-13"});
     }
     assert.deepEqual(errors,[]);

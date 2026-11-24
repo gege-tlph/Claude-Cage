@@ -183,7 +183,7 @@ export function HostForm({ initial, platform, onSaved, onClose }) {
             <summary>{tr("云端安装路径")}</summary>
             <div className="remote-advanced">
               <label>
-                {tr("Cage 程序路径")}
+                {tr("Cage lite 程序路径")}
                 <input
                   value={form.executable || ""}
                   onChange={(event) => update("executable", event.target.value)}
@@ -192,7 +192,7 @@ export function HostForm({ initial, platform, onSaved, onClose }) {
                 />
               </label>
               <label>
-                {tr("Cage 配置文件")}
+                {tr("Cage lite 配置文件")}
                 <input
                   value={form.config_path || ""}
                   onChange={(event) =>

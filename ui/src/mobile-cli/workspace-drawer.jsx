@@ -23,7 +23,7 @@ export function CodeNavigation({catalog, project, sessions, current, creating, o
       {creating ? <LoaderCircle size={15} className="spin" /> : <Plus size={15} />}新建会话</button></div>
     {sessions.length ? <ul className="session-list">{sessions.map(s => <SessionRow key={s.id} session={s} current={current === s.id}
       disabled={creating} onSelect={() => onSession(s.id)} onAction={onAction} detail={formatTime(s.updated_at)}/>)}</ul>
-      : <p className="nav-note">{catalog.ready ? "这个项目还没有会话。" : "请先在电脑上启动 Cage。"}</p>}
+      : <p className="nav-note">{catalog.ready ? "这个项目还没有会话。" : "请先在电脑上启动 Cage lite。"}</p>}
   </section>;
 }
 

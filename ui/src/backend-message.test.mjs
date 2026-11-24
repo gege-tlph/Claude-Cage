@@ -9,14 +9,14 @@ const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 const languages = JSON.parse(read("../../internal/uilocale/languages.json")).slice(1);
 
 test("localizeBackendMessage preserves original Chinese in default locale", () => {
-  const errLocalNode = "本机代理端口不能用作节点。请导入原客户端的具体节点，在 Cage 中按中转到最终出口的顺序重新配置并应用";
+  const errLocalNode = "本机代理端口不能用作节点。请导入原客户端的具体节点，在 Cage lite 中按中转到最终出口的顺序重新配置并应用";
   assert.equal(localizeBackendMessage(errLocalNode, formatMessage), errLocalNode);
   const routeErr = `节点 "local-1080" 需要迁移：${errLocalNode}`;
   assert.equal(localizeBackendMessage(routeErr, formatMessage), routeErr);
 });
 
 test("localizeBackendMessage translates ErrLocalProxyNode and dynamic backend errors in every non-default language", () => {
-  const errLocalNode = "本机代理端口不能用作节点。请导入原客户端的具体节点，在 Cage 中按中转到最终出口的顺序重新配置并应用";
+  const errLocalNode = "本机代理端口不能用作节点。请导入原客户端的具体节点，在 Cage lite 中按中转到最终出口的顺序重新配置并应用";
   const samples = [
     errLocalNode,
     `节点 "local-socks" 需要迁移：${errLocalNode}`,
@@ -74,7 +74,7 @@ test("English ErrLocalProxyNode and daily refresh interval are translated", () =
   const localize = (source, ...values) => formatMessage(Object.hasOwn(catalog, source) ? catalog[source] : source, ...values);
 
   assert.equal(localize("每天"), "Daily");
-  const errLocalNode = "本机代理端口不能用作节点。请导入原客户端的具体节点，在 Cage 中按中转到最终出口的顺序重新配置并应用";
+  const errLocalNode = "本机代理端口不能用作节点。请导入原客户端的具体节点，在 Cage lite 中按中转到最终出口的顺序重新配置并应用";
   const enErr = localizeBackendMessage(errLocalNode, localize);
   assert.match(enErr, /^A local proxy port can't be used as a node/);
   assert.doesNotMatch(enErr, /\p{Script=Han}/u);

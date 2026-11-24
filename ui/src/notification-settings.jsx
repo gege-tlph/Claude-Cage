@@ -136,8 +136,8 @@ export function NotificationSettings({ onUpdated }) {
         if (systemStatus?.permission === "not_determined") await requestPermission();
         const result = await native("showNotification", {
           id: "cage-test-" + Date.now(),
-          title: tr("Cage 通知测试"),
-          body: tr("Claude Code 完成回复时会像这样提醒你，点击可回到 Cage。"),
+          title: tr("Cage lite 通知测试"),
+          body: tr("Claude Code 完成回复时会像这样提醒你，点击可回到 Cage lite。"),
           terminal_id: "",
           connection_id: "",
           sound: prefs.sound,
@@ -146,7 +146,7 @@ export function NotificationSettings({ onUpdated }) {
         if (result?.delivered) {
           setFeedback(tr("已发送测试通知。"));
         } else if (result?.permission === "denied" || result?.permission === "not_determined") {
-          setError(tr("系统通知权限已关闭，请在系统设置中允许 Cage 发送通知。"));
+          setError(tr("系统通知权限已关闭，请在系统设置中允许 Cage lite 发送通知。"));
         } else if (result?.permission === "unavailable") {
           setError(tr("未检测到系统通知服务，请确认桌面环境已开启通知后重试。"));
         } else {
@@ -158,7 +158,7 @@ export function NotificationSettings({ onUpdated }) {
           await refreshSystemStatus();
         }
         if (window.Notification.permission === "granted") {
-          new window.Notification(tr("Cage 通知测试"), {
+          new window.Notification(tr("Cage lite 通知测试"), {
             body: tr("Claude Code 完成回复时会像这样提醒你。"),
             silent: !prefs.sound,
           });

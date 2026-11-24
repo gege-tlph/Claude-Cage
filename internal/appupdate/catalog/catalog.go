@@ -51,7 +51,7 @@ func archiveName(version, goos, goarch string) (string, error) {
 	case goos == "android" && goarch == "arm64":
 		return "Cage-" + version + "-android-arm64.apk", nil
 	default:
-		return "", errors.New("此平台尚无 Cage 应用内更新发行包")
+		return "", errors.New("此平台尚无 Cage lite 应用内更新发行包")
 	}
 }
 

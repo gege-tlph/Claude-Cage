@@ -409,7 +409,7 @@ final class CageUpdateProcessMonitor {
 
 /// Owns update state for one native window. All state transitions run on main.
 final class CageAppUpdater {
-    private static let unsignedManualMessage = "当前 macOS 应用未签名或签名无法验证，请从官方发布页下载安装包，退出 Cage 后替换原应用；配置、凭据、项目和虚拟机磁盘会保留。"
+    private static let unsignedManualMessage = "当前 macOS 应用未签名或签名无法验证，请从官方发布页下载安装包，退出 Cage lite 后替换原应用；配置、凭据、项目和虚拟机磁盘会保留。"
     private let bundleURL: URL
     private let root: URL
     private let onChange: ([String: Any]) -> Void
@@ -519,7 +519,7 @@ final class CageAppUpdater {
             try CageUpdateFiles.privateDirectory(root)
             try CageUpdateFiles.write(data, to: root.appendingPathComponent("launch-\(token).json"))
             launchAcknowledged = true
-            change(["phase": "current", "message": "Cage 已更新至 \(state["currentVersion"] as? String ?? "")"])
+            change(["phase": "current", "message": "Cage lite 已更新至 \(state["currentVersion"] as? String ?? "")"])
         } catch { failure("更新已安装，但启动确认未能保存") }
     }
     private func change(_ values: [String: Any]) {
@@ -656,12 +656,12 @@ final class CageAppUpdater {
                 if prepared.unsignedSource {
                     guard prepared.team == cageOfficialAppleTeamID,
                           CageUpdateFiles.isInstalledApplicationsPath(self.bundleURL) else {
-                        throw CageUpdateError("请先将 Cage 安装到应用程序目录，再自动切换为官方签名版本")
+                        throw CageUpdateError("请先将 Cage lite 安装到应用程序目录，再自动切换为官方签名版本")
                     }
                     try CageUpdateFiles.verifyUnsignedAppIdentity(self.bundleURL)
                 } else {
                     guard !self.bundleURL.path.hasPrefix("/Volumes/"), self.bundleURL.pathExtension == "app" else {
-                        throw CageUpdateError("请先将 Cage 安装到应用程序目录，再自动更新")
+                        throw CageUpdateError("请先将 Cage lite 安装到应用程序目录，再自动更新")
                     }
                 }
                 try CageUpdateFiles.verifyApp(prepared.app, version: prepared.version, team: prepared.team, validation: task)
@@ -734,7 +734,7 @@ final class CageAppUpdater {
                             try self.installerInput?.fileHandleForWriting.write(contentsOf: Data("COMMIT\n".utf8))
                             try self.installerInput?.fileHandleForWriting.close()
                             self.installationCommitted = true
-                            self.change(["phase": "installing", "message": "正在安装并重启 Cage"])
+                            self.change(["phase": "installing", "message": "正在安装并重启 Cage lite"])
                             self.quit()
                         } catch { self.abortInstaller(); self.failure("无法开始安装，原应用已保留"); self.reconnect() }
                     case "stop_required":

@@ -19,7 +19,7 @@ func (e *accountProbeError) Error() string {
 }
 func (e *accountProbeError) Unwrap() error { return e.cause }
 
-var errClaudeAccessLost = errors.New("Cage 已锁定，请先解锁")
+var errClaudeAccessLost = errors.New("Cage lite 已锁定，请先解锁")
 
 type claudeAccountInput struct {
 	ProxyNodeID             *string           `json:"proxy_node_id,omitempty"`

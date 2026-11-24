@@ -75,7 +75,7 @@ internal static class Authenticode
                 string.Equals(actual.Organization, own.Organization, StringComparison.Ordinal)) return;
         }
         catch (Exception error) when (error is IOException or CryptographicException or UnauthorizedAccessException) { }
-        throw new IOException("更新包的发布者签名与当前 Cage 不一致");
+        throw new IOException("更新包的发布者签名与当前 Cage lite 不一致");
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]

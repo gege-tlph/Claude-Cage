@@ -112,7 +112,7 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
         <h3>{tr("远程连接")}</h3>
       </div>
       <section className="remote-pair-card" aria-label={tr("手机配对")}>
-        <h4>{paired ? tr("手机已配对") : tr("用手机连接 Cage")}</h4>
+        <h4>{paired ? tr("手机已配对") : tr("用手机连接 Cage lite")}</h4>
         {paired && (
           <p className="remote-pair-device" aria-label={tr("已配对手机")}>
             {device?.model ? (
@@ -123,7 +123,7 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
             ) : mobileAccessBlocked ? (
               <span>{tr("当前账户模式暂不支持手机访问，请在「设置 → 账户」设置密码或开启「记住登录」后重新连接。")}</span>
             ) : (
-              <span>{tr("型号待获取，请更新手机端 Cage 后重新连接。")}</span>
+              <span>{tr("型号待获取，请更新手机端 Cage lite 后重新连接。")}</span>
             )}
           </p>
         )}

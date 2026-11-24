@@ -61,7 +61,7 @@ const (
 	Nyanpasu
 )
 
-const encryptedConfigError = "配置文件使用 age 加密，Cage 不会解密私有配置，无法直接导入。请从原客户端或服务商导出明文 Clash/Mihomo YAML 后通过“添加来源”导入，或手动添加节点"
+const encryptedConfigError = "配置文件使用 age 加密，Cage lite 不会解密私有配置，无法直接导入。请从原客户端或服务商导出明文 Clash/Mihomo YAML 后通过“添加来源”导入，或手动添加节点"
 
 type Location struct {
 	Client, Directory string
@@ -194,7 +194,7 @@ func Scan(locations []Location, key []byte) []Config {
 					if errors.Is(err, managedproxy.ErrLocalProxyNode) || loc.Layout == Surge {
 						c.Error = err.Error()
 					} else if errors.Is(err, managedproxy.ErrSourceNodeDNS) {
-						c.Error = err.Error() + "。请在原软件中把节点 DNS（dns.proxy-server-nameserver）改为远程 HTTPS DoH 地址后重新导出，或在 Cage 中手动添加节点"
+						c.Error = err.Error() + "。请在原软件中把节点 DNS（dns.proxy-server-nameserver）改为远程 HTTPS DoH 地址后重新导出，或在 Cage lite 中手动添加节点"
 					}
 				} else {
 					c.Nodes = len(preview.Sources[0].Nodes)

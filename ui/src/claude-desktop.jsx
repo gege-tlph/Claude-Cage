@@ -156,7 +156,7 @@ export function ClaudeDesktop({
           <button onClick={onDetails}>{tr("操作详情")}</button>
         </div>
       )}
-      {desktop?.running && desktop.managed === false && !desktop.native_user_session && <div className="connection-banner" role="status">{tr("当前应用尚未接入 Cage 账户解锁。请先保存并关闭应用，再重新打开。")}</div>}
+      {desktop?.running && desktop.managed === false && !desktop.native_user_session && <div className="connection-banner" role="status">{tr("当前应用尚未接入账户解锁。请先保存并关闭应用，再重新打开。")}</div>}
       {busy && ownJob && (
         <div className="desktop-progress" role="status">
           <RefreshCw size={16} className="spin" />
@@ -182,7 +182,7 @@ export function ClaudeDesktop({
             <h2>
               {desktop?.installed
                 ? "Claude Desktop"
-                : tr("在 Cage 中使用 Claude Desktop")}
+                : tr("在 Cage lite 中使用 Claude Desktop")}
             </h2>
             {!desktop?.installed && (
               null

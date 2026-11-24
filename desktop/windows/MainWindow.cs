@@ -9,7 +9,7 @@ internal sealed class MainWindow : Form
 {
     private WebView2 web = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly NativeInput nativeInput;
-    private readonly Label message = new() { AutoSize = true, MaximumSize = new Size(720, 0), Text = InterfaceLanguage.Text("正在启动 Cage 工作台…"), Margin = new Padding(12) };
+    private readonly Label message = new() { AutoSize = true, MaximumSize = new Size(720, 0), Text = InterfaceLanguage.Text("正在启动工作台…"), Margin = new Padding(12) };
     private readonly FlowLayoutPanel status = new() { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, Padding = new Padding(48), WrapContents = false, Visible = false };
     private readonly Button retry = new() { Text = InterfaceLanguage.Text("重试连接"), AutoSize = true, Visible = false };
     private readonly Button existing = new() { Text = InterfaceLanguage.Text("打开现有环境保存文件"), AutoSize = true, Visible = false };
@@ -57,13 +57,13 @@ internal sealed class MainWindow : Form
             if (ConfirmStop()) await Bootstrap("--complete-update");
         };
         var trayMenu = new TrayMenu();
-        AddTrayItem("打开 Cage", TrayIconKind.Open, (_, _) => RestoreWindow());
+        AddTrayItem("打开 Cage lite", TrayIconKind.Open, (_, _) => RestoreWindow());
         AddTrayItem("检查应用更新…", TrayIconKind.CheckUpdates, (_, _) => updater!.Handle("check"));
-        AddTrayItem("关于 Cage", TrayIconKind.About, (_, _) => MessageBox.Show(this,
+        AddTrayItem("关于 Cage lite", TrayIconKind.About, (_, _) => MessageBox.Show(this,
             $"Cage {AppUpdater.Version}\n" + InterfaceLanguage.Text("本机隔离编码工作区"),
-            InterfaceLanguage.Text("关于 Cage")));
+            InterfaceLanguage.Text("关于 Cage lite")));
         trayMenu.Items.Add(new ToolStripSeparator());
-        AddTrayItem("退出 Cage…", TrayIconKind.Quit, (_, _) => RequestQuit(), destructive: true);
+        AddTrayItem("退出 Cage lite…", TrayIconKind.Quit, (_, _) => RequestQuit(), destructive: true);
         trayMenu.Opening += (_, _) => {
             foreach (ToolStripItem item in trayMenu.Items)
                 if (item.Tag is TrayItemMetadata meta) item.Text = InterfaceLanguage.Text(meta.SourceKey);
@@ -168,7 +168,7 @@ internal sealed class MainWindow : Form
     }
 
     private bool ConfirmStop() => MessageBox.Show(this,
-        InterfaceLanguage.Text("请先保存编辑器中的文件并结束正在运行的工作。继续后 Cage 会停止环境、安装已验证的更新并重新启动。"),
+        InterfaceLanguage.Text("请先保存编辑器中的文件并结束正在运行的工作。继续后 Cage lite 会停止环境、安装已验证的更新并重新启动。"),
         InterfaceLanguage.Text("保存并停止环境后安装重启"), MessageBoxButtons.OKCancel, MessageBoxIcon.Information) == DialogResult.OK;
 
     public void RestoreWindow() { Show(); if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal; Activate(); PublishVisibility(); }
@@ -294,7 +294,7 @@ internal sealed class MainWindow : Form
         }
         catch (WebView2RuntimeNotFoundException)
         {
-            Error(InterfaceLanguage.Text("缺少 Microsoft Edge WebView2 Runtime。请运行 Cage 安装程序安装随附运行时后重试。"));
+            Error(InterfaceLanguage.Text("缺少 Microsoft Edge WebView2 Runtime。请运行 Cage lite 安装程序安装随附运行时后重试。"));
             webFailed = true;
         }
         catch (Exception error) { webFailed = true; Error(InterfaceLanguage.Format("无法初始化工作台：{0}", error.Message)); }
@@ -420,7 +420,7 @@ internal sealed class MainWindow : Form
     {
         if (bootstrapping || web.CoreWebView2 == null) return;
         bootstrapping = true;
-        message.Text = InterfaceLanguage.Text("正在连接 Cage 工作台…");
+        message.Text = InterfaceLanguage.Text("正在连接工作台…");
         if (!starting) { status.Show(); status.BringToFront(); }
         retry.Hide(); existing.Hide(); complete.Hide();
         try
@@ -437,7 +437,7 @@ internal sealed class MainWindow : Form
             }
             var entry = UpdatePolicy.Entry(data.Text("url")); expectedPort = entry.Port;
             smokePhase = "loading_workbench";
-            Text = controllerNeedsUpdate ? InterfaceLanguage.Text("Cage（更新待完成）") : "Cage";
+            Text = controllerNeedsUpdate ? InterfaceLanguage.Text("Cage lite（更新待完成）") : "Cage";
             web.CoreWebView2.Navigate(entry.AbsoluteUri);
         }
         catch (OperationCanceledException) { if (!lifetime.IsCancellationRequested) Error(InterfaceLanguage.Text("启动工作台失败：等待本机后台响应超时。请点击“重试连接”；仍失败时请保留此提示并反馈给维护者。")); }
@@ -514,7 +514,7 @@ internal sealed class MainWindow : Form
                     updater.MarkReady(); result = true; _ = CompleteSmoke(); break;
                 case "appUpdate": result = updater.Handle(request.Text("operation")); break;
                 case "importTheme":
-                    using (var picker = new OpenFileDialog { Filter = InterfaceLanguage.Text("Cage 主题 (*.json)") + "|*.json", Title = InterfaceLanguage.Text("导入主题"), Multiselect = false })
+                    using (var picker = new OpenFileDialog { Filter = InterfaceLanguage.Text("Cage lite 主题 (*.json)") + "|*.json", Title = InterfaceLanguage.Text("导入主题"), Multiselect = false })
                     {
                         if (picker.ShowDialog(this) != DialogResult.OK) { result = ""; break; }
                         using var stream = File.OpenRead(picker.FileName);
@@ -538,7 +538,7 @@ internal sealed class MainWindow : Form
                     if (System.Text.Encoding.UTF8.GetByteCount(themeText) > 256 * 1024) throw new InvalidDataException("主题文件不能超过 256 KB");
                     var themeDocument = JsonDocument.Parse(themeText).RootElement;
                     if (themeDocument.Text("format") != "cage-theme" || themeDocument.GetProperty("version").GetInt32() != 1) throw new InvalidDataException("主题文件格式无效");
-                    using (var picker = new SaveFileDialog { Filter = InterfaceLanguage.Text("Cage 主题 (*.json)") + "|*.json", Title = InterfaceLanguage.Text("导出主题"), FileName = Path.GetFileName(request.Text("filename")), DefaultExt = "json", AddExtension = true })
+                    using (var picker = new SaveFileDialog { Filter = InterfaceLanguage.Text("Cage lite 主题 (*.json)") + "|*.json", Title = InterfaceLanguage.Text("导出主题"), FileName = Path.GetFileName(request.Text("filename")), DefaultExt = "json", AddExtension = true })
                     {
                         if (picker.ShowDialog(this) != DialogResult.OK) { result = false; break; }
                         File.WriteAllText(picker.FileName, themeText, new System.Text.UTF8Encoding(false)); result = true;
@@ -550,7 +550,7 @@ internal sealed class MainWindow : Form
                     var accessMode = request.Text("mode");
                     if (connection.Length == 0 || accessMode is not ("read" or "write")) throw new InvalidDataException("请在云端工作台重新选择项目");
                     using var picker = new FolderBrowserDialog {
-                        Description = InterfaceLanguage.Text(accessMode == "write" ? "云端 Cage 可以读取、修改和删除所选项目中的文件。" : "云端 Cage 可以读取所选项目中的文件。"),
+                        Description = InterfaceLanguage.Text(accessMode == "write" ? "云端 Cage lite 可以读取、修改和删除所选项目中的文件。" : "云端 Cage lite 可以读取所选项目中的文件。"),
                         UseDescriptionForTitle = true, ShowNewFolderButton = false
                     };
                     if (picker.ShowDialog(this) != DialogResult.OK) { result = new { canceled = true }; break; }
@@ -559,7 +559,7 @@ internal sealed class MainWindow : Form
                     result = response.Data; break;
                 }
                 case "chooseFolder":
-                    using (var picker = new FolderBrowserDialog { Description = InterfaceLanguage.Text(request.Text("purpose") == "environmentStorage" ? "请选择用于保存镜像和虚拟磁盘的空文件夹。" : "仅此文件夹会与 Cage 共享。请选择具体项目。"), UseDescriptionForTitle = true, ShowNewFolderButton = true })
+                    using (var picker = new FolderBrowserDialog { Description = InterfaceLanguage.Text(request.Text("purpose") == "environmentStorage" ? "请选择用于保存镜像和虚拟磁盘的空文件夹。" : "仅此文件夹会与 Cage lite 共享。请选择具体项目。"), UseDescriptionForTitle = true, ShowNewFolderButton = true })
                         result = picker.ShowDialog(this) == DialogResult.OK ? picker.SelectedPath : "";
                     break;
                 case "clipboardRead": result = Clipboard.ContainsText() ? Clipboard.GetText() : ""; break;
@@ -659,7 +659,7 @@ internal sealed class MainWindow : Form
                     retry.Text = InterfaceLanguage.Text("重试连接");
                     existing.Text = InterfaceLanguage.Text("打开现有环境保存文件");
                     complete.Text = InterfaceLanguage.Text("保存后停止环境并完成更新");
-                    Text = controllerNeedsUpdate ? InterfaceLanguage.Text("Cage（更新待完成）") : "Cage";
+                    Text = controllerNeedsUpdate ? InterfaceLanguage.Text("Cage lite（更新待完成）") : "Cage";
                     result = true; break;
                 case "appearance":
                     var mode = request.Text("mode"); var background = request.Text("background");

@@ -48,7 +48,7 @@ final class CageUpdateInstaller: NSObject, NSApplicationDelegate {
         guard data.count <= 16384 else { throw CageUpdateError("安装任务过大") }
         plan = try JSONDecoder().decode(CageUpdatePlan.self, from: data)
         guard plan.parentPID == getppid(), let running = NSRunningApplication(processIdentifier: plan.parentPID),
-              running.bundleURL?.resolvingSymlinksInPath().path == plan.target else { throw CageUpdateError("安装任务不属于当前 Cage 应用") }
+              running.bundleURL?.resolvingSymlinksInPath().path == plan.target else { throw CageUpdateError("安装任务不属于当前 Cage lite 应用") }
         let selfURL = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
         let expectedTeam: String
         if plan.unsignedSource {
@@ -93,7 +93,7 @@ final class CageUpdateInstaller: NSObject, NSApplicationDelegate {
                 self.committed = true
                 // NSRunningApplication.isTerminated does not refresh reliably in
                 // an accessory helper without KVO; reparenting is kernel-atomic.
-                guard CageUpdateFiles.waitForParentExit(self.plan.parentPID, timeout: 90) else { throw CageUpdateError("Cage 尚未退出，更新未安装") }
+                guard CageUpdateFiles.waitForParentExit(self.plan.parentPID, timeout: 90) else { throw CageUpdateError("Cage lite 尚未退出，更新未安装") }
                 try self.replace()
                 DispatchQueue.main.async { self.openInstalled() }
             } catch {
@@ -141,7 +141,7 @@ final class CageUpdateInstaller: NSObject, NSApplicationDelegate {
                     if let data = try? Data(contentsOf: acknowledgement), data.count < 1024,
                        let value = try? JSONSerialization.jsonObject(with: data) as? [String: String], value["version"] == self.plan.version {
                         try? FileManager.default.removeItem(at: acknowledgement)
-                        self.record(success: true, message: "Cage 已更新至 \(self.plan.version)")
+                        self.record(success: true, message: "Cage lite 已更新至 \(self.plan.version)")
                         self.cleanSuccessfulTask(); self.exitHelper(); return
                     }
                     Thread.sleep(forTimeInterval: 0.2)
@@ -149,7 +149,7 @@ final class CageUpdateInstaller: NSObject, NSApplicationDelegate {
                 DispatchQueue.main.async { _ = app.terminate() }
                 if monitor.waitForExit(timeout: 10) { self.recover("新版本工作台未能就绪，正在恢复原应用") }
                 else {
-                    self.record(success: false, message: "新版本未确认就绪，请退出 Cage 后重试；原应用备份已保留")
+                    self.record(success: false, message: "新版本未确认就绪，请退出 Cage lite 后重试；原应用备份已保留")
                     self.exitHelper()
                 }
             }
@@ -184,13 +184,13 @@ final class CageUpdateInstaller: NSObject, NSApplicationDelegate {
             self.record(success: false, message: message)
             DispatchQueue.main.async {
                 guard canOpen else {
-                    let alert = NSAlert(); alert.messageText = "Cage 更新与自动恢复未完成"; alert.informativeText = message; alert.runModal()
+                    let alert = NSAlert(); alert.messageText = "Cage lite 更新与自动恢复未完成"; alert.informativeText = message; alert.runModal()
                     self.exitHelper(); return
                 }
                 let configuration = NSWorkspace.OpenConfiguration(); configuration.activates = true; configuration.createsNewApplicationInstance = true; configuration.environment = self.inheritedProfile()
                 NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: self.plan.target), configuration: configuration) { app, _ in
                     if app == nil {
-                        let alert = NSAlert(); alert.messageText = "Cage 更新未完成"; alert.informativeText = message; alert.runModal()
+                        let alert = NSAlert(); alert.messageText = "Cage lite 更新未完成"; alert.informativeText = message; alert.runModal()
                     }
                     self.exitHelper()
                 }

@@ -111,7 +111,7 @@ export function BrowserExtensions({ onOpenPage, onInternal, onConfirm }) {
   };
   const act = async (mode, id) => {
     if (busy) return;
-    if (mode === 'remove' && !(await onConfirm({ title: '移除此扩展？', body: '扩展将从 Cage 浏览器中移除。本机 Edge 或 Chrome 中的扩展保持原状。', confirm: '移除扩展' }))) return;
+    if (mode === 'remove' && !(await onConfirm({ title: '移除此扩展？', body: '扩展将从浏览器中移除。本机 Edge 或 Chrome 中的扩展保持原状。', confirm: '移除扩展' }))) return;
     setBusy(id || mode); setError('');
     try {
       const result = await api('/browser/extensions', { mode, id, ...(mode === 'install' ? { session: preview.session } : {}) });

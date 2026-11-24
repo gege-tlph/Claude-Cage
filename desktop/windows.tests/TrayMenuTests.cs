@@ -98,11 +98,11 @@ internal static class TrayMenuTests
 
         // 3. Layout sizing, shrink-back, handle creation, and offscreen rendering
         using var menu = new TrayMenu();
-        var open = new ToolStripMenuItem("打开 Cage") { Tag = new TrayItemMetadata("打开 Cage", TrayIconKind.Open) };
+        var open = new ToolStripMenuItem("打开 Cage lite") { Tag = new TrayItemMetadata("打开 Cage lite", TrayIconKind.Open) };
         var update = new ToolStripMenuItem("检查应用更新…") { Tag = new TrayItemMetadata("检查应用更新…", TrayIconKind.CheckUpdates) };
-        var about = new ToolStripMenuItem("关于 Cage") { Tag = new TrayItemMetadata("关于 Cage", TrayIconKind.About) };
+        var about = new ToolStripMenuItem("关于 Cage lite") { Tag = new TrayItemMetadata("关于 Cage lite", TrayIconKind.About) };
         var sep = new ToolStripSeparator();
-        var quit = new ToolStripMenuItem("退出 Cage…") { Tag = new TrayItemMetadata("退出 Cage…", TrayIconKind.Quit, Destructive: true) };
+        var quit = new ToolStripMenuItem("退出 Cage lite…") { Tag = new TrayItemMetadata("退出 Cage lite…", TrayIconKind.Quit, Destructive: true) };
         menu.Items.AddRange([open, update, about, sep, quit]);
 
         _ = menu.Handle;
@@ -129,7 +129,7 @@ internal static class TrayMenuTests
         int wideWidth = menu.Width;
         Check(wideWidth > narrowWidth, "menu did not widen for longer localized label");
 
-        open.Text = "打开 Cage";
+        open.Text = "打开 Cage lite";
         onOpening.Invoke(menu, [new CancelEventArgs()]);
         Check(menu.Width == narrowWidth, "menu did not shrink back after switching to shorter label");
 
