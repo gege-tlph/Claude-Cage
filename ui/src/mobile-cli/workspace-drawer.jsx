@@ -11,7 +11,7 @@ export const workspaceTools = [
 
 export function CodeNavigation({catalog, project, sessions, current, creating, onProject, onSession, onNew, onAction, formatTime}) {
   if (!catalog) return <p className="nav-note" role="status">正在读取项目…</p>;
-  if (!project) return <p className="nav-note">请先在电脑 Cage 打开项目。</p>;
+  if (!project) return <p className="nav-note">请先在电脑上的 Cage lite 打开项目。</p>;
   return <section className="code-navigation" aria-label="Claude Code 项目和会话">
     <div className="project-field">
       <InlineSelect label="选择项目" icon={<FolderOpen size={16} />} value={project.path}
@@ -33,7 +33,7 @@ export function ProjectTree({catalog, projectPath, sessionID, expanded, toggle, 
     <h2>Claude Code</h2>
     {catalog?.shared_sessions === false && <p className="nav-note">当前启动配置使用独立移动会话。共享电脑终端需要使用 claude 启动命令。</p>}
     {!catalog ? <p className="nav-note" role="status">正在读取项目…</p> :
-      !projects.length ? <p className="nav-note">请在电脑 Cage 打开项目。</p> : projects.map((project, index) => {
+      !projects.length ? <p className="nav-note">请在电脑上的 Cage lite 打开项目。</p> : projects.map((project, index) => {
         const path = project.path;
         const open = expanded.get(path) ?? (path === projectPath || index === 0);
         const name = projects.some(other => other !== project && other.name === project.name) ? path : project.name;

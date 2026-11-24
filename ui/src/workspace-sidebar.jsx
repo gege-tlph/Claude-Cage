@@ -28,6 +28,7 @@ import { projectSessionRows, sessionKey, unassignedTerminalTabs } from "./sessio
 import { AccountMenu } from "./account";
 import { useSSHNavigation } from "./remote-hosts";
 import { useTranslation } from "./interface-language.mjs";
+import { ProductName } from "./product-name.jsx";
 
 const SESSION_PREVIEW_LIMIT = 5;
 
@@ -156,7 +157,7 @@ export function WorkspaceSidebar({
           title={tr("工作台")}
         >
           <CageLogo className="brand-logo" />
-          <span>Cage lite</span>
+          <ProductName />
         </button>
         <button
           className="icon-button"

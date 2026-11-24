@@ -85,7 +85,7 @@ try {
   await shot("offline");
   state.status.ready = false;
   state.status.vm_running = false;
-  await page.getByRole("heading", { name: "Claude Cage" }).waitFor();
+  await page.getByRole("heading", { name: "Cage lite" }).waitFor();
   assert.equal(await page.locator(".environment-shield.healthy").count(), 0);
   await page.setViewportSize({ width: 820, height: 558 });
   await shot("minimum");
