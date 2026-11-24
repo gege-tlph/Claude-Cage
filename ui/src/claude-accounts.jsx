@@ -5,6 +5,7 @@ import { InlineSelect } from "./inline-select";
 import crabIcon from "./claude-account-crab.svg";
 import "./claude-accounts.css";
 import { activeInterfaceLanguage, translate, useTranslation } from "./interface-language.mjs";
+import { accountName, privacyMasked, usePrivacyMask } from "./privacy-mask.mjs";
 
 // Ordinary reads never start an upstream usage query.
 export function useClaudeAccounts() {
@@ -199,18 +200,20 @@ function UsageNote({ profile, state }) {
 
 function DetectedProfile({ profile, usageEnvironment, busy, join, perform, change }) {
   const tr = useTranslation();
+  const masked = usePrivacyMask();
+  const name = accountName({ email: profile.email }, masked);
   const usage = useUsageCheck(profile, usageEnvironment, perform, change);
-  return <article className="claude-profile claude-detected" aria-label={profile.email}>
+  return <article className="claude-profile claude-detected" aria-label={name}>
     <div className="claude-profile-heading">
       <span className="claude-profile-avatar" aria-hidden="true"><img src={crabIcon} alt="" /></span>
       <div className="claude-profile-identity">
         <div className="claude-profile-name">
-          <h4 title={profile.email}>{profile.email}</h4>
+          <h4 title={name}>{name}</h4>
           {profile.plan && <span className="claude-profile-plan">{profile.plan}</span>}
         </div>
         <div className="claude-profile-meta">
           <span className="claude-profile-status">{tr("普通终端 · 已发现，未加入")}</span>
-          {profile.organization && <span className="claude-profile-email" title={profile.organization}>{profile.organization}</span>}
+          {profile.organization && !masked && <span className="claude-profile-email" title={profile.organization}>{profile.organization}</span>}
         </div>
       </div>
     </div>
@@ -253,19 +256,21 @@ function ProfileNotices({ notices }) {
   });
 }
 
-function accountCaption(profile) {
-  const label = profile.label || profile.email;
+function accountCaption(profile, masked) {
+  const label = accountName(profile, masked);
   return profile.number ? `#${String(profile.number).padStart(2, "0")} ${label}` : label;
 }
 
 function ProfileCard({ proxySources, desktopNetwork, profile, environment, usageEnvironment, busy, active, defaultActive, perform, change, login, cancelDraft, removeAccount }) {
   const tr = useTranslation();
+  const masked = usePrivacyMask();
   const [renaming, setRenaming] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const [label, setLabel] = useState("");
   const [group, setGroup] = useState(profile.handoff_group || "");
   useEffect(() => { setGroup(profile.handoff_group || ""); }, [profile.handoff_group]);
-  const displayName = profile.label || profile.email;
+  const displayName = accountName(profile, masked);
+  const caption = accountCaption(profile, masked);
   const fromTerminal = profile.source === "default";
   const isDraft = !fromTerminal && !profile.email && ["pending", "signed_out", "duplicate"].includes(profile.status);
   const savedLabel = label.trim() || profile.email;
@@ -281,7 +286,7 @@ function ProfileCard({ proxySources, desktopNetwork, profile, environment, usage
     return tr("已绑定节点不可用");
   }, [profile.proxy_node_id, profile.desktop_dedicated_network, proxySources, tr]);
   const hasRoutingConfig = Boolean((desktopNetwork && boundNodeName) || profile.handoff_group);
-  return <article className="claude-profile" aria-label={accountCaption(profile)} data-enabled={profile.enabled}>
+  return <article className="claude-profile" aria-label={caption} data-enabled={profile.enabled}>
     <div className="claude-profile-heading">
       <span className="claude-profile-avatar" aria-hidden="true"><img src={crabIcon} alt="" /></span>
       <div className="claude-profile-identity">
@@ -289,11 +294,11 @@ function ProfileCard({ proxySources, desktopNetwork, profile, environment, usage
           e.preventDefault();
           perform(async () => { await change({ action: "update", id: profile.id, label: savedLabel }); setRenaming(false); });
         }}>
-          <input autoFocus aria-label={tr("账号备注")} maxLength={64} placeholder={profile.email || tr("账号名称")} value={label} onChange={(e) => setLabel(e.target.value)} />
+          <input autoFocus aria-label={tr("账号备注")} maxLength={64} placeholder={masked ? tr("账号名称") : profile.email || tr("账号名称")} value={label} onChange={(e) => setLabel(e.target.value)} />
           <button disabled={busy || !savedLabel} aria-label={tr("保存备注")}><Check size={15} /></button>
           <button type="button" disabled={busy} onClick={() => setRenaming(false)}>{tr("取消")}</button>
         </form> : <div className="claude-profile-name">
-          <h4 title={accountCaption(profile)}>{accountCaption(profile)}</h4>
+          <h4 title={caption}>{caption}</h4>
           {profile.plan && <span className="claude-profile-plan">{profile.plan}</span>}
           {active > 0 && <span className="claude-profile-active-chip" title={active + " " + tr("个终端仍在运行")}>{active} {tr("运行中")}</span>}
           <button type="button" className="icon-button claude-profile-edit" disabled={busy} aria-label={tr("修改 {0} 的备注", (displayName))}
@@ -303,7 +308,7 @@ function ProfileCard({ proxySources, desktopNetwork, profile, environment, usage
         <div className="claude-profile-meta">
           <span className="claude-status-pill" data-ready={profile.status === "ready"} title={codeStatusTitle}>Code</span>
           <span className="claude-status-pill" data-ready={profile.desktop_status === "ready"} title={desktopStatusTitle}>Desktop</span>
-          {profile.email && (profile.email !== displayName || profile.organization) && <span className="claude-profile-email" title={[profile.email, profile.organization].filter(Boolean).join(" · ")}>
+          {!masked && profile.email && (profile.email !== displayName || profile.organization) && <span className="claude-profile-email" title={[profile.email, profile.organization].filter(Boolean).join(" · ")}>
             {[profile.email !== displayName && profile.email, profile.organization].filter(Boolean).join(" · ")}
           </span>}
         </div>
@@ -391,6 +396,7 @@ function ProfileCard({ proxySources, desktopNetwork, profile, environment, usage
 
 export function ClaudeAccountsPanel({ proxySources, desktopNetwork, store, running, environmentBusy, tabs, login, enrollmentID, cancelLogin, onConfirm }) {
   const tr = useTranslation();
+  const masked = usePrivacyMask();
   const { accounts, detected, detectionStatus, detectionError, loginNotice, usageRunning, usageUnavailable, load, error } = store;
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -445,7 +451,7 @@ export function ClaudeAccountsPanel({ proxySources, desktopNetwork, store, runni
   };
   const cancelDraft = async (profile) => {
     const last = accounts.length === 1;
-    if (await onConfirm({ title: translate("撤销添加「{0}」？", profile.label),
+    if (await onConfirm({ title: translate("撤销添加「{0}」？", accountName(profile, privacyMasked())),
       body: last
         ? "这是列表中的最后一个账号。撤销后，新建 Claude 终端会沿用环境原有的登录。虚拟机中的资料会保留。"
         : "此账号会从列表中移除，虚拟机中的资料会保留。",
@@ -455,7 +461,7 @@ export function ClaudeAccountsPanel({ proxySources, desktopNetwork, store, runni
   };
   const removeAccount = async (profile, anchor) => {
     const last = accounts.length === 1;
-    const displayName = profile.label || profile.email;
+    const displayName = accountName(profile, privacyMasked());
     const hasIsolatedDesktop = Boolean(profile.desktop_instance_id && profile.desktop_instance_id !== "default");
     await onConfirm({
       title: translate("删除账号「{0}」？", displayName),
@@ -512,8 +518,8 @@ export function ClaudeAccountsPanel({ proxySources, desktopNetwork, store, runni
           </InlineSelect></label>
         </div>
         {store.scheduling.mode === "sequential" && accounts?.length > 1 && <div className="claude-account-order" aria-label={tr("账号优先顺序")}>
-          {accounts.map((profile,index) => <div key={profile.id}><span>{index+1}. {accountCaption(profile)}</span>
-            <button disabled={busy || index===0} aria-label={tr("提高 {0} 的优先级", (profile.label))} onClick={() => {
+          {accounts.map((profile,index) => <div key={profile.id}><span>{index+1}. {accountCaption(profile, masked)}</span>
+            <button disabled={busy || index===0} aria-label={tr("提高 {0} 的优先级", accountCaption(profile, masked))} onClick={() => {
               const order=accounts.map(a=>a.id); [order[index-1],order[index]]=[order[index],order[index-1]];
               perform(() => load({action:"scheduling",scheduling:store.scheduling,order}));
             }}>{tr("上移")}</button></div>)}

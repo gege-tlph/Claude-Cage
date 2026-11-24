@@ -2942,7 +2942,6 @@ svg {
   .content-breadcrumb > button {
     max-width: 145px;
   }
-  .status-bar > .status-exit-toggle,
   .status-bar > .status-exit,
   .status-feedback,
   .status-feedback:has(.safety-checklist-link) {

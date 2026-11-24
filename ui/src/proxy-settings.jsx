@@ -29,6 +29,7 @@ import { useWindowVisibility } from "./window-visibility";
 import "./proxy.css";
 import { activeInterfaceLanguage, translate, useTranslation } from "./interface-language.mjs";
 import { localizeBackendMessage } from "./backend-message.mjs";
+import { usePrivacyMask } from "./privacy-mask.mjs";
 
 const bytes = (v) => {
   const n = Math.max(0, Number(v) || 0);
@@ -73,6 +74,7 @@ const emptyManual = {
 export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializing = false }) {
   const tr = useTranslation();
   const windowVisible = useWindowVisibility();
+  const masked = usePrivacyMask();
   const [proxy, setProxy] = useState(null),
     [tab, setTab] = useState("nodes"),
     [search, setSearch] = useState(""),
@@ -567,7 +569,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
           {tr(proxy.state_label)}
         </span>}
       </div>
-      {active && status.location && (
+      {active && status.location && !masked && (
         <p className="field-help">
           {tr("最近检查出口：{0}", `${status.location.ip} · ${status.location.country} ${status.location.city}`.trim())}
         </p>

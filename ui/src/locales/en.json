@@ -3062,8 +3062,6 @@
   "稍后": "Later",
   "待重启": "Restart pending",
   "IP 已隐藏": "IP hidden",
-  "隐藏 IP": "Hide IP",
-  "显示 IP": "Show IP",
   "同步环境内部主题": "Sync environment theme",
   "无法读取已保存的外观设置": "Cannot read saved appearance",
   "主题模式无效，仅支持 light 或 dark": "Invalid theme mode: light or dark only",
@@ -3099,5 +3097,6 @@
   "重新扫描": "Rescan",
   "一次只能导入一个配置文件": "Import one configuration file at a time",
   "打开「订阅」→「添加订阅」，填写订阅名称，再选择一种方式：": "Open Subscriptions → Add subscription, enter a subscription name, then choose a method:",
-  "配置已导入": "Configuration imported"
+  "配置已导入": "Configuration imported",
+  "隐私打码": "Privacy mask"
 }

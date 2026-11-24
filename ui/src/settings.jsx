@@ -42,6 +42,7 @@ import { DiagnosticSettings } from "./diagnostics.jsx";
 import { AccountSettings } from "./account";
 import { AboutSettings } from "./about-settings";
 import { useTranslation } from "./interface-language.mjs";
+import { usePrivacyMask } from "./privacy-mask.mjs";
 const sectionGroups = [
   [
     ["account", "账户", UserRound],
@@ -226,6 +227,8 @@ export function SettingsPanel({
     contentRef.current?.scrollTo(0, 0);
   }, [section]);
   const currentLoc = probe || status.location;
+  // The privacy mask (#804) also covers the exit shown here.
+  const masked = usePrivacyMask();
   const closeRef = useRef(close);
   closeRef.current = close;
   useEffect(() => {
@@ -312,12 +315,14 @@ export function SettingsPanel({
                 <div className="settings-card settings-exit-card">
                   <div className="settings-row">
                     <div className="settings-row-copy">
-                      <strong>{currentLoc ? `${currentLoc.country} · ${currentLoc.city}` : tr("当前出口")}</strong>
+                      <strong>{currentLoc && !masked ? `${currentLoc.country} · ${currentLoc.city}` : tr("当前出口")}</strong>
                       <small className="settings-exit-meta">
                         {currentLoc ? (
                           <>
-                            <code>{currentLoc.ip}</code>
-                            <span>{currentLoc.timezone}</span>
+                            {masked ? <span>{tr("IP 已隐藏")}</span> : <>
+                              <code>{currentLoc.ip}</code>
+                              <span>{currentLoc.timezone}</span>
+                            </>}
                             <span>{new Date(currentLoc.checked_at).toLocaleTimeString(document.documentElement.lang, { hour: "2-digit", minute: "2-digit" })}</span>
                             {probe && <span className="settings-ok-pill"><Check size={12} />{tr("验证通过")}</span>}
                           </>

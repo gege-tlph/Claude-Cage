@@ -1,5 +1,10 @@
-export const desktopTitle = (a) =>
-  a.number ? `#${String(a.number).padStart(2, "0")} ${a.label}` : a.label;
+import { accountName } from "./privacy-mask.mjs";
+
+// masked: the privacy mask (#836) hides a label that is an email.
+export const desktopTitle = (a, masked = false) => {
+  const label = accountName(a, masked);
+  return a.number ? `#${String(a.number).padStart(2, "0")} ${label}` : label;
+};
 
 export function mergedDefaultInstance(catalog) {
   const target = catalog?.redirects?.default;
