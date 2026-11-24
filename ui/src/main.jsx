@@ -28,6 +28,7 @@ import {
 import { api, normalizeURL, native, nativeAvailable } from "./api";
 import { clientKeyboard, clientStorageKey, getClientContext, isRemoteClient, runtimeURL, runtimeSocketURL } from "./client-context.mjs";
 import { shareClipboard } from "./shared-clipboard.mjs";
+import { ProductName } from "./product-name.jsx";
 import { RemoteView, TerminalView, Modal } from "./views";
 import { usePasswordVault } from "./password-vault";
 import { SettingsPanel } from "./settings";
@@ -2064,7 +2065,7 @@ function App() {
                           : tr("环境已就绪")
                         : setupProxy
                           ? tr("为 Claude 准备独立工作区")
-                          : "Claude Cage"}
+                          : <ProductName />}
                   </h1>
                   {/* One line under the title holds the job or connection
                       state, or else the steps while the environment is

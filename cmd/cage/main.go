@@ -36,7 +36,7 @@ import (
 	"syscall"
 )
 
-const help = `Claude Cage — local isolated Claude development
+const help = `Cage lite — local isolated Claude development
 
 cage desktop       Open the unified Cage workbench (desktop launcher)
 cage agent         Discover and use the versioned, JSON-only external Agent interface

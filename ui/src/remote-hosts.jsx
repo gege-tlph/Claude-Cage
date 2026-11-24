@@ -26,6 +26,7 @@ import { CageLogo } from "./cage-logo.jsx";
 import "./remote-hosts.css";
 import { translate, useTranslation } from "./interface-language.mjs";
 import { LanguageSettings } from "./language-settings";
+import { ProductName } from "./product-name.jsx";
 
 const Navigation = createContext(null);
 export const useSSHNavigation = () => useContext(Navigation);
@@ -533,7 +534,7 @@ function Environment({ context, refresh, children }) {
         ) : (
           <CageLogo className="brand-logo" />
         )}
-        <strong>{ready ? hostName : "Cage lite"}</strong>
+        <strong>{ready ? hostName : <ProductName />}</strong>
         {ready && (
           <span className="client-toolbar-hint">
             {remote ? tr("SSH · 云端运行") : tr("当前工作环境")}

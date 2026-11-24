@@ -11,6 +11,9 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <AssemblyName>Cage</AssemblyName>
+    <Product>Cage lite</Product>
+    <AssemblyTitle>Cage lite</AssemblyTitle>
+    <Company>Cage lite contributors</Company>
     <RootNamespace>Cage.Windows</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

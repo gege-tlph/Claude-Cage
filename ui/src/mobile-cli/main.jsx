@@ -259,8 +259,8 @@ function App() {
     <header className="topbar workspace-topbar">
       {phoneWorkspace
         ? <button type="button" className="icon-button" aria-haspopup="dialog" aria-expanded={drawer} aria-label="展开侧栏"
-          onClick={() => setDrawer(true)}><CageLogo className="brand-mark" label="Cage" /></button>
-        : <a className="icon-button" href="/" aria-label="返回工作台"><CageLogo className="brand-mark" label="Cage" /></a>}
+          onClick={() => setDrawer(true)}><CageLogo className="brand-mark" label="Cage lite" /></button>
+        : <a className="icon-button" href="/" aria-label="返回工作台"><CageLogo className="brand-mark" label="Cage lite" /></a>}
       {phoneWorkspace && (current.tool === "browser" || current.tool === "claude") && <div className="workspace-address-slot" ref={setAddressSlot} />}
       <div className="top-actions">{phoneWorkspace
         ? <span className="workspace-tool-icon" role="img" aria-label={activeTool?.name || "Claude Code"}><ActiveToolIcon size={19} aria-hidden="true" /></span>
@@ -741,7 +741,7 @@ function Chat({ id, drafts, ready, visible, refresh, onOpenWeb, onDenied, onMiss
     <form className="compose" onSubmit={send}>
       {actionError && <Notice onRetry={uncertain ? retry : undefined} label="再次连接">{actionError}</Notice>}
       {session?.single_turn && <p className="note">当前凭据或路由只能验证本轮。请返回会话列表，新建会话后继续。</p>}
-      {!ready && <p className="note">请在电脑上启动 Cage 环境。</p>}
+      {!ready && <p className="note">请在电脑上启动环境。</p>}
       <div className="composer-field">
         <textarea ref={composerInput} aria-label="消息" rows="1" placeholder={running ? "正在运行，可继续输入排队发送" : willQueue ? "可继续输入，将按顺序排队发送" : "给 Claude Code 发消息"} value={draft} disabled={!session || session.single_turn || !ready}
           onChange={(e) => {

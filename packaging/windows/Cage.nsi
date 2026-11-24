@@ -664,7 +664,7 @@ Section "Cage" Main
   !insertmacro InstallPhase "registering_installation"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "Cage lite"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayVersion" "${VERSION}"
-  WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "Cage contributors"
+  WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "Cage lite contributors"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "UninstallString" '$\"$INSTDIR\Uninstall.exe$\"'
   WriteRegStr HKCU "${UNINSTALL_KEY}" "QuietUninstallString" '$\"$INSTDIR\Uninstall.exe$\" /S'
