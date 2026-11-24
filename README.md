@@ -1,22 +1,37 @@
 <div align="center">
 
-<h1>Claude Cage</h1>
+<h1>Cage lite</h1>
 
-**把 Claude 大小姐关起来，为了更好地保护我们的相遇**
+基于 [Claude Cage](https://github.com/Lee-xeo/Claude-Cage) 的独立分支 · Windows
 
-<img src="assets/claude-cage-character.png" alt="Claude Cage" width="320" />
+<img src="assets/claude-cage-character.png" alt="Cage lite" width="320" />
 
-[![Release](https://img.shields.io/github/v/release/Lee-xeo/Claude-Cage?include_prereleases)](https://github.com/Lee-xeo/Claude-Cage/releases) [![MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/gege-tlph/Claude-Cage?include_prereleases)](https://github.com/gege-tlph/Claude-Cage/releases) [![MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-<a href="https://trendshift.io/repositories/339051#achievements"><img src="https://trendshift.io/api/badge/trendshift/repositories/339051/daily?language=Go" alt="Trendshift — Go Repository of the Day" width="250" height="55" /></a> <a href="https://trendshift.io/repositories/339051#achievements"><img src="https://trendshift.io/api/badge/trendshift/repositories/339051/weekly?language=Go" alt="Trendshift — Go Repository of the Week" width="250" height="55" /></a>
-
-<a href="https://trendshift.io/repositories/339051#achievements"><img src="https://trendshift.io/api/badge/trendshift/repositories/339051/daily" alt="Trendshift — Repository of the Day" width="250" height="55" /></a> <a href="https://trendshift.io/repositories/339051#achievements"><img src="https://trendshift.io/api/badge/trendshift/repositories/339051/weekly" alt="Trendshift — Repository of the Week" width="250" height="55" /></a>
-
-**[项目主页](https://claude-cage.com/) · [下载应用](https://claude-cage.com/#download) · [插件市场](https://claude-cage.com/plugins/) · [使用文档](https://claude-cage.com/docs/) · [常见问题](https://claude-cage.com/docs/troubleshooting/)**
-
-[简体中文](README.md) · [繁體中文](README.zh-TW.md) · [Русский](README.ru.md) · [العربية](README.ar.md) · [فارسی](README.fa.md) · [한국어](README.ko.md) · [Español](README.es.md) · [မြန်မာဘာသာ](README.my.md) · [Беларуская](README.be.md) · [پښتو](README.ps.md) · [دری](README.prs.md) · [አማርኛ](README.am.md) · [Soomaali](README.so.md) · [ትግርኛ](README.ti.md) · [Français](README.fr.md)
+**[下载](https://github.com/gege-tlph/Claude-Cage/releases) · [上游项目](https://github.com/Lee-xeo/Claude-Cage) · [使用文档（上游）](https://claude-cage.com/docs/)**
 
 </div>
+
+## Cage lite
+
+- 跟随上游 Claude Cage，按需合入上游的修复，主线独立开发。
+- 目前只发布 Windows 版：Windows 10 22H2 或 Windows 11，x64。
+- 界面只维护简体中文和英文。
+- 应用内更新从本仓库的 [Releases](https://github.com/gege-tlph/Claude-Cage/releases) 获取。
+
+### 安装
+
+1. 从 [Releases](https://github.com/gege-tlph/Claude-Cage/releases) 下载 `Cage-X.Y.Z-windows-amd64-setup.exe`。
+2. 第一次安装前，导入签名根证书 `cage-lite-signing.cer`。它附在每个 Release 里，仓库中的位置是 `packaging/windows/`。
+   ```powershell
+   Import-Certificate -FilePath .\cage-lite-signing.cer -CertStoreLocation Cert:\CurrentUser\Root
+   ```
+   不导入也能安装，但 Windows 会显示发布者未知，应用内更新也不能自动安装。
+3. 运行安装包。已经装了上游 Cage 的，直接覆盖安装，环境和数据都会保留。
+
+以下是上游 Claude Cage 的介绍，其中的下载和更新地址指向上游。
+
+---
 
 ## 设计理念
 
