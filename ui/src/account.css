@@ -9,6 +9,8 @@
   color: var(--ink);
   padding: 24px;
   overflow: auto;
+  /* As on the setup page, so the header keeps its place between them (J2). */
+  scrollbar-gutter: stable;
   line-height: 1.65;
 }
 :root[data-preset="high-contrast"] .account-gate {

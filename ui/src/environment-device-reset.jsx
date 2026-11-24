@@ -222,13 +222,14 @@ export function EnvironmentDeviceReset({ status, onConfirm, onOpenProxy }) {
     }
   }
 
-  const runtimeLabel = info?.runtime_kind === "vz"
-    ? tr("Apple Virtualization（可轮换 Machine Identifier、MAC、主机名、machine-id 与设备配置；框架不开放自定义 SMBIOS）")
+  // The name shows; what each runtime can rotate is its hover text.
+  const [runtimeLabel, runtimeDetail] = info?.runtime_kind === "vz"
+    ? [tr("Apple Virtualization"), tr("Apple Virtualization（可轮换 Machine Identifier、MAC、主机名、machine-id 与设备配置；框架不开放自定义 SMBIOS）")]
     : info?.runtime_kind === "qemu"
-      ? tr("QEMU 虚拟机（可轮换 UUID、SMBIOS Type 1/2/3 序列号、MAC、主机名、machine-id 与设备配置）")
+      ? [tr("QEMU 虚拟机"), tr("QEMU 虚拟机（可轮换 UUID、SMBIOS Type 1/2/3 序列号、MAC、主机名、machine-id 与设备配置）")]
       : info?.runtime_kind === "container"
-        ? tr("Linux 容器（可轮换主机名、machine-id、MAC 与资料；彻底换新机可重建容器身份，宿主内核不变）")
-        : "";
+        ? [tr("Linux 容器"), tr("Linux 容器（可轮换主机名、machine-id、MAC 与资料；彻底换新机可重建容器身份，宿主内核不变）")]
+        : ["", ""];
 
   return (
     <section className="environment-device-reset" aria-label={tr("一键换机与指纹重置")} aria-busy={working || loading}>
@@ -248,7 +249,7 @@ export function EnvironmentDeviceReset({ status, onConfirm, onOpenProxy }) {
             <div><span>{tr("Linux 账户")}</span><strong>{info.current?.username || "—"} / {info.current?.browser_username || "—"}</strong></div>
             <div><span>{tr("音频与显示")}</span><strong>{[info.current?.audio_description, info.current?.display_size].filter(Boolean).join(" · ") || "—"}</strong></div>
           </div>
-          {runtimeLabel && <p className="field-help">{runtimeLabel}</p>}
+          {runtimeLabel && <p className="field-help" title={runtimeDetail}>{runtimeLabel}</p>}
 
           <div className="device-reset-modes" role="radiogroup" aria-label={tr("选择换机方式")}>
             <label className={`device-reset-mode${mode === "quick" ? " selected" : ""}`}>
@@ -434,7 +435,7 @@ export function EnvironmentDeviceReset({ status, onConfirm, onOpenProxy }) {
           )}
 
           <div className="cache-protected" aria-label={tr("受保护资料")}>
-            <strong>{tr("以下个人数据永久保留，绝不触碰")}</strong>
+            <strong>{tr("受保护资料")}</strong>
             {(info.protected || []).map((item) => (
               <p key={item}>{tr(item)}</p>
             ))}

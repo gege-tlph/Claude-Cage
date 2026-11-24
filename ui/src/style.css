@@ -316,7 +316,7 @@ code, kbd, samp, pre { font-family: var(--code-font-family); }
   font-size: 0.8571rem;
 }
 .exit-observation code {
-  font-family: ui-monospace, monospace;
+  font-family: var(--code-font-family);
   user-select: text;
 }
 ::selection {
@@ -1283,7 +1283,7 @@ button.large {
 }
 .location-result code {
   font-size: 0.8571rem;
-  font-family: "SF Mono", Menlo, monospace;
+  font-family: var(--code-font-family);
   color: var(--ink);
 }
 .location-result small {

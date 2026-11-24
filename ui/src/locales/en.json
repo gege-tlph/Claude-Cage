@@ -3099,5 +3099,8 @@
   "重新扫描": "Rescan",
   "一次只能导入一个配置文件": "Import one configuration file at a time",
   "打开「订阅」→「添加订阅」，填写订阅名称，再选择一种方式：": "Open Subscriptions → Add subscription, enter a subscription name, then choose a method:",
-  "配置已导入": "Configuration imported"
+  "配置已导入": "Configuration imported",
+  "QEMU 虚拟机": "QEMU VM",
+  "Linux 容器": "Linux container",
+  "Apple Virtualization": "Apple Virtualization"
 }
