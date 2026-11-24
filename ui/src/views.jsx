@@ -70,7 +70,10 @@ export const RemoteView = forwardRef(function RemoteView(
       unwatchDensity,
       sizeSync,
       keys,
-      reconnectTimer;
+      reconnectTimer,
+      verifyTimer,
+      stopReassert,
+      reasserted = -Infinity;
     setConnection("connecting");
     setSizeError(false);
     const retry = () => {
@@ -122,8 +125,28 @@ export const RemoteView = forwardRef(function RemoteView(
                 resize();
               }
             },
-            { onError: () => setSizeError(true), onSuccess: () => setSizeError(false) },
+            {
+              onError: () => setSizeError(true),
+              onSuccess: () => {
+                setSizeError(false);
+                clearTimeout(verifyTimer);
+                verifyTimer = setTimeout(reassert, 1500);
+              },
+            },
           );
+          // The guest may keep another size than this viewer asked for: a
+          // second viewer resized it, or its display restarted at the default
+          // size. Ask again once after each change and when the user clicks,
+          // at most every three seconds, so two viewers never take turns.
+          const reassert = () => {
+            const want = sizeSync?.target(), shown = client.cageFramebufferSize;
+            if (disposed || !want || !shown.width || (shown.width === want.width && shown.height === want.height)) return;
+            if (performance.now() - reasserted < 3000) return;
+            reasserted = performance.now();
+            sizeSync.retry();
+          };
+          container.addEventListener("pointerdown", reassert, true);
+          stopReassert = () => container.removeEventListener("pointerdown", reassert, true);
           const resize = () => {
             if (disposed) return;
             sizeSync.update(displayGeometry(container.getBoundingClientRect(), {
@@ -134,7 +157,12 @@ export const RemoteView = forwardRef(function RemoteView(
           displayResize.current = { update: resize, retry: () => sizeSync.retry() };
           resizeObserver = new ResizeObserver(resize);
           resizeObserver.observe(container);
-          unwatchDensity = watchPixelRatio(resize);
+          unwatchDensity = watchPixelRatio(() => {
+            // Rescale the current frame for the new screen at once; the guest's
+            // frame for it follows.
+            if (!disposed) client.scaleViewport = true;
+            resize();
+          });
           resize();
           const preparePaste = () => {
             const id = current.current.tabId;
@@ -235,6 +263,8 @@ export const RemoteView = forwardRef(function RemoteView(
           input.current?.dispose();
           input.current = null;
           sizeSync?.dispose();
+          clearTimeout(verifyTimer);
+          stopReassert?.();
           resizeObserver?.disconnect();
           unwatchDensity?.();
           displayResize.current = null;
@@ -252,6 +282,8 @@ export const RemoteView = forwardRef(function RemoteView(
       sizeSync?.dispose();
       displayResize.current = null;
       clearTimeout(reconnectTimer);
+      clearTimeout(verifyTimer);
+      stopReassert?.();
       resizeObserver?.disconnect();
       unwatchDensity?.();
       input.current?.dispose();

@@ -58,6 +58,27 @@ test("pixel ratio changes are reported until watching stops", () => {
   assert.equal(queries[2].listeners.size, 0);
 });
 
+test("a screen change without a media event is found by comparing the ratio", () => {
+  let tick, cleared = false;
+  const view = {
+    devicePixelRatio: 1,
+    matchMedia: (text) => ({ text, addEventListener() {}, removeEventListener() {} }),
+    setInterval: (fn) => { tick = fn; return 7; },
+    clearInterval: (id) => { cleared = id === 7; },
+  };
+  let changes = 0;
+  const stop = watchPixelRatio(() => changes++, view);
+  tick();
+  assert.equal(changes, 0);
+  // Dragged from a 2K screen to a 4K one at 150%.
+  view.devicePixelRatio = 1.5;
+  tick();
+  tick();
+  assert.equal(changes, 1);
+  stop();
+  assert.equal(cleared, true);
+});
+
 test("a size with another density is a different request", async () => {
   const requests = [];
   const sync = displaySizeSync(async (size) => { requests.push(size.scale); }, { delay: 0 });

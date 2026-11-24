@@ -28,21 +28,25 @@ export function displayGeometry({ width, height }, { desktop = false, zoom = 1, 
 
 // Reports that the window moved to a screen of another density, or that the
 // page zoom changed. A media query matches one ratio only, so each change
-// registers the next. Returns the function that stops watching.
-export function watchPixelRatio(changed, view = window) {
-  let query, stopped = false;
+// registers the next. A window dragged to another screen keeps its CSS size,
+// so no resize follows, and a host WebView may deliver no media change either:
+// the ratio is also compared once a second. Returns the function that stops.
+export function watchPixelRatio(changed, view = window, { interval = 1000 } = {}) {
+  let query, ratio, stopped = false;
   const update = () => {
     if (stopped) return;
+    query.removeEventListener?.("change", update);
     listen();
     changed();
   };
   const listen = () => {
-    query = view.matchMedia(`(resolution: ${view.devicePixelRatio}dppx)`);
-    // Older WebKit has no events here; the next window resize still adapts.
+    ratio = view.devicePixelRatio;
+    query = view.matchMedia(`(resolution: ${ratio}dppx)`);
     query.addEventListener?.("change", update, { once: true });
   };
   listen();
-  return () => { stopped = true; query.removeEventListener?.("change", update); };
+  const timer = view.setInterval?.(() => { if (view.devicePixelRatio !== ratio) update(); }, interval);
+  return () => { stopped = true; view.clearInterval?.(timer); query.removeEventListener?.("change", update); };
 }
 
 // Serialize guest changes: a slow old request must finish before the newest
@@ -86,6 +90,8 @@ export function displaySizeSync(resize, { onError = () => {}, onSuccess = () => 
       retries = 0;
     },
     retry() { if (!disposed) { applied = ""; retries = 0; schedule(0); } },
+    // The newest size this viewer asked for.
+    target: () => desired,
     dispose() { disposed = true; clearTimeout(timer); },
   };
 }
