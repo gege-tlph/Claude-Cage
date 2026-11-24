@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { api, native, nativeAvailable, writeClipboard } from "./api";
 import { getClientContext, isRemoteClient } from "./client-context.mjs";
-import logo from "./logo.png";
+import { CageLogo } from "./cage-logo.jsx";
 import "./account.css";
 import { Modal } from "./modal";
 import { TokenUsagePanel } from "./token-usage.jsx";
@@ -276,7 +276,7 @@ export function AccountGate({ children }) {
     <main className="account-gate">
       <header className="account-gate-header">
         <div className="account-brand">
-          <img src={logo} alt="" />
+          <CageLogo />
           Cage
         </div>
         <div className="startup-language-slot"><LanguageSettings compact /></div>
@@ -286,7 +286,7 @@ export function AccountGate({ children }) {
         aria-label={creating ? isRemoteClient() ? tr("创建云端账户") : tr("创建本地账户") : tr("解锁 Cage")}
       >
         {creating ? (
-          <img className="account-welcome-logo" src={logo} alt="" />
+          <CageLogo className="account-welcome-logo" />
         ) : (
           account && <AccountAvatar account={account} large />
         )}

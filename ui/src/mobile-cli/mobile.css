@@ -41,7 +41,9 @@ button:disabled { opacity: .48; cursor: default; }
   min-height: 52px; padding: 4px 16px; flex: none; border-bottom: 1px solid var(--line);
 }
 .top-actions, .row-heading, .title-line, .status-label, .action, .icon-button, .center-message { display: flex; align-items: center; }
-.brand-mark { width: 28px; height: 28px; flex: none; }
+.brand-mark { width: 28px; height: 28px; flex: none; border-radius: 7px; }
+/* The phone theme has no --strong; the cage uses its ink colour. */
+.brand-mark.cage-mark { --cage-mark-cage: var(--ink); }
 .top-actions { gap: 4px; min-width: 0; flex: 1; justify-content: flex-end; }
 .connection-host { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; color: var(--muted); }
 .connection-host span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

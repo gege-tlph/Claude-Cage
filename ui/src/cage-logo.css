@@ -1,0 +1,25 @@
+.cage-mark {
+  --cage-mark-tile: var(--paper, #fbfaf7);
+  --cage-mark-cage: var(--strong, #282828);
+  display: block;
+  flex: none;
+  background: var(--cage-mark-tile);
+  shape-rendering: crispEdges;
+}
+.cage-mark-crab rect {
+  fill: #ee6e45;
+}
+.cage-mark-crab .cage-mark-eyes rect {
+  fill: #282828;
+}
+.cage-mark-frame {
+  fill: none;
+  stroke: var(--cage-mark-cage);
+  stroke-width: 7.2;
+  /* Square caps close the corner where the outline starts and ends. */
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
+.cage-mark-bar {
+  fill: var(--cage-mark-cage);
+}

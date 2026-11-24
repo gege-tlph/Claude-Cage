@@ -22,7 +22,7 @@ import { Modal } from "./modal";
 import { applyInterfaceLanguage } from "./interface-language.mjs";
 import { HostForm } from "./remote-host-form";
 import { SSHConfigImport } from "./ssh-config-import";
-import logo from "./logo.png";
+import { CageLogo } from "./cage-logo.jsx";
 import "./remote-hosts.css";
 import { translate, useTranslation } from "./interface-language.mjs";
 import { LanguageSettings } from "./language-settings";
@@ -527,7 +527,7 @@ function Environment({ context, refresh, children }) {
         ) : remote ? (
           <Server size={16} />
         ) : (
-          <img className="brand-logo" src={logo} alt="" />
+          <CageLogo className="brand-logo" />
         )}
         <strong>{ready ? hostName : "Cage"}</strong>
         {ready && (
@@ -785,7 +785,7 @@ function Environment({ context, refresh, children }) {
           <main className="environment-picker">
             <div>
               <div className="startup-language-slot"><LanguageSettings compact /></div>
-              <img className="environment-logo" src={logo} alt="" />
+              <CageLogo className="environment-logo" />
               <h1>
                 {localLost
                   ? tr("重新连接本机工作台")
