@@ -15,6 +15,11 @@ cage_browser_policy_dir=/etc/chromium/policies/managed
 sudo install -d -m 0755 "$cage_browser_policy_dir"
 printf '%s\n' '{"PasswordManagerEnabled":false}' | sudo tee "$cage_browser_policy_dir/cage-password-vault.json" >/dev/null
 sudo chmod 0644 "$cage_browser_policy_dir/cage-password-vault.json"
+# --disable-blink-features=AutomationControlled (browser-agent.mjs) is
+# intended; without this policy Chromium shows an "unsupported command-line
+# flag" bar above every restored page.
+printf '%s\n' '{"CommandLineFlagSecurityWarningsEnabled":false}' | sudo tee "$cage_browser_policy_dir/cage-command-line-flags.json" >/dev/null
+sudo chmod 0644 "$cage_browser_policy_dir/cage-command-line-flags.json"
 # Resolve Tailscale application links in the workbench browser's user session.
 if ! command -v xdg-mime >/dev/null; then
   sudo env DEBIAN_FRONTEND=noninteractive APT_CONFIG="${CAGE_APT_CONFIG:-/dev/null}" apt-get install -y --no-install-recommends xdg-utils </dev/null
