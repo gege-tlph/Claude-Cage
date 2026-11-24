@@ -25,7 +25,10 @@ type Preferences struct {
 	ReuseClaudeLogin     bool `json:"reuse_claude_login"`
 	TransferAllowUnclean bool `json:"transfer_allow_unclean"`
 	BalancedDisplay      bool `json:"balanced_display"`
-	ProjectFileCache     bool `json:"project_file_cache"`
+	// DisplayDensityChecked records that BalancedDisplay was turned off once
+	// for a high-density screen (displayDensity). Owned by the server.
+	DisplayDensityChecked bool `json:"display_density_checked,omitempty"`
+	ProjectFileCache      bool `json:"project_file_cache"`
 	// HostTools lets Claude in the environment run commands on this computer.
 	HostTools bool `json:"host_tools,omitempty"`
 	// HostPluginsOff names the plugins the user turned off, separated by

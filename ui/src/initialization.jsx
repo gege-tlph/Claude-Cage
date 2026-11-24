@@ -42,6 +42,13 @@ export function InitializationGate({ children }) {
   const [attempt, retry] = useState(0);
   const remote = isRemoteClient();
   useEffect(() => {
+    // On a high-density screen "balanced display" leaves the guest at 3/4 of
+    // the screen's pixels and the remote display blurry; the host turns it
+    // off once, before the environment's first start reads it.
+    if (remote || !(window.devicePixelRatio > 1)) return;
+    api("/display-density", { device_pixel_ratio: window.devicePixelRatio }).catch(() => {});
+  }, [remote]);
+  useEffect(() => {
     if (remote) return;
     let live = true;
     setError("");
