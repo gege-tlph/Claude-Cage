@@ -3034,7 +3034,7 @@
   "本机端口": "Local port",
   "本机中转只能作为代理链第一跳": "A local relay can only be the first hop",
   "本机中转已撤销，外网保持关闭": "Local relay revoked; internet stays off",
-  "请在这台电脑的 Cage 窗口中设置本机中转": "Set local relays in the Cage window on this computer",
-  "不能使用 Cage 自己的代理端口": "Cage's own proxy port cannot be used",
+  "请在这台电脑的 Cage lite 窗口中设置本机中转": "Set local relays in the Cage lite window on this computer",
+  "不能使用 Cage lite 自己的代理端口": "Cage lite's own proxy port cannot be used",
   "端口应为 1–65535": "Port must be 1–65535"
 }

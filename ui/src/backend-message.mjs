@@ -46,8 +46,8 @@ export const backendMessageKeys = [
   // Local relay (#595)
   "本机中转只能作为代理链第一跳",
   "本机中转已撤销，外网保持关闭",
-  "请在这台电脑的 Cage 窗口中设置本机中转",
-  "不能使用 Cage 自己的代理端口",
+  "请在这台电脑的 Cage lite 窗口中设置本机中转",
+  "不能使用 Cage lite 自己的代理端口",
   "端口应为 1–65535",
   // Proxy state labels
   "尚未配置",

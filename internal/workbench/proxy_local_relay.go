@@ -11,7 +11,7 @@ import (
 // and remote clients cannot widen the host boundary.
 func (s *Server) proxyLocalRelay(w http.ResponseWriter, r *http.Request) {
 	if !s.hasTrustedView(r) {
-		http.Error(w, "请在这台电脑的 Cage 窗口中设置本机中转", http.StatusForbidden)
+		http.Error(w, "请在这台电脑的 Cage lite 窗口中设置本机中转", http.StatusForbidden)
 		return
 	}
 	var in struct {

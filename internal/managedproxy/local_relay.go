@@ -104,7 +104,7 @@ func (s *Store) AllowLocalRelay(port int) error {
 		return errors.New("端口应为 1–65535")
 	}
 	if port == s.Port {
-		return errors.New("不能使用 Cage 自己的代理端口")
+		return errors.New("不能使用 Cage lite 自己的代理端口")
 	}
 	if !slices.Contains(s.LocalRelays, port) {
 		s.LocalRelays = append(s.LocalRelays, port)
