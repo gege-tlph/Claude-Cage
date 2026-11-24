@@ -1378,6 +1378,7 @@
   "环境启动并连接代理后检测网络延迟": "Latency is measured once the environment starts and connects to the proxy",
   "环境和浏览器可继续使用。": "The environment and browser keep working.",
   "环境声音：未启动": "Environment sound: not started",
+  "环境存储不能放在 AppData 或临时目录中，请选择其他本地文件夹": "Environment storage cannot be in AppData or a temp folder. Choose another local folder",
   "环境存储目录": "Environment storage folder",
   "环境存储需要恢复": "Environment storage needs restoring",
   "环境存储需要恢复。请连接迁移使用的磁盘后重试。恢复完成后可以启动环境。": "Environment storage needs restoring. Connect the disk used for migration and try again; then you can start the environment.",
