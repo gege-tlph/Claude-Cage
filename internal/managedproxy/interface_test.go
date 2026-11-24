@@ -1,6 +1,8 @@
 package managedproxy
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -79,5 +81,30 @@ func TestBindingPreservesProxyChainAndReplacesStaleNodeBinding(t *testing.T) {
 	}
 	if _, err := BindInterface(data, ""); err == nil {
 		t.Fatal("unbound fallback accepted")
+	}
+}
+
+func TestDarwinPhysicalInterfaceReportsScutilFailureInsteadOfNoNIC(t *testing.T) {
+	origHardware, origRoute, origNWI := runDarwinNetworksetup, runDarwinRoute, runDarwinScutilNWI
+	t.Cleanup(func() {
+		runDarwinNetworksetup, runDarwinRoute, runDarwinScutilNWI = origHardware, origRoute, origNWI
+	})
+	runDarwinNetworksetup = func(context.Context) ([]byte, error) {
+		return []byte("Hardware Port: Wi-Fi\nDevice: en0\n"), nil
+	}
+	runDarwinRoute = func(context.Context) ([]byte, error) {
+		return []byte("interface: en0\n"), nil
+	}
+	runDarwinScutilNWI = func(context.Context) ([]byte, error) {
+		return nil, errors.New("exit status 1")
+	}
+	if _, err := darwinPhysicalInterface(context.Background()); err == nil || !strings.Contains(err.Error(), "无法读取系统网络状态") {
+		t.Fatalf("scutil error: got %v, want system network state error", err)
+	}
+	if _, err := selectPhysicalInterface("interface: en0", "Hardware Port: Wi-Fi\nDevice: en0\n", "", map[string]bool{"en0": true}); err == nil || !strings.Contains(err.Error(), "无法读取系统网络状态") {
+		t.Fatalf("empty nwi: got %v, want system network state error", err)
+	}
+	if _, err := selectPhysicalInterface("interface: en0", "Hardware Port: Wi-Fi\nDevice: en0\n", "No network information\n", map[string]bool{"en0": true}); err == nil || !strings.Contains(err.Error(), "未找到可用的物理 IPv4 网卡") {
+		t.Fatalf("offline nwi: got %v, want no physical IPv4 interface error", err)
 	}
 }

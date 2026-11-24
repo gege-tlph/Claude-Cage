@@ -257,6 +257,15 @@ func desktopLaunch(profile string, gateway bool, options DesktopOptions, start f
 			if err != nil {
 				return DesktopResult{}, err
 			}
+		} else if want.matches(current.launch.Controller) && !options.UseExisting && sessionChanged(current.launch.SessionID) && current.launch.Controller.Protocol == controlProtocol {
+			status, handoffErr := current.call("POST", "/api/handoff", map[string]string{"token": current.record.Token}, nil)
+			if handoffErr == nil && status == http.StatusOK {
+				if err = current.waitForExit(); err != nil {
+					return DesktopResult{}, err
+				}
+			} else {
+				return DesktopResult{Status: "ready", URL: current.launch.URL, Controller: current.launch.Controller}, nil
+			}
 		} else if want.matches(current.launch.Controller) || options.UseExisting {
 			status := "ready"
 			if !want.matches(current.launch.Controller) {

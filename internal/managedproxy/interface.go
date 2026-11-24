@@ -14,6 +14,19 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
+var (
+	runDarwinNetworksetup = func(ctx context.Context) ([]byte, error) {
+		return exec.CommandContext(ctx, "/usr/sbin/networksetup", "-listallhardwareports").Output()
+	}
+	runDarwinRoute = func(ctx context.Context) ([]byte, error) {
+		return exec.CommandContext(ctx, "/sbin/route", "-n", "get", "default").Output()
+	}
+	runDarwinScutilNWI = func(ctx context.Context) ([]byte, error) {
+		return exec.CommandContext(ctx, "/usr/sbin/scutil", "--nwi").Output()
+	}
+	listNetInterfaces = net.Interfaces
+)
+
 // PhysicalInterface uses the system's preferred reachable IPv4 hardware port.
 // A route through utun is not a physical uplink, even when it is the default.
 func PhysicalInterface(ctx context.Context) (string, error) {
@@ -26,16 +39,23 @@ func PhysicalInterface(ctx context.Context) (string, error) {
 	if runtime.GOOS != "darwin" {
 		return "", errors.New("物理网卡识别当前支持 macOS")
 	}
+	return darwinPhysicalInterface(ctx)
+}
+
+func darwinPhysicalInterface(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 4*time.Second)
 	defer cancel()
-	hardware, err := exec.CommandContext(ctx, "/usr/sbin/networksetup", "-listallhardwareports").Output()
+	hardware, err := runDarwinNetworksetup(ctx)
 	if err != nil {
 		return "", errors.New("无法读取物理网卡，请检查主机网络后重试")
 	}
-	route, _ := exec.CommandContext(ctx, "/sbin/route", "-n", "get", "default").Output()
-	nwi, _ := exec.CommandContext(ctx, "/usr/sbin/scutil", "--nwi").Output()
+	route, _ := runDarwinRoute(ctx)
+	nwi, err := runDarwinScutilNWI(ctx)
+	if err != nil {
+		return "", errors.New("无法读取系统网络状态，请检查主机网络或重启 Cage 后重试")
+	}
 	usable := map[string]bool{}
-	interfaces, err := net.Interfaces()
+	interfaces, err := listNetInterfaces()
 	if err != nil {
 		return "", err
 	}
@@ -64,6 +84,9 @@ func isVirtualMACInterface(name string) bool {
 }
 
 func selectPhysicalInterface(route, hardware, nwi string, usable map[string]bool) (string, error) {
+	if strings.TrimSpace(nwi) == "" {
+		return "", errors.New("无法读取系统网络状态，请检查主机网络或重启 Cage 后重试")
+	}
 	physical := map[string]bool{}
 	for _, line := range strings.Split(hardware, "\n") {
 		fields := strings.Fields(line)

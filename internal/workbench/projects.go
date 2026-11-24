@@ -224,7 +224,7 @@ func (s *Server) ensureProjectShare(path string) (returned error) {
 	quoted := shellescape.Quote(guestPath(path))
 	// Stale FUSE mounts can remain after a control-service restart. Only reconnect
 	// this explicitly authorized path, without changing other projects' mounts.
-	if _, err = s.guest(ctx, "if mountpoint -q "+quoted+"; then fusermount3 -uz "+quoted+"; fi; sudo mkdir -p "+quoted+" && sudo chown \"$(id -u):$(id -g)\" "+quoted); err != nil {
+	if _, err = s.guest(ctx, prepareProjectMountCommand(quoted)); err != nil {
 		return errors.New("无法在 Cage 中准备项目目录")
 	}
 	probe, err := os.CreateTemp(path, ".cage-mount-probe-*")
@@ -277,6 +277,18 @@ func (s *Server) ensureProjectShare(path string) (returned error) {
 // projectFileCacheSeconds is how long the guest may answer from what it
 // already knows about a shared file before asking the host again.
 const projectFileCacheSeconds = 20
+
+// prepareProjectMountCommand clears any live or stale FUSE mount at quoted
+// before creating the mount directory. mountpoint -q calls stat(2) and fails
+// with ENOTCONN/EIO on a stale FUSE mount, so inspect /proc/self/mountinfo
+// first via findmnt --nocanonicalize and fall back to sudo umount -l when
+// fusermount3 cannot detach the stale entry.
+func prepareProjectMountCommand(quoted string) string {
+	mounted := "findmnt -rn --nocanonicalize --mountpoint " + quoted + " >/dev/null 2>&1"
+	return "if " + mounted + " || mountpoint -q -- " + quoted + " 2>/dev/null; then " +
+		"fusermount3 -uz " + quoted + " 2>/dev/null || sudo -n umount -l -- " + quoted + " 2>/dev/null || ! " + mounted + "; " +
+		"fi && sudo mkdir -p -- " + quoted + " && sudo chown \"$(id -u):$(id -g)\" -- " + quoted
+}
 
 // projectShareOptions are the sshfs options of a project folder in a Linux
 // guest. Every lookup and attribute read is otherwise a round trip to the

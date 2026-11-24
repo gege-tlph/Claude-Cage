@@ -375,7 +375,7 @@ func (s *Server) handler() http.Handler {
 			return
 		}
 		ticket := s.issueTicketWithScope(input.RemoteDesktop)
-		jsonReply(w, launchResponse{ConfigPath: s.configPath, ClientOnly: s.clientOnly, DesktopGateway: s.desktopEntry, URL: s.origin + "/?launch=" + randomToken()[:8] + "#" + ticket, Controller: s.identity})
+		jsonReply(w, launchResponse{ConfigPath: s.configPath, ClientOnly: s.clientOnly, DesktopGateway: s.desktopEntry, SessionID: desktopSessionID(), URL: s.origin + "/?launch=" + randomToken()[:8] + "#" + ticket, Controller: s.identity})
 	})
 	if s.desktopEntry || s.clientOnly {
 		mux.HandleFunc("POST /api/handoff", s.handoffEntry)
