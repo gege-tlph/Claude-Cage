@@ -946,3 +946,29 @@ button.proxy-region-group-header:hover:not(:disabled) {
 .proxy-yaml-input > label {
   margin-top: 14px;
 }
+/* First-run step 2 ("网络代理"). Until the proxy data arrives the step shows
+   only its loading line: the button bar and the sections below would first
+   move up to it and then be pushed far down (J5). A load error (role="alert")
+   keeps everything visible. Settings hide the same siblings above. */
+.initialization-content:has(.initialization-stage > .proxy-loading[role="status"]) > :is(.initialization-actions, .initialization-support),
+.initialization-stage:has(> .proxy-loading[role="status"]) > :not(.proxy-loading) {
+  display: none;
+}
+/* Two heading levels in step 2 (T2/T3), only in the first-run guide:
+   sections 16px/600, cards 14px/600, field names 14px/550. */
+.initialization .proxy-manager .section-title h3,
+.initialization .local-config-heading h4,
+.initialization .initialization-dns > summary {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.65;
+}
+.initialization .proxy-manager .proxy-route-heading h4,
+.initialization .proxy-manager .proxy-node-heading h4 {
+  font-size: 14px;
+  font-weight: 600;
+}
+.initialization .proxy-manager .proxy-hop-control > label {
+  font-size: 14px;
+  font-weight: 550;
+}

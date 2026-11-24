@@ -54,7 +54,7 @@ export function ProxyYAMLInput({
     onReadingChange(false);
     setError("");
     if (files.length !== 1) {
-      setError("一次只能导入一个配置文件，请逐个添加来源。");
+      setError("一次只能导入一个配置文件");
       return;
     }
     const value = files[0];
