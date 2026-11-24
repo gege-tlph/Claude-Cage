@@ -80,7 +80,7 @@ func TestDesktopFilesPollAllMergesDefaultAndAccountDesktops(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(runRoot) })
 	accountID := strings.Repeat("a", 24)
-	defaultDir := filepath.Join(runRoot, "cage-desktop")
+	defaultDir := filepath.Join(runRoot, "desktop-session")
 	accountDir := filepath.Join(runRoot, "desktop-"+accountID)
 	if err := os.MkdirAll(defaultDir, 0700); err != nil {
 		t.Fatal(err)
@@ -106,7 +106,7 @@ func TestDesktopFilesPollAllMergesDefaultAndAccountDesktops(t *testing.T) {
 
 	fixture := `systemctl() {
   case "$2" in
-    cage-claude-desktop.service) printf '%s\n' "$DEFAULT_STATE"; [ "$DEFAULT_STATE" = active ] ;;
+    desktop-session.service) printf '%s\n' "$DEFAULT_STATE"; [ "$DEFAULT_STATE" = active ] ;;
     desktop-` + accountID + `.service) printf '%s\n' "$ACCOUNT_STATE"; [ "$ACCOUNT_STATE" = active ] ;;
     *) printf 'inactive\n'; return 3 ;;
   esac
@@ -118,7 +118,7 @@ curl() {
     shift
   done
   case "$sock" in
-    */cage-desktop/files.sock)
+    */desktop-session/files.sock)
       printf '{"available":true,"uploads":[{"id":"` + defaultUploadID + `","target":"desktop"}],"downloads":[],"opens":[]}\nCAGE_FILE_HTTP:200' ;;
     */desktop-` + accountID + `/files.sock)
       printf '{"available":true,"uploads":[{"id":"` + accountUploadID + `","target":"desktop","directory":true}],"downloads":[],"opens":[{"id":"` + accountOpenID + `"}]}\nCAGE_FILE_HTTP:200' ;;
@@ -234,7 +234,7 @@ func TestMergeDesktopFilePollAndSocketValidation(t *testing.T) {
 	}
 
 	// Verify desktopFileSocket validation.
-	if sock, err := desktopFileSocket(""); err != nil || sock != "/run/cage-desktop/files.sock" {
+	if sock, err := desktopFileSocket(""); err != nil || sock != "/run/desktop-session/files.sock" {
 		t.Fatalf("default socket: %q %v", sock, err)
 	}
 	if sock, err := desktopFileSocket(accountID); err != nil || sock != "/run/desktop-"+accountID+"/files.sock" {

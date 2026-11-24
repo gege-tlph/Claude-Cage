@@ -19,8 +19,8 @@ import sys
 import threading
 import time
 
-DEFAULT_FIFO = "/run/cage-audio/input.fifo"
-DEFAULT_SERVER = "unix:/run/cage-audio/native"
+DEFAULT_FIFO = "/run/audio-output/input.fifo"
+DEFAULT_SERVER = "unix:/run/audio-output/native"
 FRAME_BYTES = 48000 * 1 * 2 // 50  # 20 ms @ 48 kHz mono s16le (1920 bytes)
 FRAME_INTERVAL = 0.02
 MAX_FRAME_BYTES = 16384
@@ -390,7 +390,7 @@ class AudioInputBridge:
 
 def main(argv):
     if len(argv) < 2 or not argv[1].strip():
-        sys.stderr.write("usage: cage-audio-input <source_name> [fifo_path] [pulse_server]\n")
+        sys.stderr.write("usage: audio-input <source_name> [fifo_path] [pulse_server]\n")
         return 2
     source_name = argv[1].strip()
     fifo_path = argv[2] if len(argv) >= 3 and argv[2] else DEFAULT_FIFO

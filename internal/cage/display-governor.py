@@ -19,7 +19,7 @@ PASSIVE_RATE = 30
 IDLE_RATE = 20
 ACTIVE_HOLD = 3.0
 IDLE_AFTER = 180.0
-# Size owners name their modes cage-<w>x<h> and cage-phone-<w>x<h>, and remove
+# Size owners name their modes mode-<w>x<h> and phone-<w>x<h> (legacy cage-*), and remove
 # only those. This prefix keeps the two sets of modes apart.
 PREFIX = 'fps'
 PROBE_KEYSYM = 0xffd5  # F24, injected by the input bridge to refresh a caret.
@@ -339,8 +339,8 @@ def main():
             if not negotiate_input(connection):
                 print('display governor: XI 2.1 unavailable; keeping the full rate', file=sys.stderr)
                 return 0
-            governor = Governor(connection, os.environ.get('CAGE_DISPLAY_OUTPUT', 'VNC-0'),
-                                Activity(os.environ.get('CAGE_DISPLAY_ACTIVITY')))
+            governor = Governor(connection, os.environ.get('DISPLAY_OUTPUT', 'VNC-0'),
+                                Activity(os.environ.get('DISPLAY_ACTIVITY_SOCKET')))
         except disconnect_errors:
             return 0
         # Never raise out of a python-xlib request: it can leave a reply lock held

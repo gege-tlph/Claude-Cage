@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# Keep dbus-daemon and other children from announcing readiness for the app.
-if [ "${CAGE_DESKTOP_SESSION:-}" != 1 ]; then
-  export CAGE_DESKTOP_SESSION=1 CAGE_NOTIFY_SOCKET="$NOTIFY_SOCKET"
+# Keep dbus-daemon and other children from announcing readiness for the app:
+# the notification socket passes to the inner session as an argument.
+if [ "${1:-}" != --session ]; then
+  ready_socket=$NOTIFY_SOCKET
   unset NOTIFY_SOCKET
-  exec dbus-run-session -- "$0"
+  exec dbus-run-session -- "$0" --session "$ready_socket"
 fi
-export DISPLAY=:78 XAUTHORITY=/run/cage-desktop/Xauthority
-export XDG_RUNTIME_DIR=/run/cage-desktop XDG_CURRENT_DESKTOP=Openbox
-export PATH="$HOME/.local/bin:$PATH" BROWSER=/usr/local/bin/cage-open
+ready_socket=$2
+set --
+# The application receives its own runtime directory, not the unit's.
+unset RUNTIME_DIRECTORY LOG_NAMESPACE
+export DISPLAY=:78 XAUTHORITY=/run/desktop-session/Xauthority
+export XDG_RUNTIME_DIR=/run/desktop-session XDG_CURRENT_DESKTOP=Openbox
+export PATH="$HOME/.local/bin:$PATH" BROWSER=/usr/local/bin/xdg-open
 dbus-update-activation-environment DISPLAY XAUTHORITY XDG_RUNTIME_DIR XDG_CURRENT_DESKTOP
 umask 077
 rm -f "$XDG_RUNTIME_DIR/stopping"
@@ -29,7 +34,7 @@ trap on_term TERM
 touch "$XAUTHORITY"
 xauth -f "$XAUTHORITY" add "$DISPLAY" . "$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
 printf '%s' "$DBUS_SESSION_BUS_ADDRESS" > "$XDG_RUNTIME_DIR/bus-address"
-password="$HOME/.config/claude-cage/desktop-password"
+password="$HOME/.config/workbench/desktop-password"
 if [ ! -s "$password" ]; then
   mkdir -p "$(dirname "$password")"
   od -An -N4 -tx1 /dev/urandom | tr -d ' \n' > "$password"
@@ -44,10 +49,10 @@ for _ in $(seq 1 100); do
   sleep .1
 done
 xdpyinfo -display "$DISPLAY" >/dev/null
-openbox --config-file /etc/claude-cage/desktop-openbox.xml &
+openbox --config-file /etc/workbench/desktop-openbox.xml &
 # Lower the refresh rate of unattended animation. Optional on older guests.
-if [ -x /usr/local/bin/cage-display-governor ]; then
-  /usr/local/bin/cage-display-governor &
+if [ -x /usr/local/libexec/display-governor ]; then
+  /usr/local/libexec/display-governor &
 fi
 mkfifo -m 0600 "$XDG_RUNTIME_DIR/unlock"
 gnome-keyring-daemon --unlock --components=secrets < "$XDG_RUNTIME_DIR/unlock" >/dev/null
@@ -65,7 +70,7 @@ keyring_unlocked || { echo '无法解锁已有密钥环，登录数据未修改�
 touch "$XDG_RUNTIME_DIR/keyring-ready"
 # Record the running application's density for clients that reconnect later.
 display_scale=2
-if [[ -r /etc/claude-cage/display-scale && $(< /etc/claude-cage/display-scale) == 1.5 ]]; then
+if [[ -r /etc/workbench/display-scale && $(< /etc/workbench/display-scale) == 1.5 ]]; then
   display_scale=1.5
 fi
 printf '%s\n' "$display_scale" > "$XDG_RUNTIME_DIR/display-scale"
@@ -82,8 +87,8 @@ if command -v xsettingsd >/dev/null; then
     printf 'Gtk/EnableAnimations 0\n' >> "$XDG_RUNTIME_DIR/xsettings.fixed"
   fi
   guest_theme=
-  if [ -r "$HOME/.config/claude-cage/theme-variant" ]; then
-    read -r guest_theme < "$HOME/.config/claude-cage/theme-variant" || true
+  if [ -r "$HOME/.config/workbench/theme-variant" ]; then
+    read -r guest_theme < "$HOME/.config/workbench/theme-variant" || true
     if [ "$guest_theme" = dark ]; then
       printf 'Net/ThemeName "Adwaita-dark"\nGtk/ApplicationPreferDarkTheme 1\n' >> "$XDG_RUNTIME_DIR/xsettings.fixed"
     elif [ "$guest_theme" = light ]; then
@@ -117,7 +122,7 @@ connection.close()
 CAGE_DESKTOP_DPI_READY
   scale_args=()
 fi
-/usr/local/bin/cage-desktop-files &
+/usr/local/libexec/desktop-files &
 files_pid=$!
 for _ in $(seq 1 100); do
   kill -0 "$files_pid"
@@ -135,22 +140,24 @@ history_args=()
 if [[ -s "$XDG_RUNTIME_DIR/account-scope" ]]; then
   read -r _ _ code subject < "$XDG_RUNTIME_DIR/account-scope"
   if [[ $code =~ ^[a-f0-9]{24}$ ]]; then
-    export CLAUDE_CONFIG_DIR="$HOME/.local/share/cage/claude-accounts/$code/config"
+    export CLAUDE_CONFIG_DIR="$HOME/.local/share/workbench/claude-accounts/$code/config"
     mkdir -p "$CLAUDE_CONFIG_DIR"
     # Desktop's Code tab starts the CLI without Cage's launch flags. Link the
     # shared skills and instructions and add shared settings first; a conflict
     # keeps the original files, is logged by this unit and does not block Desktop.
-    /usr/local/bin/cage-claude-account share "$code" >/dev/null || :
+    /usr/local/libexec/claude-account share "$code" >/dev/null || :
     if [[ $subject =~ ^[a-f0-9]{64}$ ]]; then
       history_args=("$CLAUDE_CONFIG_DIR" "$subject")
     fi
   fi
 fi
+# The interface language is the browser's; it is not in the session environment.
 lang_args=()
-if [[ "${CAGE_LANGUAGE:-}" =~ ^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$ ]]; then
-  lang_args=("--lang=${CAGE_LANGUAGE}")
+desktop_lang=$(sed -n 's/^BROWSER_LANG=//p' /etc/workbench/browser.env 2>/dev/null || true)
+if [[ "${desktop_lang:-}" =~ ^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$ ]]; then
+  lang_args=("--lang=${desktop_lang}")
 fi
-DESKTOP_LOG_LEVEL=debug CLAUDE_ENABLE_LOGGING=1 DEBUG='*current-account*' /usr/local/bin/cage-input-session /usr/bin/python3 -I /usr/local/bin/client_runtime.py claude-desktop "${scale_args[@]}" ${lang_args[@]+"${lang_args[@]}"} --password-store=gnome-libsecret --xdg-portal-required-version=3 > >(/usr/bin/python3 -I /usr/local/lib/desktop-identity.py "$XDG_RUNTIME_DIR/account.json" "${history_args[@]}") &
+DESKTOP_LOG_LEVEL=debug CLAUDE_ENABLE_LOGGING=1 DEBUG='*current-account*' /usr/local/libexec/input-session /usr/bin/python3 -I /usr/local/bin/client_runtime.py claude-desktop "${scale_args[@]}" ${lang_args[@]+"${lang_args[@]}"} --password-store=gnome-libsecret --xdg-portal-required-version=3 > >(/usr/bin/python3 -I /usr/local/lib/desktop-identity.py "$XDG_RUNTIME_DIR/account.json" "${history_args[@]}") &
 app_pid=$!
 printf '%s\n' "$app_pid" > "$XDG_RUNTIME_DIR/app-pid"
 # The service becomes ready only after the application has opened a window.
@@ -159,7 +166,7 @@ for _ in $(seq 1 200); do
     break
   fi
   if xprop -root _NET_CLIENT_LIST 2>/dev/null | grep -q '0x[1-9a-f]'; then
-    NOTIFY_SOCKET="$CAGE_NOTIFY_SOCKET" systemd-notify --ready
+    NOTIFY_SOCKET="$ready_socket" systemd-notify --ready
     break
   fi
   sleep .1

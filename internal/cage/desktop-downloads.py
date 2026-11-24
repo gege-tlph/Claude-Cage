@@ -273,7 +273,7 @@ class Downloads:
 
 
 def downloads_directory(runtime=None):
-    base = Path.home() / '.local/share/cage/desktop-downloads'
+    base = Path.home() / '.local/share/workbench/desktop-downloads'
     if runtime:
         name = Path(runtime).name
         if re.fullmatch(r'desktop-[a-f0-9]{24}', name):
@@ -282,7 +282,7 @@ def downloads_directory(runtime=None):
 
 
 def create_downloads(runtime=None):
-    helper = SourceFileLoader('cage_download_copy', '/usr/local/bin/cage-save-download').load_module()
-    with open('/etc/claude-cage/desktop-downloads.json') as config:
+    helper = SourceFileLoader('cage_download_copy', '/usr/local/libexec/save-download').load_module()
+    with open('/etc/workbench/desktop-downloads.json') as config:
         workspace = json.load(config)['workspace']
     return Downloads(downloads_directory(runtime), workspace, helper.copy_to_workspace)

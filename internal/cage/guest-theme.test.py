@@ -69,12 +69,12 @@ class GuestThemeTests(unittest.TestCase):
             claude_settings.parent.mkdir(parents=True)
             claude_settings.write_text(json.dumps({"model": "sonnet"}), encoding="utf-8")
 
-            shared_settings = home / ".local/share/cage/claude-shared/settings.json"
+            shared_settings = home / ".local/share/workbench/claude-shared/settings.json"
             shared_settings.parent.mkdir(parents=True)
             shared_settings.write_text(json.dumps({"language": "zh"}), encoding="utf-8")
 
             acc_id = "a" * 24
-            acc_dir = home / ".local/share/cage/claude-accounts" / acc_id
+            acc_dir = home / ".local/share/workbench/claude-accounts" / acc_id
             (acc_dir / "config").mkdir(parents=True)
             (acc_dir / "config/settings.json").write_text(json.dumps({"env": {}}), encoding="utf-8")
             (acc_dir / "config/.claude.json").write_text(json.dumps({"numStartups": 3}), encoding="utf-8")
@@ -93,7 +93,7 @@ class GuestThemeTests(unittest.TestCase):
             guest_theme.apply_theme("dark", home=home)
 
             self.assertEqual(
-                (home / ".config/claude-cage/theme-variant").read_text(encoding="utf-8"),
+                (home / ".config/workbench/theme-variant").read_text(encoding="utf-8"),
                 "dark\n",
             )
             cs_data = json.loads(cs_path.read_text(encoding="utf-8"))
@@ -139,7 +139,7 @@ class GuestThemeTests(unittest.TestCase):
 
             guest_theme.apply_theme("light", home=home)
 
-            self.assertEqual((home / ".config/claude-cage/theme-variant").read_text(encoding="utf-8"), "light\n")
+            self.assertEqual((home / ".config/workbench/theme-variant").read_text(encoding="utf-8"), "light\n")
             cs_after = json.loads(cs_path.read_text(encoding="utf-8"))
             self.assertEqual(cs_after["workbench.colorTheme"], "Default Light Modern")
             self.assertEqual(cs_after["workbench.colorCustomizations"]["editor.selectionBackground"], "#ff00ff")

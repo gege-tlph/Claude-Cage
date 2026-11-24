@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	audioInputBridgeCommand = "exec /usr/local/bin/cage-audio-input cage_input"
+	audioInputBridgeCommand = "exec /usr/local/libexec/audio-input fifo_input"
 	audioInputMaxFrameBytes = 16384
 )
 

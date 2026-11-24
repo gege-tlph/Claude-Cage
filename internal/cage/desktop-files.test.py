@@ -282,7 +282,7 @@ class DesktopFileDBusTests(unittest.TestCase):
             os.environ['XDG_RUNTIME_DIR'] = str(root)
             self.assertEqual(files.open_socket_path(), str(sock_path))
             os.environ['XDG_RUNTIME_DIR'] = str(root / 'empty')
-            self.assertEqual(files.open_socket_path(), '/run/cage-desktop/files.sock')
+            self.assertEqual(files.open_socket_path(), '/run/desktop-session/files.sock')
         finally:
             srv.close()
             if old_runtime is None:

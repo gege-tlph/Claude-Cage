@@ -360,29 +360,21 @@ func waitDERP(t *testing.T, ctx context.Context, s *tsnet.Server) {
 	}
 }
 
-func TestNodeHostnameHasNoProductPrefixForNewIdentities(t *testing.T) {
+func TestFormerDeviceNameFollowsTheIdentityMarker(t *testing.T) {
 	host, _ := os.Hostname()
-	want := strings.TrimPrefix(strings.TrimSpace(host), "cage-")
-	if want == "" {
-		want = "linux"
-	}
-	fresh := t.TempDir()
-	for range 2 {
-		got, err := nodeHostname(fresh)
-		if err != nil || got != want {
-			t.Fatalf("new identity hostname = %q, %v; want %q", got, err, want)
-		}
-		// The identity now exists; it must keep the plain name.
-		if err := os.WriteFile(filepath.Join(fresh, "tailscaled.state"), []byte("{}"), 0600); err != nil {
-			t.Fatal(err)
-		}
+	plain := strings.TrimPrefix(strings.TrimSpace(host), "cage-")
+	if plain == "" {
+		plain = "linux"
 	}
 	legacy := t.TempDir()
-	if err := os.WriteFile(filepath.Join(legacy, "tailscaled.state"), []byte("{}"), 0600); err != nil {
+	if got := formerDeviceName(legacy); got != "cage-"+plain {
+		t.Fatalf("identity without the marker was %q; want cage-%s", got, plain)
+	}
+	if err := os.WriteFile(filepath.Join(legacy, plainHostnameMarker), nil, 0600); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := nodeHostname(legacy); err != nil || got != "cage-"+want {
-		t.Fatalf("existing identity hostname = %q, %v; want the original cage-%s", got, err, want)
+	if got := formerDeviceName(legacy); got != plain {
+		t.Fatalf("identity with the marker was %q; want %s", got, plain)
 	}
 }
 

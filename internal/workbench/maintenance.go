@@ -78,7 +78,7 @@ func (p *maintenanceProxy) close() {
 	p.transport.CloseIdleConnections()
 }
 func (p *maintenanceProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	expected := "Basic " + base64.StdEncoding.EncodeToString([]byte("cage-install:"+p.token))
+	expected := "Basic " + base64.StdEncoding.EncodeToString([]byte("install:"+p.token))
 	if subtle.ConstantTimeCompare([]byte(r.Header.Get("Proxy-Authorization")), []byte(expected)) != 1 {
 		w.Header().Set("Proxy-Authenticate", `Basic realm="Cage maintenance"`)
 		http.Error(w, "Maintenance authentication required", 407)
@@ -176,8 +176,10 @@ printf '%s\n' 'Dir::Cache::archives "/var/cache/apt/install-archives";' >> "$CAG
 umask 077
 cage_maintenance_dir=$(mktemp -d)
 trap 'rm -rf "$cage_maintenance_dir"' EXIT
-export CAGE_INSTALL_PROXY='http://cage-install:%s@127.0.0.1:%d'
-export CAGE_APT_CONFIG="$cage_maintenance_dir/apt.conf"
+# Plain shell variables: the installers started below, the official ones
+# among them, inherit only the standard proxy variables.
+CAGE_INSTALL_PROXY='http://install:%s@127.0.0.1:%d'
+CAGE_APT_CONFIG="$cage_maintenance_dir/apt.conf"
 printf 'Acquire::http::Proxy "%%s";\nAcquire::https::Proxy "%%s";\nAcquire::Retries "1";\nAcquire::http::Timeout "15";\nAcquire::https::Timeout "15";\n' "$CAGE_INSTALL_PROXY" "$CAGE_INSTALL_PROXY" > "$CAGE_APT_CONFIG"
 unset ALL_PROXY all_proxy NO_PROXY no_proxy FTP_PROXY ftp_proxy
 export http_proxy="$CAGE_INSTALL_PROXY" https_proxy="$CAGE_INSTALL_PROXY" HTTP_PROXY="$CAGE_INSTALL_PROXY" HTTPS_PROXY="$CAGE_INSTALL_PROXY"
@@ -207,13 +209,13 @@ func StartGuestServices(ctx context.Context, configPath string, stdout, stderr i
 	}
 	themePrefix := ""
 	if v := resolvedGuestTheme(filepath.Dir(configPath)); v != "" {
-		themePrefix = "export " + cage.GuestThemeEnv + "=" + v + "\n"
+		themePrefix = cage.GuestThemeEnv + "=" + v + "\n"
 	}
 	cfg, err := cage.Load(configPath)
 	if err != nil {
 		return err
 	}
-	return runMaintenanceScript(ctx, configPath, cfg, "export CAGE_DISPLAY_SCALE="+scale+"\n"+themePrefix+cfg.StartScript(), stdout, stderr)
+	return runMaintenanceScript(ctx, configPath, cfg, "CAGE_DISPLAY_SCALE="+scale+"\n"+themePrefix+cfg.StartScript(), stdout, stderr)
 }
 
 func RunMaintenanceScript(ctx context.Context, configPath, script string, stdout, stderr io.Writer) error {
@@ -251,7 +253,7 @@ func runMaintenanceScript(ctx context.Context, configPath string, cfg cage.Confi
 	defer stop()
 	s := &Server{profile: profile}
 	forward := fmt.Sprintf("127.0.0.1:%d:%s", maintenancePort, listener.Addr().String())
-	command := "sudo systemd-run --quiet --pipe --wait --collect --unit=cage-maintenance-operation --property=User=cage --property=RuntimeMaxSec=infinity --property=KillMode=control-group --setenv=HOME=/home/cage "
+	command := "sudo systemd-run --quiet --pipe --wait --collect --unit=maintenance-operation --property=User=cage --property=RuntimeMaxSec=infinity --property=KillMode=control-group --setenv=HOME=/home/cage "
 	command = cfg.GuestProfile.Linux(command) + "--working-directory=" + shellescape.Quote(guestPath(s.environmentDir())) + " /bin/bash -se"
 	cmd := s.sshCommandWithForwarding(ctx, "-o", "ExitOnForwardFailure=yes", "-R", forward, "-T", s.sshTarget(), "--", command)
 	cmd.Stdin = strings.NewReader(maintenanceScript(cage.DebianPrepareScript+"\n"+script, proxy.token, containerenv.Configured(profile)))
@@ -262,7 +264,7 @@ func runMaintenanceScript(ctx context.Context, configPath string, cfg cage.Confi
 		if ctx.Err() != nil {
 			cleanup, finish := context.WithTimeout(context.Background(), 5*time.Second)
 			defer finish()
-			_, _ = s.guest(cleanup, "sudo systemctl stop cage-maintenance-operation.service")
+			_, _ = s.guest(cleanup, "sudo systemctl stop maintenance-operation.service")
 			return ctx.Err()
 		}
 		diagnostics.Log("error", "maintenance", fmt.Sprintf("software installation error=%v", err))

@@ -59,7 +59,7 @@ func testClaudeAccountSwitchThroughSharedSession(t *testing.T, automatic bool) {
 	}
 	_ = os.WriteFile(filepath.Join(home, ".bash_profile"), []byte("export PATH="+shellescape.Quote(bin)+":/usr/bin:/bin\n"), 0600)
 	installClaudeTestHelpers(t, bin)
-	helper := filepath.Join(bin, "cage-claude-account")
+	helper := filepath.Join(bin, "claude-account")
 	var resumed atomic.Bool
 	model := mobileTestModel(t, &resumed)
 	t.Cleanup(model.Close)
@@ -96,7 +96,7 @@ func testClaudeAccountSwitchThroughSharedSession(t *testing.T, automatic bool) {
 	for _, id := range []string{strings.Repeat("a", 24), strings.Repeat("b", 24)} {
 		email := id[:1] + "@example.invalid"
 		list.Accounts = append(list.Accounts, claudeAccount{ID: id, Label: id[:1], Email: email, Enabled: true, Status: "ready", HandoffGroup: "test"})
-		config := filepath.Join(home, ".local/share/cage/claude-accounts", id, "config")
+		config := filepath.Join(home, ".local/share/workbench/claude-accounts", id, "config")
 		if err := writePrivate(filepath.Join(config, ".claude.json"), map[string]any{"hasCompletedOnboarding": true, "cachedGrowthBookFeatures": features, "cachedGrowthBookFeaturesAt": time.Now().UnixMilli(), "oauthAccount": map[string]string{"accountUuid": uuid.NewString(), "emailAddress": email}, "projects": map[string]any{project: map[string]bool{"hasTrustDialogAccepted": true}}}); err != nil {
 			t.Fatal(err)
 		}
@@ -115,7 +115,7 @@ func testClaudeAccountSwitchThroughSharedSession(t *testing.T, automatic bool) {
 	}
 	env := []string{"HOME=" + home, "PATH=" + bin + ":/usr/bin:/bin", "HTTP_PROXY=" + proxy, "HTTPS_PROXY=" + proxy, "NO_PROXY=localhost,127.0.0.1", "NODE_EXTRA_CA_CERTS=" + ca, "SSL_CERT_FILE=" + ca, "DISABLE_AUTOUPDATER=1", "TERM=xterm-256color"}
 	mobileTestSSHRewrite(t, s, home, env, func(command string) string {
-		return strings.ReplaceAll(command, "/usr/local/bin/cage-claude-account", helper)
+		return strings.ReplaceAll(command, "/usr/local/libexec/claude-account", helper)
 	})
 	// Rewrite the helper path in decoded launch payloads at the test boundary.
 	s.claudeAccounts.probe = func(ctx context.Context, id string) (claudeGuestSnapshot, error) {
@@ -123,7 +123,7 @@ func testClaudeAccountSwitchThroughSharedSession(t *testing.T, automatic bool) {
 	}
 	t.Cleanup(func() {
 		if t.Failed() {
-			states, _ := filepath.Glob(filepath.Join(home, ".local/share/cage/cli-channels/*/state.json"))
+			states, _ := filepath.Glob(filepath.Join(home, ".local/share/workbench/cli-channels/*/state.json"))
 			for _, path := range states {
 				b, _ := os.ReadFile(path)
 				t.Log(string(b))
@@ -229,7 +229,7 @@ func testClaudeAccountSwitchThroughSharedSession(t *testing.T, automatic bool) {
 		if record.SwitchPolicy != "allow" {
 			t.Fatal("startup did not persist automatic handoff", record.SwitchPolicy)
 		}
-		statePath := filepath.Join(home, ".local/share/cage/cli-channels", record.Connection, "state.json")
+		statePath := filepath.Join(home, ".local/share/workbench/cli-channels", record.Connection, "state.json")
 		data, err := os.ReadFile(statePath)
 		if err != nil {
 			t.Fatal(err)

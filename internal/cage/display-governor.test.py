@@ -49,7 +49,7 @@ class PolicyTests(unittest.TestCase):
     def test_only_its_own_modes_are_governed(self):
         self.assertTrue(governor.governed('fps30-2339x1368'))
         # Size owners keep, match and delete these names themselves.
-        for name in ('cage-2339x1368', 'cage-phone-800x600', '1600x1000', 'fps-1x2', 'fps30-1x', 'fps30', 'fpsx-1x2'):
+        for name in ('mode-2339x1368', 'phone-800x600', 'cage-2339x1368', 'cage-phone-800x600', '1600x1000', 'fps-1x2', 'fps30-1x', 'fps30', 'fpsx-1x2'):
             self.assertFalse(governor.governed(name), name)
 
     def test_mode_has_the_requested_refresh_rate(self):
@@ -208,7 +208,7 @@ class DisplayTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         number = next(n for n in range(120, 200) if not os.path.exists(f'/tmp/.X11-unix/X{n}'))
         self.activity = self.temp.name + '/activity/a.sock'
-        self.env = dict(os.environ, DISPLAY=f':{number}', CAGE_DISPLAY_ACTIVITY=self.activity)
+        self.env = dict(os.environ, DISPLAY=f':{number}', DISPLAY_ACTIVITY_SOCKET=self.activity)
         self.env.pop('XAUTHORITY', None)
         server = subprocess.Popen(['Xtigervnc', f':{number}', '-geometry', '800x600', '-depth', '24', '-rfbport', '-1',
                                    '-rfbunixpath', self.temp.name + '/d.sock', '-nolisten', 'tcp', '-SecurityTypes', 'None'],

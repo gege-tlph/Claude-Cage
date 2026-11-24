@@ -23,7 +23,7 @@ class HostToolsConfigTests(unittest.TestCase):
         self.home = Path(temporary.name)
 
     def test_every_profile_is_found(self):
-        account = self.home / ".local/share/cage/claude-accounts/work/config"
+        account = self.home / ".local/share/workbench/claude-accounts/work/config"
         account.mkdir(parents=True)
         desktop_code = self.home / ".local/share/desktop-profiles/0123456789abcdef01234567/code"
         desktop_code.mkdir(parents=True)

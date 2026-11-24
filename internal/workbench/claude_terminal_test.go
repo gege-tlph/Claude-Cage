@@ -104,12 +104,19 @@ func TestManagedTerminalPreservesTheSelectedProfileInTheGuestShell(t *testing.T)
 	}
 	home := t.TempDir()
 	const managed = "111111111111111111111111"
-	for _, tc := range []struct{ guestID, want string }{
-		{"default", home + "/custom-config"},
-		{managed, home + "/.local/share/cage/claude-accounts/" + managed + "/config"},
+	// An environment not yet updated keeps the data under the former name.
+	former := t.TempDir()
+	if err := os.MkdirAll(former+"/.local/share/cage/claude-accounts", 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ home, guestID, want string }{
+		{home, "default", home + "/custom-config"},
+		{home, managed, home + "/.local/share/workbench/claude-accounts/" + managed + "/config"},
+		{former, managed, former + "/.local/share/cage/claude-accounts/" + managed + "/config"},
 	} {
+		home := tc.home
 		work := t.TempDir()
-		cmd := exec.Command("bash", "-c", managedClaudeTerminalScript(work, `printf '%s' "$CLAUDE_CONFIG_DIR/$CAGE_CLAUDE_ACCOUNT_ID/$CAGE_CLAUDE_SUBJECT" > observed`, tc.guestID, "expected", false))
+		cmd := exec.Command("bash", "-c", managedClaudeTerminalScript(work, `printf '%s' "$CLAUDE_CONFIG_DIR/$ACCOUNT_PROFILE_ID/$ACCOUNT_SUBJECT" > observed`, tc.guestID, "expected", false))
 		cmd.Env = []string{"HOME=" + home, "PATH=" + os.Getenv("PATH"), "CLAUDE_CONFIG_DIR=" + home + "/custom-config"}
 		cmd.Stdin = strings.NewReader("exit\n")
 		if b, err := cmd.CombinedOutput(); err != nil {
@@ -153,7 +160,7 @@ func TestDefaultClaudeProbeUsesRegularLoginEnvironment(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(home, "show-environment"), []byte("#!/bin/sh\nprintf '%s' \"$CAGE_FIXTURE_AUTH|$PWD|$1|$2\"\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	script := strings.Replace(claudeSnapshotCommand("default"), "/usr/local/bin/cage-claude-account", `"$HOME/show-environment"`, 1)
+	script := strings.Replace(claudeSnapshotCommand("default"), "/usr/local/libexec/claude-account", `"$HOME/show-environment"`, 1)
 	cmd := exec.Command("bash", "-c", script)
 	cmd.Dir = t.TempDir()
 	cmd.Env = []string{"HOME=" + home, "PATH=" + os.Getenv("PATH")}

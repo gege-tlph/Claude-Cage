@@ -54,7 +54,7 @@ func TestCLIChannelUsesSharedControlSession(t *testing.T) {
 	if starts.Load() != 1 {
 		t.Fatalf("%d control connections were opened", starts.Load())
 	}
-	if _, err := os.Stat(filepath.Join(home, ".local/share/cage/cli-channel-code")); err != nil {
+	if _, err := os.Stat(filepath.Join(home, ".local/share/workbench/cli-channel-code")); err != nil {
 		t.Fatalf("helper did not run in the guest home: %v", err)
 	}
 }

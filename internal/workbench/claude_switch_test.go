@@ -34,9 +34,9 @@ func TestClaudeSwitchUnopenedSessionWhenSourceLoggedOut(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(bin, "claude"), []byte(cli), 0700); err != nil {
 		t.Fatal(err)
 	}
-	// Minimal python stub for /usr/local/bin/cage-claude-account so cli_channel.py launch() works cleanly.
-	const accountStub = "#!/usr/bin/env python3\nimport json, os, pathlib, sys\ndef profile(name): return pathlib.Path.home() / '.local/share/cage/claude-accounts' / name\ndef has_status_line(base): return True\nif __name__ == '__main__':\n    pathlib.Path(os.environ['HOME'], 'launched.json').write_text(json.dumps(sys.argv[1:]))\n"
-	stubPath := filepath.Join(bin, "cage-claude-account")
+	// Minimal python stub for /usr/local/libexec/claude-account so cli_channel.py launch() works cleanly.
+	const accountStub = "#!/usr/bin/env python3\nimport json, os, pathlib, sys\ndef profile(name): return pathlib.Path.home() / '.local/share/workbench/claude-accounts' / name\ndef has_status_line(base): return True\nif __name__ == '__main__':\n    pathlib.Path(os.environ['HOME'], 'launched.json').write_text(json.dumps(sys.argv[1:]))\n"
+	stubPath := filepath.Join(bin, "claude-account")
 	if err := os.WriteFile(stubPath, []byte(accountStub), 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestClaudeSwitchUnopenedSessionWhenSourceLoggedOut(t *testing.T) {
 		t.Fatal(err)
 	}
 	mobileTestSSHRewrite(t, s, home, []string{"HOME=" + home, "PATH=" + bin + ":/usr/bin:/bin"}, func(cmd string) string {
-		return strings.ReplaceAll(cmd, "/usr/local/bin/cage-claude-account", stubPath)
+		return strings.ReplaceAll(cmd, "/usr/local/libexec/claude-account", stubPath)
 	})
 
 	a, b := strings.Repeat("a", 24), strings.Repeat("b", 24)
@@ -69,7 +69,7 @@ func TestClaudeSwitchUnopenedSessionWhenSourceLoggedOut(t *testing.T) {
 
 	// Place an unopened session and file-history checkpoint under Account A.
 	sourceCLIID := uuid.NewString()
-	sourceConfig := filepath.Join(home, ".local/share/cage/claude-accounts", a, "config")
+	sourceConfig := filepath.Join(home, ".local/share/workbench/claude-accounts", a, "config")
 	historyPath := filepath.Join(sourceConfig, "projects", "fixture", sourceCLIID+".jsonl")
 	if err := os.MkdirAll(filepath.Dir(historyPath), 0700); err != nil {
 		t.Fatal(err)
@@ -163,7 +163,7 @@ func TestClaudeSwitchUnopenedSessionWhenSourceLoggedOut(t *testing.T) {
 		t.Fatalf("source history modified or missing: %v %q", err, afterHistory)
 	}
 	// Frozen switch directory must contain history + file-history + empty-connection receipt.
-	switchDir := filepath.Join(home, ".local/share/cage/cli-account-switches", reqID)
+	switchDir := filepath.Join(home, ".local/share/workbench/cli-account-switches", reqID)
 	frozenCheckpoint, err := os.ReadFile(filepath.Join(switchDir, "file-history", sourceCLIID, "snap@v1"))
 	if err != nil || string(frozenCheckpoint) != "before-edit" {
 		t.Fatalf("frozen file-history missing: %v %q", err, frozenCheckpoint)

@@ -17,7 +17,8 @@ import (
 var errGuestUpdateRequired = errors.New("环境组件需要更新，请先保存浏览器和编辑器中的修改。工作台终端与磁盘保留，编辑器内终端可能结束。")
 var errGuestRecoveryRequired = errors.New("环境组件清单缺失或上次更新中断，请重新启动环境以重建组件清单；恢复期间外网保持关闭。")
 
-const guestConnectionSnapshot = `sudo cat /etc/claude-cage/browser-control.json; printf '\n'; cat "$HOME/.config/claude-cage/browser-password"; printf '\n'; if sudo test -e /etc/claude-cage/components.updating; then printf '{"updating":true}'; elif sudo test -f /etc/claude-cage/components.json; then sudo cat /etc/claude-cage/components.json; else printf 'null'; fi; if sudo test -e /etc/claude-cage/components.updating; then printf '\nupdating'; fi`
+// Environments not yet updated keep these files under their former names.
+const guestConnectionSnapshot = `sudo cat /etc/workbench/browser-control.json 2>/dev/null || sudo cat /etc/claude-cage/browser-control.json; printf '\n'; cat "$HOME/.config/workbench/browser-password" 2>/dev/null || cat "$HOME/.config/claude-cage/browser-password"; printf '\n'; d=/etc/claude-cage; if sudo test -d /etc/workbench; then d=/etc/workbench; fi; if sudo test -e "$d/components.updating"; then printf '{"updating":true}'; elif sudo test -f "$d/components.json"; then sudo cat "$d/components.json"; else printf 'null'; fi; if sudo test -e "$d/components.updating"; then printf '\nupdating'; fi`
 
 func guestComponentsUnavailable(err error) bool {
 	return errors.Is(err, errGuestUpdateRequired) || errors.Is(err, errGuestRecoveryRequired)
@@ -62,9 +63,10 @@ type toolVersion struct {
 const guestVersionSnapshot = `python3 - <<'CAGE_VERSIONS'
 import json,subprocess,os,re
 from pathlib import Path
-p=Path('/etc/claude-cage/components.json')
-try: manifest=json.loads(p.read_text())
-except (OSError,ValueError): manifest=None
+manifest=None
+for p in (Path('/etc/workbench/components.json'), Path('/etc/claude-cage/components.json')):
+ try: manifest=json.loads(p.read_text()); break
+ except (OSError,ValueError): pass
 if p.with_suffix('.updating').exists():
  manifest=manifest if isinstance(manifest,dict) else {}
  manifest['updating']=True

@@ -170,6 +170,11 @@ export function TailscalePanel({ status, onOpenLogin, onOpenBrowser, onInstall, 
         </div>}
       </section>
       {ready && state?.health?.length > 0 && <div className="tailscale-health" role="status"><strong>{tr(tailnetText.networkWarning)}</strong>{state.health.map((message, i) => <p key={i}>{tr(message)}</p>)}</div>}
+      {ready && state?.renamed_from && <div className="tailscale-health" role="status">
+        <strong>{tr("设备已改名")}</strong>
+        <p><code>{state.renamed_from}</code> → <code>{state.hostname || state.name?.split(".")[0]}</code></p>
+        <button className="quiet-button" disabled={busy} onClick={() => act("acknowledge-rename")}>{tr("确定")}</button>
+      </div>}
       {connected && <section className="tailscale-self" aria-label={tr(tailnetText.currentDevice)}>
         <DeviceIcon os={state.os} />
         <div><strong>{state.hostname || state.name?.split(".")[0] || "Cage lite"} <span className="tailscale-badge">{tr(tailnetText.currentEnvironment)}</span></strong><span className="tailscale-address">{address || tr(tailnetText.allocatingAddress)}{state.os ? ` · ${state.os}` : ""}</span></div>

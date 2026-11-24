@@ -54,7 +54,11 @@ exit 0
 				os.WriteFile(filepath.Join(dir, name), []byte(body), 0755)
 			}
 			script := strings.ReplaceAll(DebianMirrorsScript, "/etc/apt/mirrors", mirrors)
-			script = strings.ReplaceAll(script, "/etc/claude-cage/debian-mirror", preference)
+			script = strings.ReplaceAll(script, "/etc/workbench/debian-mirror", preference)
+			// The former location is read only when the current one is absent;
+			// keep it inside the fixture so the machine running the test never
+			// supplies a preference.
+			script = strings.ReplaceAll(script, "/etc/claude-cage/debian-mirror", filepath.Join(dir, "former-preference"))
 			script = strings.ReplaceAll(script, "/usr/lib/apt/apt-helper", filepath.Join(dir, "apt-helper"))
 			suite := "trixie"
 			if mode == "bookworm" {
@@ -105,16 +109,16 @@ exit 0
 				}
 			case "ustc", "host-ustc":
 				// The mirror measured fastest comes first, not a fixed order.
-				if got != "# Cage managed Debian mirrors\nhttps://mirrors.ustc.edu.cn/debian\tpriority:1\nhttps://mirrors.nju.edu.cn/debian\tpriority:2\nhttps://deb.debian.org/debian\tpriority:3\n" {
+				if got != "# Managed Debian mirrors\nhttps://mirrors.ustc.edu.cn/debian\tpriority:1\nhttps://mirrors.nju.edu.cn/debian\tpriority:2\nhttps://deb.debian.org/debian\tpriority:3\n" {
 					t.Fatal(got)
 				}
 			case "ustc-nju-failure":
-				if got != "# Cage managed Debian mirrors\nhttps://mirrors.ustc.edu.cn/debian\tpriority:1\nhttps://deb.debian.org/debian\tpriority:2\n" {
+				if got != "# Managed Debian mirrors\nhttps://mirrors.ustc.edu.cn/debian\tpriority:1\nhttps://deb.debian.org/debian\tpriority:2\n" {
 					t.Fatal(got)
 				}
 			default:
 				// official-failure and nju: nju, ustc, then the official source.
-				if got != "# Cage managed Debian mirrors\n"+old {
+				if got != "# Managed Debian mirrors\n"+old {
 					t.Fatal(got)
 				}
 			}

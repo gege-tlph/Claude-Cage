@@ -31,7 +31,7 @@ class ChannelTests(unittest.TestCase):
         environment = patch.dict(os.environ, self.env)
         environment.start()
         self.addCleanup(environment.stop)
-        self.root = self.home / ".local/share/cage/cli-channels"
+        self.root = self.home / ".local/share/workbench/cli-channels"
         root_patch = patch.object(channel, "ROOT", self.root)
         root_patch.start()
         self.addCleanup(root_patch.stop)
@@ -617,7 +617,7 @@ class ChannelTests(unittest.TestCase):
         with patch.object(channel, "Path", path), patch.object(channel.sys, "platform", "linux"), patch.object(channel.subprocess, "run", side_effect=migrate) as run:
             self.assertTrue(channel.migrate_cage_policy())
             self.assertTrue(json.loads(policy.read_text())["channelsEnabled"])
-            backup = policy.with_name("managed-settings.json.cage-before-channels")
+            backup = policy.with_name("managed-settings.json.before-channels")
             self.assertEqual(json.loads(backup.read_text()), original)
             blocked = {**original, "channelsEnabled": False}
             policy.write_text(json.dumps(blocked))
@@ -740,7 +740,7 @@ class ChannelTests(unittest.TestCase):
         with patch.object(channel, "migrate_cage_policy"), patch.object(channel, "active_session", return_value=False), \
                 patch.object(channel.os, "execvpe") as execute:
             channel.launch({"id": connection, "session_id": self.session,
-                            "prefix": ["env", "CAGE_CLAUDE_SUBJECT=" + "a" * 64, str(fake_account), "run", account_id]})
+                            "prefix": ["env", "ACCOUNT_SUBJECT=" + "a" * 64, str(fake_account), "run", account_id]})
         self.assertTrue(execute.called)
         settings = channel.read_json(self.root / connection / "settings.json")
         self.assertEqual(settings["statusLine"]["padding"], 2)

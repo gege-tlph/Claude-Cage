@@ -46,15 +46,15 @@ func TestGuestThemeEnvironmentAndInstall(t *testing.T) {
 	for _, variant := range []string{"light", "dark"} {
 		t.Setenv(GuestThemeEnv, variant)
 		script := DefaultConfig().EnvironmentScript()
-		want := "export " + GuestThemeEnv + "=" + variant + "\n"
-		if !strings.Contains(script, want) {
+		want := GuestThemeEnv + "=" + variant + "\n"
+		if !strings.Contains(script, want) || strings.Contains(script, "export "+GuestThemeEnv) {
 			t.Fatalf("missing %q in EnvironmentScript: %s", want, script)
 		}
 	}
-	if !strings.Contains(GuestSetup, "/usr/local/bin/cage-apply-theme") {
-		t.Fatal("GuestSetup does not install /usr/local/bin/cage-apply-theme")
+	if !strings.Contains(GuestSetup, "/usr/local/libexec/apply-theme") {
+		t.Fatal("GuestSetup does not install /usr/local/libexec/apply-theme")
 	}
-	if !strings.Contains(DefaultConfig().StartScript(), "/usr/local/bin/cage-apply-theme") {
-		t.Fatal("StartScript does not invoke /usr/local/bin/cage-apply-theme")
+	if !strings.Contains(DefaultConfig().StartScript(), "/usr/local/libexec/apply-theme") {
+		t.Fatal("StartScript does not invoke /usr/local/libexec/apply-theme")
 	}
 }

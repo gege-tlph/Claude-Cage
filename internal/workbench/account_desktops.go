@@ -75,7 +75,7 @@ func (s *Server) accountDesktop(w http.ResponseWriter, r *http.Request) {
 	case "input":
 		// The private HOME is chosen from the authorized instance, never from
 		// input text. Its IBus socket is outside the service's private /tmp.
-		s.streamDesktopCommand(w, r, `exec env HOME="$HOME/.local/share/desktop-profiles/`+id+`/home" /usr/local/bin/cage-native-input --relay`)
+		s.streamDesktopCommand(w, r, `exec env HOME="$HOME/.local/share/desktop-profiles/`+id+`/home" /usr/local/libexec/native-input --relay`)
 		return
 	case "clipboard":
 		s.sharedDesktopClipboard(w, r, id)
@@ -89,7 +89,7 @@ func (s *Server) accountDesktop(w http.ResponseWriter, r *http.Request) {
 		// A session with a settings manager renders at the density its viewer
 		// names. One started by an earlier version keeps 96 DPI: its viewer
 		// sizes the display in CSS pixels.
-		b, err := s.guest(ctx, "systemctl is-active --quiet desktop-"+id+".service && cat "+run+`/password && { if test -S "$HOME/.local/share/desktop-profiles/`+id+`/home/.cache/cage-input/input.sock"; then printf 1; else printf 0; fi; } && if test -f `+run+`/xsettings.pid; then printf ' %s' "$(cat `+run+`/base-display-scale 2>/dev/null)"; fi`)
+		b, err := s.guest(ctx, "systemctl is-active --quiet desktop-"+id+".service && cat "+run+`/password && { if test -S "$HOME/.local/share/desktop-profiles/`+id+`/home/.cache/input-method/input.sock"; then printf 1; else printf 0; fi; } && if test -f `+run+`/xsettings.pid; then printf ' %s' "$(cat `+run+`/base-display-scale 2>/dev/null)"; fi`)
 		reply, ok := accountDesktopCredentials(b)
 		if err != nil || !ok {
 			http.Error(w, "此 Desktop 尚未启动", 409)

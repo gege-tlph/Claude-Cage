@@ -5,7 +5,7 @@ missing_tool() {
   case "$1" in
     chromium|code-server) echo 'Run cage update-tools, then cage up to install the missing tool in this VM.' >&2 ;;
   esac
-  echo 'To rebuild from the base, run cage setup --preinstall=default, then cage up --reset (files and logins on its disk are lost).' >&2
+  echo 'To rebuild from the base, set up the environment --preinstall=default, then cage up --reset (files and logins on its disk are lost).' >&2
   exit 1
 }
 if [[ ! -x /usr/bin/chromium ]]; then
@@ -37,17 +37,17 @@ sudo tee /etc/fonts/conf.d/71-english-cjk-fallback.conf >/dev/null <<'FONTCONFIG
   </match>
 </fontconfig>
 FONTCONFIG
-mkdir -p "$HOME/.config/claude-cage"
-chmod 700 "$HOME/.config/claude-cage"
-if ! grep -qE '^password:[[:space:]]*[^[:space:]]+' "$HOME/.config/claude-cage/code-server.yaml" 2>/dev/null; then
-  (umask 077; tmp=$(mktemp "$HOME/.config/claude-cage/.code-server.yaml.XXXXXX"); printf 'auth: password\npassword: %s\ncert: false\n' "$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')" > "$tmp"; sync "$tmp" 2>/dev/null || true; mv -f "$tmp" "$HOME/.config/claude-cage/code-server.yaml"; sync "$HOME/.config/claude-cage" 2>/dev/null || true)
+mkdir -p "$HOME/.config/workbench"
+chmod 700 "$HOME/.config/workbench"
+if ! grep -qE '^password:[[:space:]]*[^[:space:]]+' "$HOME/.config/workbench/code-server.yaml" 2>/dev/null; then
+  (umask 077; tmp=$(mktemp "$HOME/.config/workbench/.code-server.yaml.XXXXXX"); printf 'auth: password\npassword: %s\ncert: false\n' "$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')" > "$tmp"; sync "$tmp" 2>/dev/null || true; mv -f "$tmp" "$HOME/.config/workbench/code-server.yaml"; sync "$HOME/.config/workbench" 2>/dev/null || true)
 fi
-if [ ! -s "$HOME/.config/claude-cage/browser-password" ]; then
-  (umask 077; tmp=$(mktemp "$HOME/.config/claude-cage/.browser-password.XXXXXX"); od -An -N4 -tx1 /dev/urandom | tr -d ' \n' > "$tmp"; sync "$tmp" 2>/dev/null || true; mv -f "$tmp" "$HOME/.config/claude-cage/browser-password"; sync "$HOME/.config/claude-cage" 2>/dev/null || true)
+if [ ! -s "$HOME/.config/workbench/browser-password" ]; then
+  (umask 077; tmp=$(mktemp "$HOME/.config/workbench/.browser-password.XXXXXX"); od -An -N4 -tx1 /dev/urandom | tr -d ' \n' > "$tmp"; sync "$tmp" 2>/dev/null || true; mv -f "$tmp" "$HOME/.config/workbench/browser-password"; sync "$HOME/.config/workbench" 2>/dev/null || true)
 fi
 sudo install -d -o cage-browser -g cage-browser -m 0700 /home/cage-browser/.vnc
-cat "$HOME/.config/claude-cage/browser-password" | sudo -u cage-browser sh -c 'umask 077; tigervncpasswd -f > "$HOME/.vnc/passwd"'
-sudo systemctl stop cage-browser || true
+cat "$HOME/.config/workbench/browser-password" | sudo -u cage-browser sh -c 'umask 077; tigervncpasswd -f > "$HOME/.vnc/passwd"'
+sudo systemctl stop browser-session || true
 # Existing images may predate the explicit locale dependency. The scoped
 # maintenance channel can install it while business networking stays closed.
 if ! dpkg-query -W -f='${Status}' chromium-l10n 2>/dev/null | grep -qx 'install ok installed'; then
@@ -85,7 +85,7 @@ def atomic_write(target, text, mode, gid=None):
         except OSError:
             pass
         raise
-p=Path('/etc/claude-cage/browser-control.json')
+p=Path('/etc/workbench/browser-control.json')
 try:
     loaded = json.loads(p.read_text()) if p.exists() else {}
     d = loaded if isinstance(loaded, dict) else {}
@@ -97,15 +97,15 @@ scale = 1.5 if os.environ['CAGE_DISPLAY_SCALE'] == '1.5' else 2
 d['display_scale'] = scale
 # With a settings manager each viewer chooses the density of its own screen.
 d['dynamic_scale'] = os.path.exists('/usr/bin/xsettingsd')
-scale_file = Path('/etc/claude-cage/display-scale')
+scale_file = Path('/etc/workbench/display-scale')
 atomic_write(scale_file, str(scale) + '\n', 0o644)
 d['workspace']=os.environ['CAGE_WORKSPACE']
-yaml=Path(os.environ['CAGE_USER_HOME']) / '.config/claude-cage/code-server.yaml'
+yaml=Path(os.environ['CAGE_USER_HOME']) / '.config/workbench/code-server.yaml'
 d['editorPassword']=next(line.split(':',1)[1].strip() for line in yaml.read_text().splitlines() if line.startswith('password:'))
 atomic_write(p, json.dumps(d), 0o640, grp.getgrnam('cage-browser').gr_gid)
 atomic_write(p.with_name('desktop-downloads.json'), json.dumps({'workspace': d['workspace']}), 0o644)
 PYCONTROL
-sudo -u cage-browser env CAGE_LANGUAGE="$CAGE_LANGUAGE" CAGE_GUEST_THEME="${CAGE_GUEST_THEME:-}" python3 - <<'PYCODE'
+sudo -u cage-browser env BROWSER_LANG="$BROWSER_LANG" CAGE_GUEST_THEME="${CAGE_GUEST_THEME:-}" python3 - <<'PYCODE'
 import json, os
 from pathlib import Path
 p = Path.home() / "profile/Default/Preferences"
@@ -123,8 +123,8 @@ if p.exists() and not isinstance(loaded, dict) and p.stat().st_size > 0:
     os.replace(p, backup)
 if not isinstance(d.get("intl"), dict):
     d["intl"] = {}
-d["intl"]["accept_languages"] = os.environ["CAGE_LANGUAGE"]
-d["intl"]["selected_languages"] = os.environ["CAGE_LANGUAGE"]
+d["intl"]["accept_languages"] = os.environ["BROWSER_LANG"]
+d["intl"]["selected_languages"] = os.environ["BROWSER_LANG"]
 if not isinstance(d.get("translate"), dict):
     d["translate"] = {}
 d["translate"]["enabled"] = False
@@ -180,9 +180,9 @@ except Exception:
     raise
 PYTHEME
 fi
-sudo systemctl reset-failed cage-display cage-window-manager cage-browser cage-webvnc 2>/dev/null || true
-sudo systemctl reset-failed cage-display-governor 2>/dev/null || true
-sudo systemctl restart cage-display cage-window-manager cage-browser cage-webvnc
+sudo systemctl reset-failed browser-display browser-window-manager browser-session browser-web-viewer 2>/dev/null || true
+sudo systemctl reset-failed display-governor 2>/dev/null || true
+sudo systemctl restart browser-display browser-window-manager browser-session browser-web-viewer
 # Seed only appearance settings for a new editor profile. Existing preferences stay intact.
 python3 - <<'PYEDITOR'
 import shutil
@@ -190,16 +190,16 @@ from pathlib import Path
 p = Path.home() / '.local/share/code-server/User/settings.json'
 if not p.exists():
     p.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile('/etc/claude-cage/editor-theme.json', p)
+    shutil.copyfile('/etc/workbench/editor-theme.json', p)
 PYEDITOR
 if [ "${CAGE_GUEST_THEME:-}" = light ] || [ "${CAGE_GUEST_THEME:-}" = dark ]; then
-  /usr/local/bin/cage-apply-theme "$CAGE_GUEST_THEME"
+  /usr/local/libexec/apply-theme "$CAGE_GUEST_THEME"
 fi
 # Systemd owns the editor independently of the SSH session and restarts crashes.
-(umask 077; tmp=$(mktemp "$HOME/.config/claude-cage/.editor-workspace.XXXXXX"); printf '%s' "$PWD" > "$tmp"; sync "$tmp" 2>/dev/null || true; mv -f "$tmp" "$HOME/.config/claude-cage/editor-workspace"; sync "$HOME/.config/claude-cage" 2>/dev/null || true)
-if ! systemctl is-active --quiet cage-editor.service; then
-  sudo /usr/local/bin/cage-editor-migrate
-  sudo systemctl start cage-editor.service
+(umask 077; tmp=$(mktemp "$HOME/.config/workbench/.editor-workspace.XXXXXX"); printf '%s' "$PWD" > "$tmp"; sync "$tmp" 2>/dev/null || true; mv -f "$tmp" "$HOME/.config/workbench/editor-workspace"; sync "$HOME/.config/workbench" 2>/dev/null || true)
+if ! systemctl is-active --quiet code-editor.service; then
+  sudo /usr/local/libexec/editor-migrate
+  sudo systemctl start code-editor.service
 fi
-sudo python3 /usr/local/lib/cage-wait-services.py
-printf 'Cage services ready. Timezone=%s Locale=%s Browser=%s\n' "$CAGE_TZ" "$CAGE_LOCALE" "$CAGE_LANGUAGE"
+sudo python3 /usr/local/lib/wait-services.py
+printf 'Services ready. Timezone=%s Locale=%s Browser=%s\n' "$CAGE_TZ" "$CAGE_LOCALE" "$BROWSER_LANG"

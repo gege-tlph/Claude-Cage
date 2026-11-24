@@ -22,7 +22,7 @@ def copy_to_workspace(source, size, workspace, name):
     parent = os.open(workspace, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     destination = None
     published = None
-    temporary = '.cage-download-' + secrets.token_hex(12) + '.part'
+    temporary = '.download-' + secrets.token_hex(12) + '.part'
     try:
         try:
             os.mkdir('Downloads', mode=0o755, dir_fd=parent)
@@ -100,7 +100,7 @@ def error_message(error):
 def main():
     source_name, name = sys.argv[1:] if len(sys.argv) == 3 else ('', '')
     checked_download(source_name, name)
-    with open('/etc/claude-cage/browser-control.json') as config:
+    with open('/etc/workbench/browser-control.json') as config:
         workspace = json.load(config)['workspace']
     directory = os.open('/home/cage-browser/Downloads', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     source = None

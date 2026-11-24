@@ -22,7 +22,7 @@ import { UploadManager, uploadLimit } from "./browser-uploads.mjs";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 
 const config = JSON.parse(
-  readFileSync("/etc/claude-cage/browser-control.json", "utf8"),
+  readFileSync("/etc/workbench/browser-control.json", "utf8"),
 );
 const displayScale = config.display_scale === 1.5 ? 1.5 : 2;
 const themeFile = "/home/cage-browser/theme.json";
@@ -32,7 +32,7 @@ try {
   if (saved === "light" || saved === "dark") browserTheme = saved;
 } catch {}
 // Started before Chromium, which then opens at this density.
-const displaySettings = createDisplaySettings({ file: "/home/cage-browser/.cache/cage-display/xsettings.conf", initial: displayScale, initialTheme: browserTheme });
+const displaySettings = createDisplaySettings({ file: "/home/cage-browser/.cache/display/xsettings.conf", initial: displayScale, initialTheme: browserTheme });
 process.on("exit", () => displaySettings.close());
 const selectionFile = "/home/cage-browser/workbench-state.json";
 const homepageFile = "/home/cage-browser/homepage.json";
@@ -92,8 +92,8 @@ const flags = [
   "--disable-session-crashed-bubble",
   "--window-size=1440,900",
   ...(displaySettings.available ? [] : [`--force-device-scale-factor=${displayScale}`]),
-  `--lang=${process.env.CAGE_LANGUAGE || "en-US"}`,
-  `--accept-lang=${process.env.CAGE_LANGUAGE || "en-US"}`,
+  `--lang=${process.env.BROWSER_LANG || "en-US"}`,
+  `--accept-lang=${process.env.BROWSER_LANG || "en-US"}`,
 ];
 const freshProfile = !existsSync("/home/cage-browser/profile/Default/Sessions");
 if (freshProfile) flags.push("about:blank");
@@ -123,7 +123,7 @@ const isNativeNewTab = url => /^chrome:\/\/(newtab|new-tab-page|new-tab-page-thi
 // Developer tools share the window with the page they inspect, or cover it.
 const inspectors = new Set();
 const pointerProbe = createPointerProbe();
-const displayActivity = createActivitySignal({ path: "/home/cage-browser/.cache/cage-display/activity.sock" });
+const displayActivity = createActivitySignal({ path: "/home/cage-browser/.cache/display/activity.sock" });
 process.on("exit", () => { pointerProbe.close(); displayActivity.close(); });
 // A scrolled distance goes to the one page that fills the window. Two panes,
 // developer tools and a hidden window keep the wheel steps of the display.
@@ -193,15 +193,16 @@ const downloads = new DownloadManager({
   save: async (id, name) => {
     let output;
     try {
-      output = (await runFile("/usr/bin/sudo", ["/usr/local/bin/cage-save-download", id, name], { maxBuffer: 16384 })).stdout;
+      output = (await runFile("/usr/bin/sudo", ["/usr/local/libexec/save-download", id, name], { maxBuffer: 16384 })).stdout;
     } catch (error) {
       output = error.stdout || '{"ok":false,"error":"下载保存未完成，请检查共享目录后重试。"}';
     }
     return JSON.parse(output);
   },
 });
-const uploadDirectory = "/home/cage-browser/.cage-uploads";
+const uploadDirectory = "/home/cage-browser/.uploads";
 rmSync(uploadDirectory, { recursive: true, force: true });
+rmSync("/home/cage-browser/.cage-uploads", { recursive: true, force: true });
 const uploadSessions = new Map();
 const uploads = new UploadManager({ directory: uploadDirectory, cdp, changed: () => broadcastState() });
 function cdp(method, params = {}, sessionId, timeout = 4500) {
@@ -298,16 +299,16 @@ chrome.stdio[4].on("data", (chunk) => {
     const p = event.params || {};
     browserClipboard.event(event);
     if (event.sessionId === splitSession && event.method === "Runtime.bindingCalled" &&
-        p.name === "cageFaviconChanged") refreshFavicon(p.payload);
+        p.name === "paneFaviconChanged") refreshFavicon(p.payload);
     if (event.sessionId === splitSession && event.method === "Runtime.bindingCalled" &&
-        p.name === "cagePaneActivated" && splitView &&
+        p.name === "paneActivated" && splitView &&
         [splitView.left, splitView.right].includes(p.payload) && p.payload !== activeId) {
       activeId = p.payload;
       rememberSelection();
       broadcastState(true);
     }
     if (event.sessionId === splitSession && event.method === "Runtime.bindingCalled" &&
-        p.name === "cagePaneSeparated" && splitView && [splitView.left, splitView.right].includes(p.payload)) {
+        p.name === "paneSeparated" && splitView && [splitView.left, splitView.right].includes(p.payload)) {
       splitView = null;
       broadcastState();
     }
@@ -481,12 +482,12 @@ async function openSplitController() {
   try {
     const { sessionId } = await cdp("Target.attachToTarget", { targetId, flatten: true });
     await cdp("Runtime.enable", {}, sessionId);
-    await cdp("Runtime.addBinding", { name: "cagePaneActivated" }, sessionId);
-    await cdp("Runtime.addBinding", { name: "cagePaneSeparated" }, sessionId);
-    await cdp("Runtime.addBinding", { name: "cageFaviconChanged" }, sessionId);
+    await cdp("Runtime.addBinding", { name: "paneActivated" }, sessionId);
+    await cdp("Runtime.addBinding", { name: "paneSeparated" }, sessionId);
+    await cdp("Runtime.addBinding", { name: "paneFaviconChanged" }, sessionId);
     const loaded = await cdp("Runtime.evaluate", { awaitPromise: true, returnByValue: true,
       expression: `new Promise(resolve => {
-        const ready = () => resolve(typeof setCageSplit === "function");
+        const ready = () => resolve(typeof setSplitPanes === "function");
         document.readyState !== "complete" ? addEventListener("DOMContentLoaded", ready, { once: true }) : ready();
       })` }, sessionId);
     if (!loaded.result.value) throw new Error("Split controller unavailable");
@@ -505,7 +506,7 @@ function refreshFavicon(id) {
   const request = {};
   faviconRequests.set(id, request);
   void cdp("Runtime.evaluate", {
-    expression: `readCageFavicon(${JSON.stringify(id)})`, awaitPromise: true, returnByValue: true,
+    expression: `readPaneFavicon(${JSON.stringify(id)})`, awaitPromise: true, returnByValue: true,
   }, splitSession).then(({ result }) => {
     if (faviconRequests.get(id) !== request) return;
     const icon = result.value;
@@ -530,7 +531,7 @@ async function setSplit({ left, right, id }) {
     throw new Error("设置页请在单个浏览器窗格内使用");
   const sid = await splitController();
   const result = await cdp("Runtime.evaluate", { awaitPromise: true, returnByValue: true,
-    expression: `setCageSplit(${JSON.stringify(left || "")}, ${JSON.stringify(right || "")})`,
+    expression: `setSplitPanes(${JSON.stringify(left || "")}, ${JSON.stringify(right || "")})`,
   }, sid);
   splitView = null;
   if (result.exceptionDetails) {
@@ -653,7 +654,7 @@ async function editor(workspace = config.workspace, reload = false) {
   return newTab(editorURL);
 }
 async function restartEditor(workspace) {
-  await runFile("/usr/bin/sudo", ["/usr/bin/systemctl", "restart", "cage-editor.service"], { timeout: 18000, maxBuffer: 4096 });
+  await runFile("/usr/bin/sudo", ["/usr/bin/systemctl", "restart", "code-editor.service"], { timeout: 18000, maxBuffer: 4096 });
   const deadline = Date.now() + 5000;
   while (Date.now() < deadline) {
     try {
@@ -754,7 +755,7 @@ async function resizeDisplay(width, height, density) {
   )
     throw new Error("Invalid display size");
   const result = { ok: true, ...(displaySettings.available ? { scale: displaySettings.set(scale) } : {}) };
-  const name = `cage-${width}x${height}`;
+  const name = `mode-${width}x${height}`;
   if (displaySize === name) {
     // A viewer attaching at an unchanged size still restores the full rate.
     // A display that restarted no longer has this mode and is set up again,
@@ -788,7 +789,7 @@ async function resizeDisplay(width, height, density) {
   }
   await runFile("/usr/bin/xrandr", ["--output", "VNC-0", "--mode", name]);
   displaySize = name;
-  for (const old of stdout.matchAll(/^\s+(cage-\d+x\d+)/gm))
+  for (const old of stdout.matchAll(/^\s+((?:mode|cage)-\d+x\d+)/gm))
     if (old[1] !== name) {
       await runFile("/usr/bin/xrandr", ["--delmode", "VNC-0", old[1]]).catch(
         () => {},
@@ -809,7 +810,7 @@ function pasteImage(png) {
   const data = Buffer.from(png, "base64");
   if (!data.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) throw new Error("Invalid PNG");
   return new Promise((resolve, reject) => {
-    const child = spawn("/usr/local/bin/cage-image-input", ["paste"], {
+    const child = spawn("/usr/local/libexec/image-input", ["paste"], {
       stdio: ["pipe", "ignore", "ignore"], timeout: 15000,
     });
     child.on("error", reject);
@@ -946,7 +947,7 @@ const server = http.createServer(async (req, res) => {
       }
       if (req.url === "/login-open" || (req.url === "/new" && (input.route || isClaudeSignIn(input.url)))) {
         const external = req.url === "/new" && !isClaudeSignIn(input.url);
-        const privateLogin = !external && !existsSync("/etc/claude-cage/login-browser-mode");
+        const privateLogin = !external && !existsSync("/etc/workbench/login-browser-mode");
         return loginBrowser.open(input.login || randomUUID(), input.url, async tab => {
           targets.set(tab.targetId, loginBrowser.tab(tab));
           await activate(tab.targetId, true);

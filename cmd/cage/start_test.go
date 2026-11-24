@@ -35,7 +35,7 @@ func TestStartEnvironmentDispatch(t *testing.T) {
 						}
 						events = append(events, "start")
 					} else {
-						want := []string{"run", "--tty", "bash", "-lc", "source /etc/profile.d/claude-cage.sh; exec claude auth login"}
+						want := []string{"run", "--tty", "bash", "-lc", "for f in /etc/profile.d/workbench.sh /etc/profile.d/claude-cage.sh; do if [ -r \"$f\" ]; then . \"$f\"; break; fi; done; exec claude auth login"}
 						if !slices.Equal(got, want) {
 							t.Errorf("login got %q, want %q", got, want)
 						}

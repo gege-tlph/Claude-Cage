@@ -274,7 +274,7 @@ func (s *Server) deleteClaudeAccount(ctx context.Context, id string) (claudeAcco
 		}
 		unit := "desktop-" + desktopID + ".service"
 		if desktopID == "default" {
-			unit = "cage-claude-desktop.service"
+			unit = "desktop-session.service"
 		}
 		state, err := s.guest(checkCtx, "systemctl show --property=ActiveState --value "+unit)
 		if err != nil {
@@ -612,5 +612,5 @@ func (s *Server) recoverClaudeLogin(ctx context.Context, accountID, target, sour
 	if !validClaudeID(target) || !validClaudeID(source) || len(subject) != 64 || strings.Trim(subject, "0123456789abcdef") != "" {
 		return claudeGuestSnapshot{}, errors.New("Claude 登录恢复参数无效")
 	}
-	return s.readClaudeGuestReport(ctx, target, "exec /usr/local/bin/cage-claude-account recover-login "+target+" "+source+" "+subject)
+	return s.readClaudeGuestReport(ctx, target, "exec /usr/local/libexec/claude-account recover-login "+target+" "+source+" "+subject)
 }

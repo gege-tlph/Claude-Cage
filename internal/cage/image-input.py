@@ -13,7 +13,7 @@ import tempfile
 
 
 def save_image(data):
-    directory = Path.home() / '.local/share/cage/attachments'
+    directory = Path.home() / '.local/share/workbench/attachments'
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     fd, path = tempfile.mkstemp(prefix='image-', suffix='.png', dir=directory)
     try:
@@ -83,9 +83,9 @@ def clipboard_owner(data, ack):
 
 
 def paste_image(data):
-    lock_dir = Path.home() / '.cache/cage'
+    lock_dir = Path.home() / '.cache/image-input'
     lock_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-    with open(lock_dir / 'image-input.lock', 'a') as lock:
+    with open(lock_dir / 'paste.lock', 'a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         read_fd, write_fd = os.pipe()
         pid = os.fork()
