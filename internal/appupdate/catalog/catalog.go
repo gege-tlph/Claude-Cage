@@ -10,7 +10,8 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-const Repository = "Lee-xeo/Claude-Cage"
+// Cage lite publishes its own releases; upstream releases would replace it.
+const Repository = "gege-tlph/Claude-Cage"
 const ReleasesURL = "https://api.github.com/repos/" + Repository + "/releases?per_page=100"
 
 // Releases must stay below the limit of every published App that still updates

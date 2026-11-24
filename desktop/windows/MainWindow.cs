@@ -618,8 +618,8 @@ internal sealed class MainWindow : Form
                     break;
                 case "appReference":
                     var appReference = request.Text("kind") switch {
-                        "source" => "https://github.com/Lee-xeo/Claude-Cage/commits/main",
-                        "releases" => "https://github.com/Lee-xeo/Claude-Cage/releases",
+                        "source" => "https://github.com/gege-tlph/Claude-Cage/commits/main",
+                        "releases" => "https://github.com/gege-tlph/Claude-Cage/releases",
                         _ => throw new InvalidDataException("未知的项目页面")
                     };
                     System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(appReference) { UseShellExecute = true });

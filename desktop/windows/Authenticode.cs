@@ -6,11 +6,14 @@ namespace Cage.Windows;
 
 internal static class Authenticode
 {
-    // Pinned official release publisher identity. Used only when an eligible
-    // unsigned source build opts to upgrade in-place to the official signed
-    // release; signed installations always pin to their own running signature.
-    public const string OfficialPublisherKey = "4D26DB6B8D67E016770E2A8530A4BE81D8D82F5778ED9FC368119B6A3F795839";
-    public const string OfficialPublisherOrganization = "CN\nLI SHI HAO";
+    // Pinned Cage lite release publisher identity: the self-signed code signing
+    // certificate in packaging/windows/cage-lite-signing.cer (SHA-256 of its
+    // SubjectPublicKeyInfo). Used only when an eligible unsigned source build
+    // opts to upgrade in-place to a signed release; signed installations
+    // always pin to their own running signature. Upstream releases carry a
+    // different publisher and are refused.
+    public const string OfficialPublisherKey = "9B620E58574AC469AD3D35493AC0F3804C3E407F8A3DD8CB83D409A3820AA763";
+    public const string OfficialPublisherOrganization = "CN\ngege-tlph";
 
     private static readonly Lazy<(string Key, string Organization)> Own = new(() => Identity(Environment.ProcessPath!, currentApp: true));
 

@@ -540,6 +540,9 @@ function Get-SigningTool {
             Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
         if ($candidate) { return $candidate }
     }
+    # Certificate-store signing can use PowerShell's own Authenticode support,
+    # so a machine without the Windows SDK can still sign (Cage lite).
+    if ($IsWindows -and $env:CAGE_WINDOWS_SIGNING_PROVIDER -ne 'esigner') { return '' }
     throw 'Release signing requires Windows SDK signtool.exe on Windows.'
 }
 
@@ -577,6 +580,12 @@ function Sign-CageFile {
             $env:CAGE_WINDOWS_CERT_SHA1 = $signature.SignerCertificate.Thumbprint
             Copy-Item -LiteralPath $signed -Destination $Path -Force
         } finally { if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force } }
+    } elseif (-not $SignTool) {
+        $certificate = Get-Item -LiteralPath ("Cert:\CurrentUser\My\" + $env:CAGE_WINDOWS_CERT_SHA1) -ErrorAction SilentlyContinue
+        if (-not $certificate -or -not $certificate.HasPrivateKey) { throw "Signing certificate $env:CAGE_WINDOWS_CERT_SHA1 with its private key is not in Cert:\CurrentUser\My." }
+        $result = Set-AuthenticodeSignature -LiteralPath $Path -Certificate $certificate -HashAlgorithm SHA256 -TimestampServer 'http://timestamp.digicert.com' -IncludeChain NotRoot
+        Assert-CageReleaseSignature $Path
+        if ($result.Status -ne 'Valid') { throw "Signing failed: $Path ($($result.StatusMessage))" }
     } else {
         Invoke-BuildTool $SignTool @('sign', '/sha1', $env:CAGE_WINDOWS_CERT_SHA1, '/fd', 'SHA256',
             '/tr', 'http://timestamp.digicert.com', '/td', 'SHA256', '/d', 'Cage', $Path)

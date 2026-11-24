@@ -5,7 +5,7 @@ import "./about-settings.css";
 import { activeInterfaceLanguage, useTranslation } from "./interface-language.mjs";
 import { localizeBackendMessage } from "./backend-message.mjs";
 
-const repository = "https://github.com/Lee-xeo/Claude-Cage";
+const repository = "https://github.com/gege-tlph/Claude-Cage";
 const sourceMessages = {
   current: "已与主分支同步",
   available: "主分支有新提交",
