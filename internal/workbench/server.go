@@ -796,6 +796,7 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	running := s.vmRunning()
+	orphaned := !running && s.vmOrphaned()
 	saved := s.savedRestartSettings()
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -810,7 +811,7 @@ func (s *Server) status(w http.ResponseWriter, r *http.Request) {
 	view := map[string]any{
 		"account_desktops_supported": s.accountDesktopsSupported(),
 		"desktop_catalog_revision":   s.desktopCatalogRevision.Load(),
-		"projects":                   projects, "project_groups": groups, "ready": s.ready, "vm_running": running,
+		"projects":                   projects, "project_groups": groups, "ready": s.ready, "vm_running": running, "vm_orphaned": orphaned,
 		"workspace": s.workspaceLocked(), "environment_directory": s.environmentDir(),
 		"environment_identity_directory": cage.EnvironmentIdentityDir(s.profile),
 		"local_vm_storage":               s.localVMStorage(), "project_error": projectError, "project_errors": s.projectErrors,

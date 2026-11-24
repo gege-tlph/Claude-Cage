@@ -323,6 +323,8 @@ function App() {
   const paneSide = id => !split ? "" : id === active ? layout.side :
     layout.side === "left" ? "right" : "left";
   const running = Boolean(status?.vm_running);
+  // QEMU outlived its host agent: not running, but only a stop ends it (#508).
+  const orphaned = !running && Boolean(status?.vm_orphaned);
   const currentClient = getClientContext();
   const remotePluginsSupported = isRemoteClient() && Boolean(currentClient.connection?.manifest?.capabilities?.remote_plugins);
   const pluginsAvailable = Boolean(status?.local_vm_storage) || remotePluginsSupported;
@@ -449,7 +451,7 @@ function App() {
           : "离线可用"
         : running
           ? status?.environment_update_required ? "环境待更新" : "浏览器待恢复"
-          : "已停止");
+          : orphaned ? "未完全停止" : "已停止");
   // A Linux environment keeps what it learned about project files for a while.
   const projectFilesCached = settings?.project_file_cache === true;
   const refreshProjectFiles = async () => {
@@ -2315,7 +2317,7 @@ function App() {
             <button
               onClick={stop}
               disabled={
-                Boolean(startRequest) || (!running && !busy) || (status?.job?.kind === "stop" && busy)
+                Boolean(startRequest) || (!running && !orphaned && !busy) || (status?.job?.kind === "stop" && busy)
               }
               title={tr("停止当前环境")}
             >

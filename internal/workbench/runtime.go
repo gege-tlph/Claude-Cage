@@ -936,6 +936,23 @@ func (s *Server) vmRunning() bool {
 	return vmAlive(s.profile, s.environmentDir())
 }
 
+// vmOrphaned reports a work VM whose QEMU outlived its host agent (Lima
+// shows it Broken): Cage has no running record for it, yet only a stop ends
+// it (#508). Without a QEMU PID file there is nothing to inspect, so a
+// stopped environment's status poll costs one stat.
+func (s *Server) vmOrphaned() bool {
+	if containerenv.Configured(s.profile) || s.environmentDir() == "" {
+		return false
+	}
+	if _, err := os.Stat(filepath.Join(s.instanceDir(), "qemu.pid")); err != nil {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	inst, err := vm.InstanceIn(ctx, s.deviceResetLimaHome(), cage.InstanceName(s.profile, s.environmentDir()))
+	return err == nil && inst.Orphaned
+}
+
 // EnvironmentRunning reports whether the environment of the profile holding
 // configPath is up, from its running record, without asking the controller.
 func EnvironmentRunning(configPath string) bool {
