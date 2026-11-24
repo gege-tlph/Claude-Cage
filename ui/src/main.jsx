@@ -76,6 +76,7 @@ import { SafetyChecklistContext, SafetyMessage } from "./safety-message";
 import { networkState, isGuestLocalURL } from "./safety-state.mjs";
 import { needsProxySetup } from "./onboarding-state.mjs";
 import { statusExitText } from "./status-exit.mjs";
+import { accountName, setPrivacyMasked, usePrivacyMask } from "./privacy-mask.mjs";
 import { NetworkLatency } from "./network-latency";
 import { NetworkSpeed } from "./network-speed";
 import { isWindowFocused, useWindowVisibility } from "./window-visibility";
@@ -141,6 +142,7 @@ function App() {
   const appUpdates = useAppUpdates();
   const [recoveringEditor, setRecoveringEditor] = useState(false);
   const windowVisible = useWindowVisibility();
+  const privacyMask = usePrivacyMask();
   const windowVisibleRef = useRef(windowVisible);
   windowVisibleRef.current = windowVisible;
   const [serverStatus, setStatus] = useState(null),
@@ -165,9 +167,6 @@ function App() {
       ),
     ),
     [sidebarResizing, setSidebarResizing] = useState(false),
-    [exitHidden, setExitHidden] = useState(
-      readLocal(clientStorageKey("cage-status-exit-hidden"), false) === true,
-    ),
     sidebarDrag = useRef(null),
     [browserTabLayout, setBrowserTabLayout] = useState(
       readLocal(clientStorageKey("cage-browser-tab-layout"), "horizontal"),
@@ -386,7 +385,7 @@ function App() {
   }, [status?.account_desktops_supported, accountDesktops.refresh]);
   const stopDefaultDesktop = async (entry, anchor = null) => {
     if (!(await confirm({
-      title: entry?.label ? tr("关闭 {0}？", desktopTitle(entry)) : "关闭 Claude Desktop？",
+      title: entry?.label ? tr("关闭 {0}？", desktopTitle(entry, privacyMask)) : "关闭 Claude Desktop？",
       body: "请先保存应用内的工作。浏览器和终端会继续运行。",
       confirm: "关闭应用",
       anchor,
@@ -1483,7 +1482,7 @@ function App() {
       ...metadata[tab.id], title:tab.custom_title || tab.title, pinned:Boolean(tab.pinned),
     };
   }
-  const claudeLabels = new Map(claudeProfiles.accounts?.map((account) => [account.id, account.label || account.email]));
+  const claudeLabels = new Map(claudeProfiles.accounts?.map((account) => [account.id, accountName(account, privacyMask)]));
   const claudeNumbers = new Map(claudeProfiles.accounts?.map(account => [account.id, account.number]));
   const terminalAccountName = (tab) => claudeLabels.get(tab.claude_account_id) ||
     (tab.terminalKind === "claude-login" ? "新账号登录" : tab.claude_account_id ? "Claude 账号" : "");
@@ -2241,20 +2240,20 @@ function App() {
               <span>{running ? tr(network.label) : tr("网络检查")}</span>
             </button>
             <span className="status-divider" />
-            {/* The toggle sits before the exit text so it keeps its place
-                when the text changes length. */}
+            {/* The privacy mask (#804, #836) sits before the exit text so it
+                keeps its place when the text changes length. */}
             <button
               className="status-exit-toggle"
-              aria-label={tr("隐藏 IP")}
-              aria-pressed={exitHidden}
-              title={exitHidden ? tr("显示 IP") : tr("隐藏 IP")}
-              onClick={() => persist("cage-status-exit-hidden", !exitHidden, setExitHidden)}
+              aria-label={tr("隐私打码")}
+              aria-pressed={privacyMask}
+              title={tr("隐私打码")}
+              onClick={() => setPrivacyMasked(!privacyMask)}
             >
-              {exitHidden ? <EyeOff size={12} /> : <Eye size={12} />}
+              {privacyMask ? <EyeOff size={12} /> : <Eye size={12} />}
             </button>
             <button className="status-exit" onClick={() => openSettings("network")}>
               <MapPin size={12} />
-              <span>{statusExitText(status, exitHidden, tr)}</span>
+              <span>{statusExitText(status, privacyMask, tr)}</span>
             </button>
             <span className="status-divider" />
             <button className="status-timezone" onClick={() => openSettings("region")}>

@@ -28,18 +28,24 @@ import { localizeBackendMessage } from "./backend-message.mjs";
 import {
   desktopClipboardState,
   desktopMergeNoticeTarget,
-  desktopTitle as title,
+  desktopTitle,
   reconcileAccountDesktopPanes,
 } from "./account-desktop-state.mjs";
+import { accountName, privacyMasked, usePrivacyMask } from "./privacy-mask.mjs";
+
+// Titles follow the privacy mask (#836); components that show them subscribe
+// with usePrivacyMask so they redraw when it changes.
+const title = (a) => desktopTitle(a, privacyMasked());
 
 const entry = (id) => "/desktop-instances/" + id;
 
 function DesktopAccountLabel({ account }) {
+  const masked = usePrivacyMask();
   return <>
     <Monitor size={20} strokeWidth={1.75} aria-hidden="true">
       {account.number > 0 && <AccountIconNumber number={account.number} y={10} />}
     </Monitor>
-    <span className="account-desktop-label">{account.label}</span>
+    <span className="account-desktop-label">{accountName(account, masked)}</span>
   </>;
 }
 
@@ -204,6 +210,7 @@ export function useAccountDesktops(onShow, onHide, notify, confirm, visible, rev
 
 export function DesktopList({ model, disabled, selected, defaultRunning = false, onDefault, onDefaultStop, onRename }) {
   const tr = useTranslation();
+  usePrivacyMask();
   const { catalog, expanded, panes, pending } = model;
   const [creating, setCreating] = useState(false);
   const [accountID, setAccountID] = useState("");
@@ -360,6 +367,7 @@ function DesktopPane({
   busy,
 }) {
   const tr = useTranslation();
+  usePrivacyMask();
   const box = useRef(null);
   const rfb = useRef(null);
   const input = useRef(null);

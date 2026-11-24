@@ -31,15 +31,15 @@ ManifestSupportedOS all
 !define APP_ID "io.github.lee-xeo.claude-cage"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\ClaudeCage"
 !define WEBVIEW2_APP_ID "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
-Name "Cage ${VERSION}"
+Name "Cage lite ${VERSION}"
 OutFile "${OUTPUT_FILE}"
 InstallDir "$LOCALAPPDATA\Programs\Cage"
 InstallDirRegKey HKCU "${UNINSTALL_KEY}" "InstallLocation"
 VIProductVersion "${VERSION_NUMERIC}"
-VIAddVersionKey /LANG=1033 "ProductName" "Cage"
+VIAddVersionKey /LANG=1033 "ProductName" "Cage lite"
 VIAddVersionKey /LANG=1033 "ProductVersion" "${VERSION}"
 VIAddVersionKey /LANG=1033 "FileVersion" "${VERSION}"
-VIAddVersionKey /LANG=1033 "FileDescription" "Cage Windows Installer"
+VIAddVersionKey /LANG=1033 "FileDescription" "Cage lite Windows Installer"
 VIAddVersionKey /LANG=1033 "LegalCopyright" "Cage contributors"
 
 !ifdef SIGN_SCRIPT
@@ -48,7 +48,7 @@ VIAddVersionKey /LANG=1033 "LegalCopyright" "Cage contributors"
 
 !define MUI_ABORTWARNING
 !define MUI_LANGDLL_ALLLANGUAGES
-!define MUI_LANGDLL_WINDOWTITLE "Cage"
+!define MUI_LANGDLL_WINDOWTITLE "Cage lite"
 !define MUI_LANGDLL_INFO "$(CageInstallerLanguage)"
 !define MUI_FINISHPAGE_RUN "$INSTDIR\Cage.exe"
 !define MUI_FINISHPAGE_RUN_NOTCHECKED
@@ -56,6 +56,7 @@ VIAddVersionKey /LANG=1033 "LegalCopyright" "Cage contributors"
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "${APP_DIR}/LICENSE.txt"
 !define MUI_DIRECTORYPAGE_TEXT_TOP "$(CageDirectoryHelp)"
+!define MUI_PAGE_CUSTOMFUNCTION_LEAVE DirectoryPageLeave
 !insertmacro MUI_PAGE_DIRECTORY
 Page custom ShortcutOptionsPage ShortcutOptionsLeave
 !insertmacro MUI_PAGE_INSTFILES
@@ -246,7 +247,13 @@ Function SetDefaultInstallDirectory
   ${EndIf}
   System::Call 'kernel32::GetDriveTypeW(w "D:\") i .r0'
   ${If} $0 == 3
+    StrCpy $1 $INSTDIR
     StrCpy $INSTDIR "D:\Cage"
+    ; Another program's D:\Cage keeps the per-user default.
+    Call ClassifyDestination
+    ${If} $0 == "foreign"
+      StrCpy $INSTDIR $1
+    ${EndIf}
   ${EndIf}
 FunctionEnd
 
@@ -323,45 +330,113 @@ Function .onInit
   !insertmacro MUI_LANGDLL_DISPLAY
 FunctionEnd
 
-Function CheckDestination
+; Sets $0 to root, fresh, existing or foreign for $INSTDIR.
+Function ClassifyDestination
+  Push $1
+  Push $2
   ${GetRoot} "$INSTDIR" $0
   ${If} $0 == ""
   ${OrIf} $INSTDIR == $0
   ${OrIf} $INSTDIR == "$0\"
-    SetErrorLevel 2
-    Abort "$(CageSetupDedicated)"
+    StrCpy $0 "root"
+    Goto classified
   ${EndIf}
-  StrCpy $ExistingInstall "0"
-  IfFileExists "$INSTDIR\Cage.install-id" existing
+  ${If} ${FileExists} "$INSTDIR\Cage.install-id"
+    StrCpy $2 ""
+    ClearErrors
+    FileOpen $1 "$INSTDIR\Cage.install-id" r
+    ${IfNot} ${Errors}
+      FileRead $1 $2
+      FileClose $1
+    ${EndIf}
+    StrCpy $0 "foreign"
+    ${If} $2 == "${APP_ID}"
+      StrCpy $0 "existing"
+    ${EndIf}
+    Goto classified
+  ${EndIf}
   ; IfFileExists with a wildcard also matches an empty directory.
   ${DirState} "$INSTDIR" $0
-  ${If} $0 == 1
-    Goto foreign
-  ${EndIf}
   ${If} $0 == -1
   ${AndIf} ${FileExists} "$INSTDIR"
-    Goto foreign
+    StrCpy $0 "foreign"
+    Goto classified
   ${EndIf}
-  Goto done
-  existing:
-    FileOpen $0 "$INSTDIR\Cage.install-id" r
-    FileRead $0 $1
-    FileClose $0
-    ${If} $1 != "${APP_ID}"
-      Goto foreign
+  ${If} $0 != 1
+    StrCpy $0 "fresh"
+    Goto classified
+  ${EndIf}
+  ; A Cage folder loses its identity file when it is cleaned by hand,
+  ; for example after deleting a VM, while CageData or other entries stay.
+  ; It takes the update path: CageData stays in place and every file the
+  ; manifest does not prove to be an old program file moves into the new
+  ; installation instead of being deleted.
+  StrCpy $0 "existing"
+  ReadRegStr $1 HKCU "${UNINSTALL_KEY}" "InstallLocation"
+  ${If} $1 != ""
+    ${If} $1 == $INSTDIR
+    ${OrIf} $1 == "$INSTDIR\"
+      Goto classified
     ${EndIf}
+  ${EndIf}
+  ${If} ${FileExists} "$INSTDIR\CageData\*.*"
+  ${OrIf} ${FileExists} "$INSTDIR\Cage-preserved-files\*.*"
+  ${OrIf} ${FileExists} "$INSTDIR\Cage.install-files.json"
+    Goto classified
+  ${EndIf}
+  ${If} ${FileExists} "$INSTDIR\Cage.exe"
+  ${AndIf} ${FileExists} "$INSTDIR\resources\cage.exe"
+    Goto classified
+  ${EndIf}
+  StrCpy $0 "foreign"
+  classified:
+  Pop $2
+  Pop $1
+FunctionEnd
+
+; Interactive installs reject an unusable folder while it can still be changed.
+Function DirectoryPageLeave
+  Call ClassifyDestination
+  ${If} $0 == "root"
+    MessageBox MB_ICONEXCLAMATION|MB_OK "$(CageSetupDedicated)"
+    Abort
+  ${ElseIf} $0 == "foreign"
+    MessageBox MB_ICONEXCLAMATION|MB_OK "$(CageSetupOtherFiles)"
+    Abort
+  ${EndIf}
+FunctionEnd
+
+Function CheckDestination
+  Call ClassifyDestination
+  ${If} $0 == "root"
+    SetErrorLevel 2
+    Abort "$(CageSetupDedicated)"
+  ${ElseIf} $0 == "foreign"
+    SetErrorLevel 2
+    Abort "$(CageSetupOtherFiles)"
+  ${EndIf}
+  StrCpy $ExistingInstall "0"
+  ${If} $0 == "existing"
     StrCpy $ExistingInstall "1"
     ; Never stop processes by their name or force-close user workloads.
     !insertmacro CheckStopped "Cage.exe"
     !insertmacro CheckStopped "resources\cage.exe"
     !insertmacro CheckStopped "resources\mihomo.exe"
     !insertmacro CheckStopped "resources\runtime\qemu\qemu-system-x86_64.exe"
-    Goto done
-  foreign:
-    SetErrorLevel 2
-    Abort "$(CageSetupOtherFiles)"
-  done:
-    ClearErrors
+    ; A reused folder gets its identity back before the transaction, so a
+    ; rollback restores an ordinary installation and finishes its receipt.
+    ${IfNot} ${FileExists} "$INSTDIR\Cage.install-id"
+      ClearErrors
+      FileOpen $1 "$INSTDIR\Cage.install-id" w
+      ${If} ${Errors}
+        SetErrorLevel 2
+        Abort "$(CageSetupUnpack)"
+      ${EndIf}
+      FileWrite $1 "${APP_ID}"
+      FileClose $1
+    ${EndIf}
+  ${EndIf}
+  ClearErrors
 FunctionEnd
 
 Function RestorePreservedFiles
@@ -587,7 +662,7 @@ Section "Cage" Main
     ${EndIf}
   ${EndIf}
   !insertmacro InstallPhase "registering_installation"
-  WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "Cage"
+  WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "Cage lite"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayVersion" "${VERSION}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "Cage contributors"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "InstallLocation" "$INSTDIR"
