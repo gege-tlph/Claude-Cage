@@ -3021,5 +3021,9 @@
   "官方软件源": "Official repository",
   "IP 已隐藏": "IP hidden",
   "隐藏 IP": "Hide IP",
-  "显示 IP": "Show IP"
+  "显示 IP": "Show IP",
+  "同步环境内部主题": "Sync environment theme",
+  "无法读取已保存的外观设置": "Cannot read saved appearance",
+  "主题模式无效，仅支持 light 或 dark": "Invalid theme mode: light or dark only",
+  "主题同步状态未能保存，请重试": "Theme sync not saved. Try again."
 }
