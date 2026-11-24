@@ -28,11 +28,9 @@ const open = async () => {
   await page.getByRole("button", { name: "外观", exact: true }).click();
   await page.getByRole("heading", { name: "外观", exact: true }).waitFor();
 };
+// Once saved the status line is empty: nothing pending, nothing failed.
 const saved = () =>
-  page
-    .locator(".appearance-save-state")
-    .filter({ hasText: "更改自动保存，即时生效" })
-    .waitFor();
+  page.waitForFunction(() => document.querySelector(".appearance-save-state")?.textContent.trim() === "");
 const select = async (variant, id) => {
   await chooseInline(page
     .getByLabel((variant === "light" ? "浅色" : "深色") + "主题预设", {

@@ -690,12 +690,12 @@ export function AppearanceSettings() {
                 {tr("重试保存")}
               </button>
             </>
-          ) : (
+          ) : synced ? (
             <>
               <Check size={13} />
-              {synced ? tr("已同步 Codex 外观") : tr("更改自动保存，即时生效")}
+              {tr("已同步 Codex 外观")}
             </>
-          )}
+          ) : null}
         </div>
       </div>
       <fieldset disabled={loading || syncing} className="appearance-fields">
