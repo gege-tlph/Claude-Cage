@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { backendMessageKeys, localizeBackendMessage } from "./backend-message.mjs";
 import { formatMessage } from "./message-catalog.mjs";
@@ -76,4 +76,47 @@ test("English ErrLocalProxyNode and daily refresh interval are translated", () =
   const enErr = localizeBackendMessage(errLocalNode, localize);
   assert.match(enErr, /^A local proxy port can't be used as a node/);
   assert.doesNotMatch(enErr, /\p{Script=Han}/u);
+});
+
+// Job messages and setup progress labels reach the UI as they are written in
+// the Go backend. Each one, and each message the backend builds at run time,
+// needs an English translation.
+test("every job message and setup progress label from the backend is translated into English", () => {
+  const catalog = JSON.parse(read("./locales/en.json"));
+  const localize = (source, ...values) => formatMessage(Object.hasOwn(catalog, source) ? catalog[source] : source, ...values);
+  const lit = String.raw`"((?:[^"\\n]|\.)*)"`;
+  const patterns = [
+    String.raw`\bsetMessage\(\s*` + lit + String.raw`\s*\)`,
+    String.raw`\.message\(\s*` + lit + String.raw`\s*\)`,
+    String.raw`SetupProgress\{[^}]*?Label:\s*` + lit + String.raw`\s*[,}]`,
+    String.raw`\bLabel = (?:"[^"]*", )?` + lit + String.raw`[ \t]*$`,
+    String.raw`\bstate\.Message = ` + lit + String.raw`[ \t]*$`,
+  ].map((source) => new RegExp(source, "gm"));
+  const root = new URL("../../internal/", import.meta.url);
+  const files = readdirSync(root, { recursive: true }).filter((name) => name.endsWith(".go") && !name.endsWith("_test.go"));
+  const messages = new Set();
+  for (const name of files) {
+    const text = readFileSync(new URL(name.replaceAll("\\", "/"), root), "utf8");
+    for (const pattern of patterns) {
+      for (const [, value] of text.matchAll(pattern)) {
+        const message = JSON.parse(`"${value}"`);
+        if (/\p{Script=Han}/u.test(message)) messages.add(message);
+      }
+    }
+  }
+  assert.ok(messages.size > 60, `found only ${messages.size} backend messages`);
+  const untranslated = [...messages].filter((message) => /\p{Script=Han}/u.test(localizeBackendMessage(message, localize)));
+  assert.deepEqual(untranslated, []);
+
+  for (const [message, english] of [
+    ["正在准备 Debian 13 镜像", "Preparing Debian 13 image"],
+    ["正在准备 Debian 12 安装材料", "Preparing Debian 12 install materials"],
+    ["正在下载 Debian 13 系统镜像", "Downloading Debian 13 system image"],
+    ["正在校验 Debian 13 系统镜像", "Verifying Debian 13 system image"],
+    ["正在迁移环境数据 · 1.5 / 20.0 GiB", "Moving environment data · 1.5 / 20.0 GiB"],
+    ["正在把旧 Ubuntu 环境原样移到 state/guests-removed/ubuntu …", "Moving the old Ubuntu environment to state/guests-removed/ubuntu …"],
+    ["独立配置 a1b2c3", "Separate profile a1b2c3"],
+  ]) {
+    assert.equal(localizeBackendMessage(message, localize), english);
+  }
 });

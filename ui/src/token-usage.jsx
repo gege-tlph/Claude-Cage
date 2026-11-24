@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { api } from "./api";
+import { localizeBackendMessage } from "./backend-message.mjs";
 import { InlineSelect } from "./inline-select";
 import { compactTokens, heatLevel, localToday, metricValue, summarizeUsage, tokenFields, tokenMetrics, usageBreakdown, usageClient, usageClients, usageSeries, yearCalendar } from "./token-usage.mjs";
 import "./token-usage.css";
@@ -174,7 +175,7 @@ export function TokenUsagePanel({ onConfirm }) {
             <label>{tr("年份")}<InlineSelect inline aria-label={tr("统计年份")} value={activeYear} onValueChange={setYear}>{years.map(value=><option key={value} value={value}>{tr("{0} 年", value)}</option>)}</InlineSelect></label>
             <label>{tr("统计口径")}<InlineSelect inline aria-label={tr("统计口径")} value={metric} onValueChange={setMetric}>{tokenMetrics.map(([key,label])=><option key={key} value={key}>{tr(label)}</option>)}</InlineSelect></label>
             {models.length>0 && <label>{tr("模型")}<InlineSelect inline aria-label={tr("筛选模型")} value={model} onValueChange={setModel}><option value="all">{tr("全部模型")}</option>{models.map(value=><option key={value} value={value}>{value}</option>)}</InlineSelect></label>}
-            {sources.length>0 && <label>{tr("日志来源")}<InlineSelect inline aria-label={tr("筛选日志来源")} value={source} onValueChange={setSource}><option value="all">{tr("全部来源")}</option>{sources.map(value=><option key={value} value={value}>{data.sources?.[value] || tr("未知配置")}</option>)}</InlineSelect></label>}
+            {sources.length>0 && <label>{tr("日志来源")}<InlineSelect inline aria-label={tr("筛选日志来源")} value={source} onValueChange={setSource}><option value="all">{tr("全部来源")}</option>{sources.map(value=><option key={value} value={value}>{data.sources?.[value] ? localizeBackendMessage(data.sources[value], tr) : tr("未知配置")}</option>)}</InlineSelect></label>}
             {clients.length>0 && <label>{tr("运行入口")}<InlineSelect inline aria-label={tr("筛选运行入口")} value={client} onValueChange={setClient}><option value="all">{tr("全部入口")}</option>{clients.map(([key,label])=><option key={key} value={key}>{tr(label)}</option>)}</InlineSelect></label>}
           </div>
           <button className="token-refresh" disabled={busy || !data?.enabled || !data?.available} onClick={()=>load({action:"refresh"})}><RefreshCw size={14} className={busy?"token-spinning":""}/> {busy?tr("正在读取…"):tr("刷新统计")}</button>

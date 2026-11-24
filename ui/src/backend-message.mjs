@@ -23,7 +23,21 @@ const JOB_NAMES = new Set([
   "本次操作",
 ]);
 
+// Progress messages and labels the backend builds at run time
+// (internal/workbench: setup_progress.go, runtime.go, guest_install.go,
+// storage.go, abandoned_environment.go, token_usage.go).
+const PROGRESS_TEMPLATES = [
+  [/^正在准备 (.+) 镜像$/, "正在准备 {0} 镜像"],
+  [/^正在准备 (.+) 安装材料$/, "正在准备 {0} 安装材料"],
+  [/^正在下载 (.+) 系统镜像$/, "正在下载 {0} 系统镜像"],
+  [/^正在校验 (.+) 系统镜像$/, "正在校验 {0} 系统镜像"],
+  [/^正在迁移环境数据 · ([\d.]+) \/ ([\d.]+) GiB$/, "正在迁移环境数据 · {0} / {1} GiB"],
+  [/^正在把旧 Ubuntu 环境原样移到 (.+) …$/, "正在把旧 Ubuntu 环境原样移到 {0} …"],
+  [/^独立配置 (\S+)$/, "独立配置 {0}"],
+];
+
 export const backendMessageKeys = [
+  ...PROGRESS_TEMPLATES.map(([, key]) => key),
   // Issue #749: local proxy node validation & migration
   "本机代理端口不能用作节点。请导入原客户端的具体节点，在 Cage 中按中转到最终出口的顺序重新配置并应用",
   "原代理链包含本机代理端口。请导入各跳的具体节点后重建代理链",
@@ -396,6 +410,12 @@ export function localizeBackendMessage(message, localize = translate) {
   }
   if ((m = trimmed.match(/^程序提前结束（退出码 (-?\d+)），未返回可识别的原因$/))) {
     return translateTemplate(localize, "程序提前结束（退出码 {0}），未返回可识别的原因", m[1]) ?? trimmed;
+  }
+  // Job progress the backend builds from a system name, a size or a path.
+  for (const [pattern, key] of PROGRESS_TEMPLATES) {
+    if ((m = trimmed.match(pattern))) {
+      return translateTemplate(localize, key, ...m.slice(1)) ?? trimmed;
+    }
   }
   if ((m = trimmed.match(/^(.+)失败$/)) && JOB_NAMES.has(m[1])) {
     return translateTemplate(localize, "{0}失败", localize(m[1])) ?? trimmed;
