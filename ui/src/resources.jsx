@@ -83,6 +83,11 @@ export function ResourceSettings({ status, onConfirm, onDirtyChange }) {
     onDirtyChange?.(Boolean(dirty));
     return () => onDirtyChange?.(false);
   }, [dirty, onDirtyChange]);
+  // Values typed back to the defaults read as the default configuration.
+  const atDefaults = Boolean(draft && data &&
+    draft.memory_gib * 1073741824 === data.recommended_memory_bytes &&
+    draft.cpus === data.recommended_cpus &&
+    draft.disk_gib * 1073741824 === (data.recommended_disk_bytes || 24 * 1073741824));
   const edit = (key, value) => {
     setDraft((current) => ({ ...current, automatic: false, [key]: value === "" ? "" : Number(value) }));
     setSaved(false);
@@ -128,7 +133,7 @@ export function ResourceSettings({ status, onConfirm, onDirtyChange }) {
         </label>
       </fieldset>
       <div className="resource-actions">
-        <span className="resource-mode">{draft.automatic ? tr("默认配置") : tr("自定义配置")}{dirty ? " " + tr("· 未保存") : ""}</span>
+        <span className="resource-mode">{draft.automatic || atDefaults ? tr("默认配置") : tr("自定义配置")}{dirty ? " " + tr("· 未保存") : ""}</span>
         <button className="text-button" type="button" disabled={busy || draft.automatic} onClick={reset}>{tr("恢复默认")}</button>
         <button type="submit" disabled={busy || !dirty}>{starting ? tr("正在保存…") : tr("保存资源配置")}</button>
       </div>
@@ -142,7 +147,7 @@ export function ResourceSettings({ status, onConfirm, onDirtyChange }) {
       )}
     </form> : !resourceError && <p role="status" className="field-help">{tr("正在读取资源配置…")}</p>}
     {data?.running && <div className="resource-runtime">
-      <div className="resource-runtime-heading"><h5>{tr("当前运行")}</h5>{data.restart_required && <button className="text-button" disabled={busy} onClick={apply}>{tr("重启并应用已保存配置")}</button>}</div>
+      <div className="resource-runtime-heading"><h5>{tr("当前运行")}</h5></div>
       <div className="setting-summary-row"><span>{tr("本次启动的内存上限")}</span><strong>{gib(data.configured_memory_bytes)}</strong></div>
       <div className="setting-summary-row"><span>{tr("本次启动的 CPU 上限")}</span><strong>{data.configured_cpus}{" " + tr("个逻辑核心")}</strong></div>
       {data.configured_disk_bytes > 0 && <div className="setting-summary-row"><span>{tr("本次启动的硬盘上限")}</span><strong>{gib(data.configured_disk_bytes)}</strong></div>}
