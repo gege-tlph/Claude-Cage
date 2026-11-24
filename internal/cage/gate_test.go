@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
@@ -176,6 +178,55 @@ func TestGateRevokesEstablishedTunnelAndLease(t *testing.T) {
 	}
 	if g.Status().Mode != GateClosed {
 		t.Fatal("expired gate stayed open")
+	}
+}
+
+// Policy decisions and state changes hold the gate's mutex. The reads and
+// writes of open connections must not wait on it, yet still end with the lease.
+func TestGateConnectionsDoNotWaitOnGateLock(t *testing.T) {
+	g := fixtureGate(t)
+	fixtureGrant(t, g)
+	a, b := net.Pipe()
+	defer b.Close()
+	go func() { _, _ = io.Copy(b, b) }()
+	g.mu.Lock()
+	epoch := g.epoch
+	g.mu.Unlock()
+	conn, err := g.track(a, epoch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	done := make(chan error, 1)
+	g.mu.Lock()
+	go func() {
+		var echo [4]byte
+		_, err := conn.Write([]byte("ping"))
+		if err == nil {
+			_, err = io.ReadFull(conn, echo[:])
+		}
+		done <- err
+	}()
+	select {
+	case err = <-done:
+		g.mu.Unlock()
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(2 * time.Second):
+		g.mu.Unlock()
+		t.Fatal("connection I/O waited on the gate lock")
+	}
+
+	// The lease ends even before its timer closes the gate.
+	g.mu.Lock()
+	g.armLocked(10 * time.Millisecond)
+	g.timer.Stop()
+	g.mu.Unlock()
+	time.Sleep(30 * time.Millisecond)
+	if _, err = conn.Write([]byte("late")); !errors.Is(err, ErrGateClosed) {
+		t.Fatalf("write after the lease ended: %v", err)
 	}
 }
 

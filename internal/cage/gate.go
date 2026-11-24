@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/miekg/dns"
@@ -69,6 +70,26 @@ type EgressGate struct {
 	timer                             *time.Timer
 	connections                       map[*gateConn]struct{}
 	probeRequests                     int
+	// window mirrors epoch, mode and Until for the reads and writes of open
+	// connections, which must not wait on mu. It is replaced, under mu, in
+	// the same critical section as every change of those fields.
+	window atomic.Pointer[gateWindow]
+}
+
+// gateWindow is the authorization a connection checks: validLocked without mu.
+type gateWindow struct {
+	epoch uint64
+	open  bool // mode is not GateClosed
+	until time.Time
+}
+
+func (w *gateWindow) valid(epoch uint64) bool {
+	return w != nil && w.epoch == epoch && w.open && time.Now().Before(w.until)
+}
+
+// Caller holds mu.
+func (g *EgressGate) publishLocked() {
+	g.window.Store(&gateWindow{epoch: g.epoch, open: g.state.Mode != GateClosed, until: g.state.Until})
 }
 
 func NewEgressGate(cfg Config) (*EgressGate, error) {
@@ -99,6 +120,7 @@ func NewEgressGate(cfg Config) (*EgressGate, error) {
 	// DoH pools must obey revocation too; only this private transport can dial
 	// the configured resolver hostname without accepting a guest-supplied host.
 	raw.client.Transport.(*http.Transport).DialContext = g.dialDNS
+	g.publishLocked() // g is not shared yet
 	return g, nil
 }
 
@@ -137,15 +159,17 @@ func (g *EgressGate) SyncProxyRevision(cfg Config) error {
 }
 
 func (g *EgressGate) Status() GateStatus {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	s := g.state
-	s.Epoch = g.epoch
-	s.PolicyVerified = g.raw.Allows("tcp", netip.MustParseAddrPort("1.1.1.1:443")) &&
+	// The policy reads this machine's addresses: never while holding mu.
+	verified := g.raw.Allows("tcp", netip.MustParseAddrPort("1.1.1.1:443")) &&
 		!g.raw.Allows("udp", netip.MustParseAddrPort("1.1.1.1:3478")) &&
 		!g.raw.Allows("icmp", netip.MustParseAddrPort("1.1.1.1:1")) &&
 		!g.raw.Allows("tcp", netip.MustParseAddrPort("[2606:4700:4700::1111]:443")) &&
 		!g.raw.Allows("tcp", netip.MustParseAddrPort("127.0.0.1:17777"))
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	s := g.state
+	s.Epoch = g.epoch
+	s.PolicyVerified = verified
 	if s.Mode != GateClosed && !time.Now().Before(s.Until) {
 		s.Mode = GateClosed
 		s.Reason = "检查或监测授权已到期"
@@ -172,6 +196,7 @@ func (g *EgressGate) armUntilLocked(until time.Time) {
 		g.timer.Stop()
 	}
 	g.state.Until = until
+	g.publishLocked()
 	epoch := g.epoch
 	g.timer = time.AfterFunc(time.Until(until), func() {
 		g.mu.Lock()
@@ -199,6 +224,7 @@ func (g *EgressGate) transitionLocked(mode string, fault bool, reason string) []
 	if mode == GateClosed {
 		g.state.CheckID = ""
 	}
+	g.publishLocked()
 	connections := make([]*gateConn, 0, len(g.connections))
 	for c := range g.connections {
 		connections = append(connections, c)
@@ -292,13 +318,20 @@ func (g *EgressGate) armReportLeaseLocked(report SafetyReport) {
 }
 
 func (g *EgressGate) Allows(network string, dst netip.AddrPort) bool {
+	// The policy depends only on dst and this machine's addresses, which it
+	// reads for every flow. Decide it before taking mu, so that lookup never
+	// holds up the gate or the reads and writes of open connections.
+	diagnostic := network == "tcp" && dst.String() == DiagnosticAddress
+	public := g.raw.Allows(network, dst)
+	// What a refusal counts as private. Only TCP can be public, and then the
+	// same policy has just answered it.
+	private := !public && !g.raw.public.Allows("tcp", dst)
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	active := g.validLocked(g.epoch)
-	if active && g.state.Mode == GateChecking && network == "tcp" && dst.String() == DiagnosticAddress {
+	if active && g.state.Mode == GateChecking && diagnostic {
 		return true
 	}
-	public := g.raw.Allows(network, dst)
 	if active && g.state.Mode == GateOpen && public {
 		return true
 	}
@@ -311,7 +344,7 @@ func (g *EgressGate) Allows(network string, dst netip.AddrPort) bool {
 	if dst.Addr().Is6() {
 		g.state.Counters.IPv6Denied++
 	}
-	if !g.raw.public.Allows("tcp", dst) {
+	if private {
 		g.state.Counters.PrivateDenied++
 	}
 	return false
@@ -396,10 +429,10 @@ type gateConn struct {
 	once  sync.Once
 }
 
+// valid runs on every Read and Write of every guest connection: it reads the
+// published window instead of waiting on mu.
 func (c *gateConn) valid() bool {
-	c.gate.mu.Lock()
-	defer c.gate.mu.Unlock()
-	return c.gate.validLocked(c.epoch)
+	return c.gate.window.Load().valid(c.epoch)
 }
 func (c *gateConn) Read(b []byte) (int, error) {
 	if !c.valid() {

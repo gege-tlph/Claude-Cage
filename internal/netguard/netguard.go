@@ -177,7 +177,7 @@ func internal(a netip.Addr) bool {
 // Allows reports whether the guest may reach dst over network ("tcp" or
 // "udp": nothing else is allowed).
 func (p *Policy) Allows(network string, dst netip.AddrPort) bool {
-	return p.allows(network, dst, net.InterfaceAddrs)
+	return p.allows(network, dst, hostAddrs)
 }
 
 func (p *Policy) allows(network string, dst netip.AddrPort, interfaceAddrs func() ([]net.Addr, error)) bool {
