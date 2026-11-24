@@ -21,6 +21,7 @@ export function ClaudeDesktop({
   onProjectOpened,
   visible,
   remoteRef,
+  focused = true,
   onStatus,
   onFallback,
   onDetails,
@@ -171,6 +172,7 @@ export function ClaudeDesktop({
           <RemoteView
             ref={remoteRef}
             desktop
+            focused={focused}
             visible={visible}
             keyboard={status.keyboard}
             onStatus={onStatus}

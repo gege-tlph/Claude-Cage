@@ -6,6 +6,13 @@ export const desktopTitle = (a, masked = false) => {
   return a.number ? `#${String(a.number).padStart(2, "0")} ${label}` : label;
 };
 
+export function addDesktopBeside(panes, account, defaultEntry) {
+  const current = panes.length ? panes : defaultEntry ? [defaultEntry] : [];
+  if (current.some((pane) => pane.id === account.id)) return current;
+  if (account.id === "default") return [account, ...current.slice(0, 1)];
+  return current.length ? [current[0], account] : [account];
+}
+
 export function mergedDefaultInstance(catalog) {
   const target = catalog?.redirects?.default;
   if (!target || !Array.isArray(catalog?.instances)) return null;
@@ -19,13 +26,13 @@ export function reconcileAccountDesktopPanes(oldPanes, catalog, viewingDefault =
     const merged = mergedDefaultInstance(catalog);
     return merged && merged.id !== "default" ? [merged] : oldPanes;
   }
-  if (oldPanes.some((p) => catalog.redirects?.[p.id] === "default")) return [];
+  if (oldPanes.length === 1 && catalog.redirects?.[oldPanes[0].id] === "default") return [];
   const seen = new Set();
   const updated = [];
   for (const pane of oldPanes) {
     const id = catalog.redirects?.[pane.id] || pane.id;
-    const item = catalog.instances.find((a) => a.id === id);
-    if (!item || seen.has(id) || id === "default") continue;
+    const item = catalog.instances.find((a) => a.id === id) || (pane.id === id && id === "default" ? pane : null);
+    if (!item || seen.has(id)) continue;
     seen.add(id);
     updated.push(item);
   }

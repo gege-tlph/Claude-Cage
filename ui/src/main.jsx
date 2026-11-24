@@ -407,7 +407,11 @@ function App() {
       notify(e.message);
     }
   };
-  const viewingAccountDesktop = desktopOpen && accountDesktops.panes.length > 0;
+  const [activeDesktopPane, setActiveDesktopPane] = useState("");
+  const desktopPanes = accountDesktops.panes;
+  const activeDesktopID = desktopPanes.some(pane => pane.id === activeDesktopPane)
+    ? activeDesktopPane : desktopPanes.at(-1)?.id || "default";
+  const viewingAccountDesktop = desktopOpen && activeDesktopID !== "default";
   const audioEnabled = running && !viewingAccountDesktop && !storageRecovery && !status?.environment_update_required && !connectionError;
   const audio = useAudioOutput(audioEnabled);
   const mic = useAudioInput(audioEnabled);
@@ -1353,7 +1357,7 @@ function App() {
         return false;
       if (terminal)
         return terminalControls.current.get(current.id)?.edit(command) || false;
-      if (viewingAccountDesktop)
+      if (desktopOpen)
         return accountDesktopControl.current?.edit(command) || false;
       return remote.current?.edit(command) || false;
     };
@@ -1937,8 +1941,10 @@ function App() {
           <main className={`workspace ${split ? "workspace-split" : ""}`} ref={workspaceBox} hidden={Boolean(managementPage)}
             style={{ "--split-left": `${100 * (dualBrowser && nativeSplit?.fraction || 0.5)}%` }}>
             {dropSide && <div aria-hidden="true" className={`split-drop split-${dropSide}`}>{dropSide === "left" ? tr("放到左侧") : tr("放到右侧")}</div>}
-            {!storageRecovery && desktopOpen && accountDesktops.panes.length>0 && <DesktopPanes
+            {!storageRecovery && desktopOpen && <DesktopPanes
               ref={accountDesktopControl}
+              defaultControl={remote}
+              onActivePane={setActiveDesktopPane}
               model={accountDesktops}
               ready={Boolean(status.ready)}
               visible={!settingsOpen && !managementPage}
@@ -1952,18 +1958,17 @@ function App() {
               onFallback={(text, message) => setTransfer({ text, message })}
               sidebarCollapsed={sidebarCollapsed}
               onExpand={() => persist("cage-sidebar-collapsed", false, setSidebarCollapsed)}
-            />}
-            {!storageRecovery && desktopOpen && !accountDesktops.panes.length && <ClaudeDesktop
-              uploads={desktopFiles.uploads}
-              onProjectOpened={async () => { await refreshSettings(); await refreshStatus.current?.(); }}
-              status={status} visible={!settingsOpen && !managementPage} remoteRef={remote}
-              onStatus={notify} onFallback={(text, message) => setTransfer({ text, message })}
-              onDetails={() => setDetails(true)}
-              sidebarCollapsed={sidebarCollapsed}
-              onExpand={() => persist("cage-sidebar-collapsed", false, setSidebarCollapsed)}
-              refreshSignal={defaultDesktopSignal}
-              autoStart={!defaultDesktopStopped}
-              onRunningChange={handleDefaultDesktopRunning}
+              renderDefault={(focused) => <ClaudeDesktop
+                uploads={desktopFiles.uploads}
+                onProjectOpened={async () => { await refreshSettings(); await refreshStatus.current?.(); }}
+                status={status} visible={!settingsOpen && !managementPage} remoteRef={remote} focused={focused}
+                onStatus={notify} onFallback={(text, message) => setTransfer({ text, message })}
+                onDetails={() => setDetails(true)}
+                // DesktopPanes draws the one sidebar reveal for every pane.
+                refreshSignal={defaultDesktopSignal}
+                autoStart={!defaultDesktopStopped}
+                onRunningChange={handleDefaultDesktopRunning}
+              />}
             />}
             {status.environment_update_required && !busy && (
               <div className="environment-update-banner" role="status">
@@ -2453,7 +2458,7 @@ function App() {
               <button
                 className="primary"
                 onClick={() => {
-                  (viewingAccountDesktop ? accountDesktopControl.current : remote.current)?.pasteText(transfer.text);
+                  (desktopOpen ? accountDesktopControl.current : remote.current)?.pasteText(transfer.text);
                   setTransfer(null);
                 }}
               >
