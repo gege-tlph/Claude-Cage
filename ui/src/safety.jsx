@@ -98,6 +98,17 @@ export function SafetyPanel({
   const open = async (url) => {
     if (await onOpenPage(url)) onClose();
   };
+  const summaryMessage = busy
+    ? localizeBackendMessage(status.job.message, tr)
+    : status.network_error
+      ? localizeBackendMessage(status.network_error, tr)
+      : online
+        ? ""
+        : safety.error
+          ? localizeBackendMessage(safety.error, tr)
+          : safety.gate?.reason
+            ? localizeBackendMessage(safety.gate.reason, tr)
+            : "";
   return (
     <Modal
       title={tr("网络与隔离检查")}
@@ -141,19 +152,7 @@ export function SafetyPanel({
           )}
           <div>
             <h3>{tr(network.label)}</h3>
-            <p>
-              {busy
-                ? localizeBackendMessage(status.job.message, tr)
-                : online
-                  ? (status.network_error ? localizeBackendMessage(status.network_error, tr) : "")
-                  : (status.network_error
-                    ? localizeBackendMessage(status.network_error, tr)
-                    : safety.error
-                      ? localizeBackendMessage(safety.error, tr)
-                      : safety.gate?.reason
-                        ? localizeBackendMessage(safety.gate.reason, tr)
-                        : "")}
-            </p>
+            {summaryMessage && <p>{summaryMessage}</p>}
           </div>
           <button className="text-button" onClick={() => onSettings("network")}>
             <Settings size={15} />
