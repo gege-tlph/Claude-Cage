@@ -657,3 +657,44 @@ func TestScanClashXMetaOnMacOS(t *testing.T) {
 		}
 	}
 }
+
+// #892: SakuraCat keeps its configuration in a private encoding. Its presence
+// is reported with where portable nodes come from; content is never shown.
+func TestScanSakuraCatPrivateConfig(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, "config.json", "\x8b\x1fprivate-trojan-password-marker")
+	writeConfig(t, root, "offline_cache.json", "opaque")
+	configs := Scan([]Location{{"SakuraCat", root, SakuraCat, ""}}, []byte("session"))
+	if len(configs) != 1 {
+		t.Fatalf("expected one SakuraCat notice, got %s", mustJSON(t, configs))
+	}
+	c := configs[0]
+	if c.Client != "SakuraCat" || c.Name != "私有配置" || c.Error != privateConfigError || c.Nodes != 0 || len(c.Data) != 0 || c.Refreshable {
+		t.Fatalf("unexpected SakuraCat entry: %s", mustJSON(t, c))
+	}
+	if view := mustJSON(t, configs); strings.Contains(view, root) || strings.Contains(view, "private-trojan-password-marker") {
+		t.Fatalf("display metadata leaked the private configuration: %s", view)
+	}
+	// A plain Clash config in that place still imports.
+	writeConfig(t, root, "config.json", testNode)
+	plain := Scan([]Location{{"SakuraCat", root, SakuraCat, ""}}, []byte("session"))
+	if len(plain) != 1 || plain[0].Error != "" || plain[0].Nodes != 1 {
+		t.Fatalf("plain config in the SakuraCat directory not imported: %s", mustJSON(t, plain))
+	}
+	// An empty directory left by an uninstalled client is not listed.
+	if got := Scan([]Location{{"SakuraCat", t.TempDir(), SakuraCat, ""}}, []byte("session")); len(got) != 0 {
+		t.Fatalf("empty SakuraCat directory listed: %s", mustJSON(t, got))
+	}
+}
+
+func TestWindowsLocationsIncludeSakuraCat(t *testing.T) {
+	for _, loc := range Locations("windows", `C:\Users\person`, `C:\Users\person\AppData\Roaming`, "") {
+		if loc.Client == "SakuraCat" {
+			if loc.Directory != filepath.Join(`C:\Users\person\AppData\Roaming`, "SakuraCat", "SakuraCat") || loc.Layout != SakuraCat {
+				t.Fatalf("unexpected SakuraCat location: %+v", loc)
+			}
+			return
+		}
+	}
+	t.Fatal("SakuraCat is not looked for on Windows")
+}

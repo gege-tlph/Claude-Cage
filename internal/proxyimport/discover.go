@@ -59,7 +59,12 @@ const (
 	// Nyanpasu is Clash Nyanpasu. Its runtime file moved between releases and
 	// its root config files may hold only app or core settings.
 	Nyanpasu
+	// SakuraCat (Windows, sing-box core) keeps its configuration in a private
+	// encoding with no portable nodes (#892).
+	SakuraCat
 )
+
+const privateConfigError = "私有格式，无法导入；请改用服务商提供的 Clash/Mihomo 订阅"
 
 const encryptedConfigError = "配置文件使用 age 加密，Cage lite 不会解密私有配置，无法直接导入。请从原客户端或服务商导出明文 Clash/Mihomo YAML 后通过“添加来源”导入，或手动添加节点"
 
@@ -136,7 +141,8 @@ func Locations(platform, home, dataHome, configHome string) []Location {
 			Location{"FlClash for oixCloud", filepath.Join(dataHome, "com.oixcloud", "FlClash"), OixCloud, ""},
 			Location{"Clash / Mihomo", filepath.Join(home, ".config", "clash"), Plain, ""},
 			Location{"Clash Verge", filepath.Join(home, ".config", "clash-verge"), Verge, ""},
-			Location{"ShadowsocksR", filepath.Join(dataHome, "ShadowsocksR"), Plain, ""})
+			Location{"ShadowsocksR", filepath.Join(dataHome, "ShadowsocksR"), Plain, ""},
+			Location{"SakuraCat", filepath.Join(dataHome, "SakuraCat", "SakuraCat"), SakuraCat, ""})
 	}
 	return out
 }
@@ -220,6 +226,22 @@ func Scan(locations []Location, key []byte) []Config {
 			}
 		}
 		switch loc.Layout {
+		case SakuraCat:
+			// A plain Clash/Mihomo config would still import. The client's own
+			// files are private; only their presence is reported, never content.
+			c, ok, _ := build("config.json", "", "config.json", "", true)
+			if ok && c.Error == "" {
+				out = append(out, c)
+				continue
+			}
+			if !ok {
+				if _, err := os.Stat(filepath.Join(root, "offline_cache.json")); err != nil {
+					continue
+				}
+			}
+			notice := Config{Client: loc.Client, Name: "私有配置", Error: privateConfigError}
+			signConfig(&notice, root, key, "config.json", "offline_cache.json")
+			out = append(out, notice)
 		case OixCloud:
 			var encryptedFiles []string
 			var fallbackErrors []Config

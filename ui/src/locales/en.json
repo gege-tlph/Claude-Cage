@@ -3095,5 +3095,7 @@
   "Linux 容器": "Linux container",
   "Apple Virtualization": "Apple Virtualization",
   "设备已改名": "Device renamed",
-  "待登录 Desktop": "Desktop (not signed in)"
+  "待登录 Desktop": "Desktop (not signed in)",
+  "私有配置": "Private config",
+  "私有格式，无法导入；请改用服务商提供的 Clash/Mihomo 订阅": "Private format, cannot be imported; use the Clash/Mihomo subscription from your provider"
 }
