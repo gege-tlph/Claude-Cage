@@ -942,7 +942,7 @@ func (s *Server) saveSettings(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	previous := s.preferences
 	s.mu.Unlock()
-	if err == nil && old == v.Config && previous.AutoTimezone == v.Preferences.AutoTimezone && previous.AutoLanguage == v.Preferences.AutoLanguage && previous.Workspace != v.Preferences.Workspace {
+	if err == nil && !environmentSettingsChanged(old, previous, v) && previous.Workspace != v.Preferences.Workspace {
 		kind = "project"
 	}
 	s.launchRequest(w, r, kind, func() error {

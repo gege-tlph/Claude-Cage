@@ -68,6 +68,16 @@ func Load(path string) (Config, error) {
 	return c, err
 }
 
+// SameSettings reports whether two configurations hold the same settings.
+// GuestProfile is left out: it comes from its own file (guestprofile.Load
+// returns a new pointer on every load) and the settings form never carries
+// it, so comparing the structs saw a change on every save and restarted a
+// running environment.
+func (c Config) SameSettings(o Config) bool {
+	c.GuestProfile, o.GuestProfile = nil, nil
+	return c == o
+}
+
 func loadTLSClientHelloSplit(dir string) bool {
 	var prefs struct {
 		TLSClientHelloSplit bool `json:"tls_client_hello_split"`

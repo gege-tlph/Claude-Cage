@@ -76,6 +76,14 @@ func (s *Server) restartPendingLocked(running bool, now appliedSettings) []strin
 	return pending
 }
 
+// environmentSettingsChanged reports whether saving v changes what the
+// environment was started with, so applying it restarts the environment.
+// Preferences such as balanced display apply at the next start instead
+// (restart_pending).
+func environmentSettingsChanged(old cage.Config, oldPrefs Preferences, v savedProfile) bool {
+	return !old.SameSettings(v.Config) || oldPrefs.AutoTimezone != v.Preferences.AutoTimezone || oldPrefs.AutoLanguage != v.Preferences.AutoLanguage
+}
+
 // restartEnvironment stops and starts the running environment in one job, so
 // saved settings that apply at start take effect. Another job, such as a stop
 // already under way, refuses it.

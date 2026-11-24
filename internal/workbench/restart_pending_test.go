@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/sylvinus/agent-vm/internal/cage"
+	"github.com/sylvinus/agent-vm/internal/guestprofile"
 )
 
 // Settings read only at environment start are reported as pending while the
@@ -75,4 +76,42 @@ func TestRestartPendingNamesSettingsSavedWhileRunning(t *testing.T) {
 		t.Fatalf("restart of a stopped environment: %d", w.Code)
 	}
 	_ = os.Remove(cage.ResourceAllocationPath(s.configPath))
+}
+
+// Saving a preference applied at the next start (balanced display) must not
+// count as an environment change, or the save restarts the environment at
+// once. With a guest profile on disk every load compared unequal before.
+func TestPreferenceSaveDoesNotRestartEnvironment(t *testing.T) {
+	s := testServer(t)
+	profile, err := guestprofile.New(guestprofile.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := guestprofile.Replace(s.profile, profile); err != nil {
+		t.Fatal(err)
+	}
+	old, err := loadConfig(s.configPath)
+	if err != nil || old.GuestProfile == nil {
+		t.Fatal("fixture needs a loaded guest profile", err)
+	}
+	form := settingsView(old, s.preferences)
+	form.BalancedDisplay = !form.BalancedDisplay
+	form.Clock12Hour = !form.Clock12Hour
+	c, p, err := proposedSettings(form, old, s.profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if old == c {
+		t.Fatal("fixture: the form's configuration should differ by pointer only")
+	}
+	if environmentSettingsChanged(old, s.preferences, savedProfile{c, p}) {
+		t.Fatal("a preference-only save restarts the environment")
+	}
+	form.Timezone = "Asia/Tokyo"
+	if c, p, err = proposedSettings(form, old, s.profile); err != nil {
+		t.Fatal(err)
+	}
+	if !environmentSettingsChanged(old, s.preferences, savedProfile{c, p}) {
+		t.Fatal("a time zone change went unnoticed")
+	}
 }
