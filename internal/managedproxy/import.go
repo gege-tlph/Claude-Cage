@@ -22,6 +22,13 @@ type NodeIssue struct {
 	Reason string `json:"reason"`
 }
 
+// clientOnlyTypes are node types that only a client's own modified core
+// understands. The bundled Mihomo cannot parse them, so the skip reason names
+// the client and the migration path instead of a generic unsupported protocol.
+var clientOnlyTypes = map[string]string{
+	"ninja": "Clash Verge Ninja 专用协议，无法导入，请改用标准 Mihomo 节点",
+}
+
 // Parse enforces Cage's import boundaries. Call Validate before committing a
 // candidate source; protocol parameters are interpreted by the bundled core.
 // Store.Import also retains skipped-node details.
@@ -112,6 +119,9 @@ func parseNodesWith(data []byte, sourceID string, relays localRelays) ([]Node, [
 			issue.Reason = "节点名称重复，无法确定代理链引用"
 		case !types[typ]:
 			issue.Reason = "节点协议暂不支持"
+			if reason := clientOnlyTypes[strings.ToLower(typ)]; reason != "" {
+				issue.Reason = reason
+			}
 		case server == "" || len(server) > 253:
 			issue.Reason = "节点服务器缺失或过长"
 		case local.contains(server) && !relays.relay(p):
