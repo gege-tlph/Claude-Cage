@@ -432,5 +432,10 @@ export function localizeBackendMessage(message, localize = translate) {
       return translateTemplate(localize, "{0}失败：{1}。", translatedAction, translatedReason) ?? trimmed;
     }
   }
+  // "<known message>：<detail>", such as a path or a name: translate the
+  // known part and keep the detail as it is.
+  if ((m = trimmed.match(/^([^：]+)：([^\p{Script=Han}]+)$/u)) && localize(m[1]) !== m[1]) {
+    return `${localize(m[1])}: ${m[2]}`;
+  }
   return trimmed;
 }

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { api } from "./api";
 import "./guest-system-picker.css";
 import { useTranslation } from "./interface-language.mjs";
+import { localizeBackendMessage } from "./backend-message.mjs";
 
 // New environments always use Debian 13. The other names only label an
 // installation that an earlier version recorded.
@@ -12,7 +13,9 @@ const newEnvironment = { guest_system: "debian-13" };
 // nothing for a new environment; for an installation recorded by an earlier
 // version it shows that record and, while nothing was created for it, lets
 // the user withdraw it.
-export function GuestSystemPicker({ system, onChange, onReselect, preserveOnUnmount = false }) {
+// refresh changes when the answer may have (a finished job, such as a new
+// storage location chosen in settings); onSettings opens the storage settings.
+export function GuestSystemPicker({ system, onChange, onReselect, onSettings, refresh, preserveOnUnmount = false }) {
   const tr = useTranslation();
   const [view, setView] = useState(null);
   const [error, setError] = useState("");
@@ -31,9 +34,12 @@ export function GuestSystemPicker({ system, onChange, onReselect, preserveOnUnmo
       else setError(e.message);
     });
     return () => { active = false; if (!preserveOnUnmount) onChange(undefined); };
-  }, [onChange, attempt, preserveOnUnmount]);
-  if (!view || !system) return error ? <div className="guest-system-picker"><span role="alert">{tr(error)}</span>
-    <button type="button" onClick={() => retry((n) => n + 1)}>{tr("重新检查安装状态")}</button></div> : null;
+  }, [onChange, attempt, preserveOnUnmount, refresh]);
+  if (!view || !system) return error ? <div className="guest-system-picker guest-system-picker-error"><span role="alert">{localizeBackendMessage(error, tr)}</span>
+    <div className="guest-system-picker-actions">
+      <button type="button" onClick={() => retry((n) => n + 1)}>{tr("重新检查安装状态")}</button>
+      {onSettings && <button type="button" onClick={onSettings}>{tr("环境与恢复")}</button>}
+    </div></div> : null;
   if (!view.pending) return null;
   return (
     <div className="guest-system-picker">

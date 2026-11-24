@@ -2140,7 +2140,7 @@ function App() {
                                 : tr("新建终端")}
                       </button>
                     </div>
-                    {!busy && !running && !account?.guest_system && status.local_vm_storage && !isRemoteClient() && <GuestSystemPicker system={guestSystem} onChange={setGuestSystem} />}
+                    {!busy && !running && !account?.guest_system && status.local_vm_storage && !isRemoteClient() && <GuestSystemPicker system={guestSystem} onChange={setGuestSystem} onSettings={() => openSettings("project")} refresh={status.job?.running ? "" : status.job?.id} />}
                     {terminalMenuAt("start")}
                   </div>
                   </>}

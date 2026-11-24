@@ -10,3 +10,8 @@
 .guest-install-fields { grid-column: 1 / -1; display: grid; gap: 9px; min-width: 0; }
 .guest-install-fields small { color: var(--muted); overflow-wrap: anywhere; }
 .guest-install-fields button { justify-self: start; }
+/* An error is a sentence, not a label: text on its own line, buttons below
+   (the two-column grid left the button about 25px wide). */
+.guest-system-picker-error { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.guest-system-picker-error > [role="alert"] { overflow-wrap: anywhere; color: var(--danger); }
+.guest-system-picker-actions { display: flex; flex-wrap: wrap; gap: 8px; }

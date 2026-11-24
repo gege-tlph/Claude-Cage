@@ -3053,5 +3053,7 @@
   "检查加密 DNS": "Check encrypted DNS",
   "存于云端主机": "Stored on the cloud host",
   "仅存于本机": "Stored on this computer only",
-  "客机设备配置": "Guest device profile"
+  "客机设备配置": "Guest device profile",
+  "环境存储目录已不存在": "Environment storage folder no longer exists",
+  "环境存储不可用，请重新连接原磁盘": "Environment storage unavailable; reconnect the original disk"
 }

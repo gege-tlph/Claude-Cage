@@ -206,7 +206,7 @@ func getStorageLocation(profile string) (StorageLocation, error) {
 		if err != nil || te != nil || me != nil || string(marker) != r.ID || !sameStoragePath(real, target) {
 			if storageDeleted(anchor, r.Directory) || storageEmptied(anchor, r.Directory) {
 				loc.Missing = true
-				return loc, fmt.Errorf("%w：%s。如果它位于外接磁盘，请连接磁盘后重新打开设置；否则请选择新的存储位置，Cage 会在那里重新创建环境，原环境数据无法恢复。", ErrStorageMissing, r.Directory)
+				return loc, fmt.Errorf("%w：%s", ErrStorageMissing, r.Directory)
 			}
 			return loc, fmt.Errorf("环境存储不可用，请重新连接原磁盘：%s", r.Directory)
 		}
