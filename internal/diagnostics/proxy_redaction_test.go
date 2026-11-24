@@ -34,6 +34,8 @@ func TestRedactProxyAddresses(t *testing.T) {
 		{"Login browser open failed: Browser command timed out: Page.navigate", "Login browser open failed: Browser command timed out: Page.navigate"},
 		{"Target.createTarget failed near static.example-provider.io:1337", "Target.createTarget failed near [host]"},
 		{"page.example-provider.io target.createtarget.example", "[host] [host]"},
+		{"Login browser open failed (stage=create-target): Browser command timed out: Target/createTarget", "Login browser open failed (stage=create-target): Browser command timed out: Target/createTarget"},
+		{"Login browser open failed (stage=navigate): Browser command timed out: Page/navigate at api.example.com", "Login browser open failed (stage=navigate): Browser command timed out: Page/navigate at [host]"},
 		{"2026-11-14T10:20:30+08:00 v0.1.7 HTTP 502 dns resolve failed: context deadline exceeded", "2026-11-14T10:20:30+08:00 v0.1.7 HTTP 502 dns resolve failed: context deadline exceeded"},
 	} {
 		t.Run(tc.input, func(t *testing.T) {

@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AccountLoginCookies } from "./browser-cookies.mjs";
-import { LoginBrowser, isClaudeSignIn, startNavigation } from "./browser-login.mjs";
+import { LoginBrowser, formatCDPDiagnostic, isClaudeSignIn, startNavigation } from "./browser-login.mjs";
 
 test("login redirects and popups stay private, closing one login leaves the other open", async () => {
   const closed = [];
@@ -82,30 +82,121 @@ test("only official sign-in paths opt external links into login handling", () =>
   assert.equal(isClaudeSignIn("https://api.workos.com/sso/authorize", true), true);
 });
 
-// #791: Page.navigate answers only when the server starts to respond. A slow
-// sign-in page must not close the window it opened; an immediate failure
-// still does.
-test("a slow sign-in page keeps its window open, an immediate failure closes it", async () => {
+test("slow Page.navigate hands off the live login tab instead of disposing it (#791)", async () => {
+  const timeouts = new Map();
   const disposed = [];
-  let navigate;
-  const browser = new LoginBrowser(async (method, params, sessionId, timeout) => {
-    if (method === "Target.createBrowserContext") return { browserContextId: "ctx" };
-    if (method === "Target.createTarget") return { targetId: "tab" };
-    if (method === "Target.disposeBrowserContext") disposed.push(params.browserContextId);
-    if (method === "Page.navigate") return navigate(timeout);
-  }, undefined, { settle: 20 });
-  const address = "https://claude.ai/oauth/authorize?state=slow";
-  let limit;
-  navigate = timeout => { limit = timeout; return new Promise(() => {}); };
-  assert.deepEqual(await browser.open("a".repeat(24), address, async () => "page"), { id: "tab", incognito: true });
-  assert.deepEqual(disposed, [], "a page still loading closed its window");
-  assert.ok(limit >= 60_000, "navigation kept the short command timeout");
-  await browser.finish("a".repeat(24));
+  let finishNavigate;
+  const navigatePending = new Promise((resolve, reject) => {
+    finishNavigate = { resolve, reject };
+  });
+  const browser = new LoginBrowser(
+    (method, params, sessionId, timeout) => {
+      timeouts.set(method, timeout);
+      if (method === "Target.createBrowserContext") return Promise.resolve({ browserContextId: "ctx-1" });
+      if (method === "Target.createTarget") return Promise.resolve({ targetId: "tab-1" });
+      if (method === "Page.navigate") {
+        assert.equal(sessionId, "session-1");
+        return navigatePending;
+      }
+      if (method === "Target.disposeBrowserContext") {
+        disposed.push(params.browserContextId);
+        return Promise.resolve({});
+      }
+      return Promise.resolve({});
+    },
+    undefined,
+    { commandTimeout: 12000, navigateTimeout: 30000, navigateWait: 25 },
+  );
 
-  navigate = () => Promise.reject(new Error("Browser command timed out: Page.navigate"));
-  disposed.length = 0;
-  await assert.rejects(browser.open("b".repeat(24), address, async () => "page"), /授权页面未能打开/);
-  assert.deepEqual(disposed, ["ctx"]);
+  const opened = await browser.open(
+    "c".repeat(24),
+    "https://claude.ai/oauth/authorize?state=slow-proxy",
+    async () => "session-1",
+  );
+  assert.deepEqual(opened, { id: "tab-1", incognito: true });
+  assert.deepEqual(disposed, [], "slow navigation must not dispose the login browser context");
+  assert.equal(timeouts.get("Target.createBrowserContext"), 12000);
+  assert.equal(timeouts.get("Target.createTarget"), 12000);
+  assert.equal(timeouts.get("Page.navigate"), 30000);
+
+  // Late failure after handoff is logged cleanly without an unhandled rejection.
+  const errors = [];
+  const origError = console.error;
+  console.error = (...args) => errors.push(args.join(" "));
+  try {
+    finishNavigate.reject(new Error("Browser command timed out: Page.navigate"));
+    await new Promise(resolve => setTimeout(resolve, 10));
+  } finally {
+    console.error = origError;
+  }
+  assert.ok(errors.some(line => line.includes("stage=navigate") && line.includes("Page/navigate")), errors.join("\n"));
+
+  await browser.finish("c".repeat(24));
+  assert.deepEqual(disposed, ["ctx-1"]);
+});
+
+test("login open failures log stage and redaction-safe CDP method and still clean up (#791)", async () => {
+  const cases = [
+    {
+      name: "create-context",
+      failAt: "Target.createBrowserContext",
+      wantStage: "stage=create-context",
+      wantMethod: "Target/createBrowserContext",
+    },
+    {
+      name: "create-target",
+      failAt: "Target.createTarget",
+      wantStage: "stage=create-target",
+      wantMethod: "Target/createTarget",
+    },
+    {
+      name: "navigate",
+      failAt: "Page.navigate",
+      wantStage: "stage=navigate",
+      wantMethod: "Page/navigate",
+    },
+  ];
+  for (const tc of cases) {
+    const disposed = [];
+    const errors = [];
+    const origError = console.error;
+    console.error = (...args) => errors.push(args.join(" "));
+    try {
+      const browser = new LoginBrowser(async (method, params) => {
+        if (method === tc.failAt) throw new Error(`Browser command timed out: ${method}`);
+        if (method === "Target.createBrowserContext") return { browserContextId: "ctx-" + tc.name };
+        if (method === "Target.createTarget") return { targetId: "tab-" + tc.name };
+        if (method === "Target.disposeBrowserContext") {
+          disposed.push(params.browserContextId);
+          throw new Error("dispose failed");
+        }
+      });
+      await assert.rejects(
+        browser.open("d".repeat(24), "https://claude.ai/oauth/authorize?state=fail", async () => "session"),
+        /授权页面未能打开/,
+      );
+    } finally {
+      console.error = origError;
+    }
+    assert.ok(
+      errors.some(line => line.includes(tc.wantStage) && line.includes(tc.wantMethod)),
+      `${tc.name}: unexpected error logs: ${errors.join(" | ")}`,
+    );
+    if (tc.failAt !== "Target.createBrowserContext") {
+      assert.deepEqual(disposed, ["ctx-" + tc.name], `${tc.name}: context should be disposed`);
+    }
+  }
+});
+
+test("formatCDPDiagnostic rewrites only fixed CDP methods and leaves hostnames untouched", () => {
+  assert.equal(
+    formatCDPDiagnostic(new Error("Browser command timed out: Target.createTarget")),
+    "Browser command timed out: Target/createTarget",
+  );
+  assert.equal(
+    formatCDPDiagnostic(new Error("Browser command timed out: Page.navigate at example.com")),
+    "Browser command timed out: Page/navigate at example.com",
+  );
 });
 
 test("a navigation that fails after the wait is only logged", async () => {
