@@ -39,6 +39,19 @@
 .initialization .setting-summary-row { display: flex; gap: 12px; flex-wrap: wrap; font-size: 14px; }
 .initialization .setting-summary-row strong { font-weight: 500; overflow-wrap: anywhere; }
 .initialization .proxy-manager { margin: 0; }
+.initialization-dns { margin-top: 22px; padding-top: 22px; border-top: 1px solid var(--line); }
+.initialization-dns > summary { display: flex; align-items: baseline; gap: 10px; cursor: pointer; font-size: 16px; font-weight: 550; color: var(--strong); }
+.initialization-dns > summary small { color: var(--muted); font-size: 14px; font-weight: 400; overflow-wrap: anywhere; }
+.initialization-dns label { display: grid; gap: 8px; margin: 16px 0 0; font-size: 14px; }
+.initialization-dns input, .initialization-dns textarea { width: 100%; box-sizing: border-box; min-height: 40px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; background: var(--input); color: var(--ink); font: inherit; resize: vertical; }
+.initialization-dns input:focus-visible, .initialization-dns textarea:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+.initialization-dns-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.initialization-dns-actions button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; }
+.dns-check-results { display: grid; gap: 6px; list-style: none; padding: 0; margin: 14px 0 0; font-size: 14px; }
+.dns-check-results li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; }
+.dns-check-results li > span { min-width: 0; color: var(--muted); overflow-wrap: anywhere; }
+.dns-check-results li > strong { flex: none; font-weight: 500; color: var(--danger); }
+.dns-check-results li[data-result="ok"] > strong { color: var(--success); }
 .initialization-actions { display: flex; justify-content: space-between; gap: 16px; align-items: center; padding-top: 24px; margin-top: 28px; border-top: 1px solid var(--line); }
 .initialization-actions button { min-height: 40px; }
 .initialization button { transition: background 150ms, transform 100ms; }
