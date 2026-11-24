@@ -21,7 +21,7 @@ import { shareClipboard } from "./shared-clipboard.mjs";
 import { desktopInputChannel } from "./desktop-input-channel.mjs";
 import { installRemoteInput } from "./remote-input";
 import { guestKeys } from "./guest-keys.mjs";
-import { followDisplaySize } from "./remote-display.mjs";
+import { DESKTOP_MIN_WIDTH, followDisplaySize } from "./remote-display.mjs";
 import { runtimeSocketURL } from "./client-context.mjs";
 import { translate, useTranslation } from "./interface-language.mjs";
 import { localizeBackendMessage } from "./backend-message.mjs";
@@ -382,10 +382,14 @@ function DesktopPane({
   onControl,
   close,
   busy,
+  split = false,
 }) {
   const tr = useTranslation();
   usePrivacyMask();
   const box = useRef(null);
+  // Read at each resize: entering or leaving a split resizes the pane.
+  const splitRef = useRef(split);
+  splitRef.current = split;
   const rfb = useRef(null);
   const input = useRef(null);
   const clipboardRef = useRef(null);
@@ -477,6 +481,7 @@ function DesktopPane({
           // display_scale 1: its pane is sized in CSS pixels as before.
           sizing = followDisplaySize({
             client, container, desktop: true, density: display_scale ?? 1, follow: dynamic_scale === true,
+            minWidth: () => splitRef.current ? DESKTOP_MIN_WIDTH : 0,
             resize: (size) => api(path + "/resize", size),
             onError: () => { if (live) setSizeError(true); },
             onSuccess: () => { if (live) setSizeError(false); },
@@ -716,7 +721,7 @@ export const DesktopPanes = forwardRef(function DesktopPanes(
             {/* A text button like the instance pane's, so both title bars are one height. */}
             <button onClick={() => model.hidePane(a.id)}>{tr("退出分屏")}</button>
           </header>}
-          {renderDefault?.(activePaneID === a.id)}
+          {renderDefault?.(activePaneID === a.id, panes.length > 1)}
         </section>
       ) : (
         <DesktopPane
@@ -726,6 +731,7 @@ export const DesktopPanes = forwardRef(function DesktopPanes(
           visible={visible}
           windowVisible={windowVisible}
           focused={activePaneID === a.id}
+          split={panes.length > 1}
           onFocus={() => setFocusedID(a.id)}
           keyboard={keyboard}
           systemClipboard={systemClipboard}

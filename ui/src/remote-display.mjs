@@ -1,14 +1,28 @@
+// Narrowest Claude Desktop workspace beside another pane, in guest logical
+// pixels. Its pages cut off their right side below about 760 (measured on the
+// welcome page at half of a split).
+export const DESKTOP_MIN_WIDTH = 800;
+
 // The guest reports its running pixel density. Zoom changes its logical workspace size,
 // while noVNC fits the resulting framebuffer into the available CSS area.
 // A guest that follows its viewer is given pixelRatio, the density of the
 // screen showing it: it renders one pixel per screen pixel, and zoom changes
 // the density instead of the pixel count. The reduced-clarity setting (1.5)
 // keeps three quarters of those pixels in each direction.
-export function displayGeometry({ width, height }, { desktop = false, zoom = 1, density = 2, pixelRatio } = {}) {
+export function displayGeometry({ width, height }, { desktop = false, zoom = 1, density = 2, pixelRatio, minWidth = 0 } = {}) {
   if (width < (desktop ? 320 : 160) || height < 240) return null;
   const follow = pixelRatio > 0;
   const automatic = desktop && zoom === "auto" && !follow;
   const zoomFactor = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+  // A pane narrower than minWidth (Claude Desktop beside another pane) keeps
+  // the guest that wide, in its own logical pixels, and grows the height
+  // alike: noVNC scales the whole frame down to the pane instead of cutting
+  // off its right side.
+  if (minWidth > 0 && width / zoomFactor < minWidth) {
+    const stretch = minWidth * zoomFactor / width;
+    width *= stretch;
+    height *= stretch;
+  }
   let scale = !follow && desktop && Number.isFinite(density) && density >= 1 && density <= 8
     ? density : density === 1.5 ? 1.5 : 2;
   let ratio = scale / zoomFactor;
@@ -106,7 +120,7 @@ export function displaySizeSync(resize, { onError = () => {}, onSuccess = () => 
 // three seconds, so two viewers never take turns. Returns update, retry and
 // dispose.
 export function followDisplaySize({
-  client, container, resize, desktop = false, zoom = () => 1, density, follow = false,
+  client, container, resize, desktop = false, zoom = () => 1, minWidth = () => 0, density, follow = false,
   onError = () => {}, onSuccess = () => {}, view = window, verifyDelay = 1500,
 }) {
   let followScreen = follow, disposed = false, verifyTimer, reasserted = -Infinity;
@@ -120,7 +134,7 @@ export function followDisplaySize({
   const update = () => {
     if (disposed) return;
     sizeSync.update(displayGeometry(container.getBoundingClientRect(), {
-      desktop, zoom: zoom(), density,
+      desktop, zoom: zoom(), minWidth: minWidth(), density,
       pixelRatio: followScreen ? view.devicePixelRatio : undefined,
     }));
   };
