@@ -1,3 +1,4 @@
+import { StartupStage } from "./startup-splash.jsx";
 import React, {
   createContext,
   useCallback,
@@ -152,10 +153,7 @@ export function ClientRoot({ children }) {
         </Environment>
       ) : (
         !error && (
-          <div className="client-loading">
-            <LoaderCircle className="spin" size={18} />
-            {tr("正在连接 Cage…")}
-          </div>
+          <StartupStage status={tr("正在连接 Cage…")} />
         )
       )}
     </div>
@@ -782,7 +780,7 @@ function Environment({ context, refresh, children }) {
         {ready ? (
           <div className="client-workbench">{children}</div>
         ) : defaultLocal && !error && candidate?.connection?.state !== "failed" && !expanded ? (
-          <div className="client-loading" role="status">{tr("正在打开 Cage 工作台…")}</div>
+          <StartupStage status={tr("正在打开 Cage 工作台…")} />
         ) : (
           <main className="environment-picker">
             <div>

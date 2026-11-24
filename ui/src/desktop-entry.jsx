@@ -7,12 +7,13 @@ import { native } from "./api";
 import "./style.css";
 import { IconHints } from "./icon-hints.jsx";
 import { useTranslation } from "./interface-language.mjs";
+import { StartupSplash, StartupStage } from "./startup-splash.jsx";
 
 const Workbench = lazy(() => import("./main.jsx"));
 
 function WorkbenchLoading() {
   const tr = useTranslation();
-  return <div className="client-loading" role="status">{tr("正在打开工作台…")}</div>;
+  return <StartupStage status={tr("正在打开工作台…")} />;
 }
 
 installDiagnostics();
@@ -24,6 +25,7 @@ window.cageNativeAction = (command) => {
 createRoot(document.getElementById("root")).render(
   <DiagnosticBoundary>
     <IconHints />
+    <StartupSplash />
     <ClientRoot>
       <Suspense
         fallback={<WorkbenchLoading />}
