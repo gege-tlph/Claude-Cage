@@ -31,15 +31,15 @@ ManifestSupportedOS all
 !define APP_ID "io.github.lee-xeo.claude-cage"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\ClaudeCage"
 !define WEBVIEW2_APP_ID "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
-Name "Cage ${VERSION}"
+Name "Cage lite ${VERSION}"
 OutFile "${OUTPUT_FILE}"
 InstallDir "$LOCALAPPDATA\Programs\Cage"
 InstallDirRegKey HKCU "${UNINSTALL_KEY}" "InstallLocation"
 VIProductVersion "${VERSION_NUMERIC}"
-VIAddVersionKey /LANG=1033 "ProductName" "Cage"
+VIAddVersionKey /LANG=1033 "ProductName" "Cage lite"
 VIAddVersionKey /LANG=1033 "ProductVersion" "${VERSION}"
 VIAddVersionKey /LANG=1033 "FileVersion" "${VERSION}"
-VIAddVersionKey /LANG=1033 "FileDescription" "Cage Windows Installer"
+VIAddVersionKey /LANG=1033 "FileDescription" "Cage lite Windows Installer"
 VIAddVersionKey /LANG=1033 "LegalCopyright" "Cage contributors"
 
 !ifdef SIGN_SCRIPT
@@ -48,7 +48,7 @@ VIAddVersionKey /LANG=1033 "LegalCopyright" "Cage contributors"
 
 !define MUI_ABORTWARNING
 !define MUI_LANGDLL_ALLLANGUAGES
-!define MUI_LANGDLL_WINDOWTITLE "Cage"
+!define MUI_LANGDLL_WINDOWTITLE "Cage lite"
 !define MUI_LANGDLL_INFO "$(CageInstallerLanguage)"
 !define MUI_FINISHPAGE_RUN "$INSTDIR\Cage.exe"
 !define MUI_FINISHPAGE_RUN_NOTCHECKED
@@ -662,7 +662,7 @@ Section "Cage" Main
     ${EndIf}
   ${EndIf}
   !insertmacro InstallPhase "registering_installation"
-  WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "Cage"
+  WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "Cage lite"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayVersion" "${VERSION}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "Cage contributors"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "InstallLocation" "$INSTDIR"
