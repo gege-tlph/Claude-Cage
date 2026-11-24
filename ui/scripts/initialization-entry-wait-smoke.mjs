@@ -81,7 +81,7 @@ async function runScenario(name, firstWaitMs, rejectFirst = false) {
     const waitingButton = () => page.getByRole("button", { name: "正在进入…", exact: true });
     const workbench = () => page.getByRole("complementary", { name: "项目与终端" });
     await entryButton().waitFor();
-    await page.getByRole("heading", { name: "Cage lite 已准备就绪", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "环境已就绪", exact: true }).waitFor();
     await screenshot("ready");
 
     async function attemptEntry(waitMs, attemptNumber) {
@@ -120,9 +120,9 @@ async function runScenario(name, firstWaitMs, rejectFirst = false) {
         result.samples.push({ attemptNumber, elapsedMs, ...sample });
         assert.deepEqual(sample, {
           buttonPresent: true, disabled: true, ariaBusy: "true", spinner: true,
-          readyTitle: "Cage lite 已准备就绪", readyPanel: true,
+          readyTitle: "安装与检查", readyPanel: true,
           waitingHeading: "正在进入工作台",
-          waitingStatus: "正在等待后台检查结束并确认环境状态，请稍候…",
+          waitingStatus: "正在进入工作台",
           stopInstallation: false, installationOperation: false,
           previousDisabled: true, workbenchPresent: false,
         }, `entry waiting UI at ${elapsedMs}ms`);
