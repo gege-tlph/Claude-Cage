@@ -47,7 +47,12 @@ func (c Config) Fingerprint() string {
 	h := sha256.New()
 	h.Write(b)
 	if c.DNS != (DNSOptions{}) {
-		extra, _ := json.Marshal(dnsOptionsFile{FallbackURLs: c.DNS.FallbackURLs(), BootstrapURLs: c.DNS.BootstrapURLs(), PublicFallback: c.DNS.PublicFallback})
+		// The shape fingerprints had before PublicFallback defaulted to on.
+		extra, _ := json.Marshal(struct {
+			FallbackURLs   []string `json:"fallback_urls,omitempty"`
+			BootstrapURLs  []string `json:"bootstrap_urls,omitempty"`
+			PublicFallback bool     `json:"public_fallback,omitempty"`
+		}{c.DNS.FallbackURLs(), c.DNS.BootstrapURLs(), c.DNS.PublicFallback})
 		h.Write([]byte{'\n'})
 		h.Write(extra)
 	}

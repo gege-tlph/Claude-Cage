@@ -233,6 +233,9 @@ func TestDNSRetriesOnlyTransientFailuresThroughSameProxy(t *testing.T) {
 			defer p.Close()
 			c := DefaultConfig()
 			c.ProxyURL, c.DNSURL = p.URL, doh.URL
+			// One endpoint: the retry must reuse it (the public fallback would
+			// take the next attempt elsewhere).
+			c.DNS = DNSOptions{}
 			e, err := NewEgress(c)
 			if err != nil {
 				t.Fatal(err)

@@ -37,7 +37,7 @@ type Config struct {
 }
 
 func DefaultConfig() Config {
-	return Config{ProxyURL: "socks5://127.0.0.1:17896", DNSURL: "https://1.1.1.1/dns-query", Timezone: "Etc/UTC", Locale: "en_US.UTF-8", BrowserLanguage: "en-US"}
+	return Config{ProxyURL: "socks5://127.0.0.1:17896", DNSURL: "https://1.1.1.1/dns-query", DNS: DefaultDNSOptions(), Timezone: "Etc/UTC", Locale: "en_US.UTF-8", BrowserLanguage: "en-US"}
 }
 
 func Load(path string) (Config, error) {
