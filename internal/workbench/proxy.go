@@ -70,6 +70,9 @@ func (s *Server) proxyStatus(w http.ResponseWriter, r *http.Request) {
 			if reason := blocked[n.ID]; reason != "" {
 				node["blocked_reason"] = reason
 			}
+			if p.LocalRelay(n.ID) {
+				node["relay"] = true
+			}
 			nodes = append(nodes, node)
 		}
 		host := ""
@@ -128,7 +131,7 @@ func (s *Server) proxyStatus(w http.ResponseWriter, r *http.Request) {
 			state, label = "migration_required", "需要迁移代理节点"
 		}
 	}
-	jsonReply(w, map[string]any{"route": route, "route_error": routeError, "sources": sources, "selected": p.Selected, "port": p.Port, "running": running, "active": active, "state": state, "state_label": label, "network_open": state == "ready", "core_available": coreErr == nil, "core_error": coreError, "version": version.Version, "revision": p.Revision, "bootstrap_dns": strings.Join(p.NodeResolvers(), "、"), "udp_blocked": true, "ipv6_blocked": true})
+	jsonReply(w, map[string]any{"route": route, "route_error": routeError, "sources": sources, "selected": p.Selected, "port": p.Port, "running": running, "active": active, "state": state, "state_label": label, "network_open": state == "ready", "core_available": coreErr == nil, "core_error": coreError, "version": version.Version, "revision": p.Revision, "bootstrap_dns": strings.Join(p.NodeResolvers(), "、"), "udp_blocked": true, "ipv6_blocked": true, "local_relays": append([]int{}, p.LocalRelays...)})
 }
 func (s *Server) proxyMutation(w http.ResponseWriter, r *http.Request) {
 	if r.PathValue("action") == "import-local" && !s.requireLocalConfigAccess(w, r) {
@@ -464,12 +467,31 @@ func (s *Server) changeProxy(action string, in proxyInput, resumeVersion *uint64
 			if index >= 0 && in.ID != "" {
 				added = p.Sources[index]
 			}
-			candidate.Selected = added.Nodes[0].ID
-			candidate.Chain = nil
+			// The first node that is a valid exit on its own. A local relay
+			// listed first is only a hop, and must not roll back the whole
+			// source (#595); validation then does not depend on YAML order.
+			candidate.Selected, candidate.Chain = "", nil
+			onlyRelays := true
+			for _, n := range added.Nodes {
+				onlyRelays = onlyRelays && p.LocalRelay(n.ID)
+				try := candidate
+				try.Selected = n.ID
+				if _, routeErr := try.Route(); routeErr == nil && candidate.Selected == "" {
+					candidate = try
+				}
+			}
+			// Otherwise validation reports why the first node cannot exit.
+			if candidate.Selected == "" && !onlyRelays {
+				candidate.Selected = added.Nodes[0].ID
+			}
 		}
-		if err = validateProxyCore(ctx, s.profile, candidate); err != nil {
-			s.proxySourceFailure(in.ID, err)
-			return err
+		// A source of local relays alone has no exit to validate with; relays
+		// take no options beyond address and credentials.
+		if candidate.Selected != "" {
+			if err = validateProxyCore(ctx, s.profile, candidate); err != nil {
+				s.proxySourceFailure(in.ID, err)
+				return err
+			}
 		}
 		if _, ok := p.Find(p.Selected); !ok {
 			p.Selected = ""

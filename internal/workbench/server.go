@@ -479,6 +479,7 @@ func (s *Server) handler() http.Handler {
 	mux.HandleFunc("GET /api/proxy", s.proxyStatus)
 	mux.HandleFunc("GET /api/proxy/local-configs", s.proxyLocalConfigs)
 	mux.HandleFunc("POST /api/proxy/delay", s.proxyDelay)
+	mux.HandleFunc("POST /api/proxy/local-relay", s.proxyLocalRelay)
 	mux.HandleFunc("GET /api/proxy/connections", s.proxyConnections)
 	mux.HandleFunc("GET /api/proxy/logs", s.proxyLogs)
 	mux.HandleFunc("POST /api/proxy/{action}", s.proxyMutation)

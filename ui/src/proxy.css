@@ -911,6 +911,30 @@ button.proxy-region-group-header:hover:not(:disabled) {
 .proxy-host-refresh {
   margin-top: 10px;
 }
+/* Allowed local relay ports (#595), after the sources they serve. */
+.proxy-relays {
+  margin-top: 18px;
+  display: grid;
+  gap: 8px;
+}
+.settings-content .proxy-relays h4 {
+  margin: 0;
+  font-size: 14px;
+}
+.proxy-relay,
+.proxy-relay-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.proxy-relay code,
+.proxy-relay-add > span {
+  font-size: 13px;
+}
+/* The settings input rule sets width: 100% with higher specificity. */
+.proxy-relays .proxy-relay-add input {
+  max-width: 96px;
+}
 /* Breathing room between the node address card, the drop zone and the
    content field; an empty status line takes no space. */
 .proxy-import .proxy-node-edit {

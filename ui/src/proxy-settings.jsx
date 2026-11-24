@@ -96,6 +96,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
   const [manual, setManual] = useState(emptyManual);
   const [routeDraft, setRouteDraft] = useState(null);
   const [hostRefresh, setHostRefresh] = useState(false);
+  const [relayPort, setRelayPort] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
   const [readingFile, setReadingFile] = useState(false);
   const alive = useRef(true),
@@ -383,10 +384,14 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
   );
   const selected = allNodes.find((n) => n.id === proxy.selected);
   const usableNodes = allNodes.filter((node) => !node.blocked_reason);
+  // A local relay (#595) is only the first hop of a chain, never the exit.
+  const relayHop = (id, index, length) =>
+    !allNodes.find((n) => n.id === id)?.relay || (index === 0 && length > 1);
   const needsMigration = allNodes.some((node) => node.blocked_reason && savedRoute.includes(node.id));
   const active = proxy.active && !needsMigration;
   const routeValid =
     route.every((id) => usableNodes.some((n) => n.id === id)) &&
+    route.every((id, index) => relayHop(id, index, route.length)) &&
     new Set(route).size === route.length;
   const routeName = (id) => allNodes.find((n) => n.id === id)?.name || tr("待选择");
   const updateHop = (index, id) =>
@@ -414,14 +419,14 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
       <button
         className="proxy-node-choice"
         disabled={
-          busy || Boolean(n.blocked_reason) ||
+          busy || Boolean(n.blocked_reason) || n.relay ||
           !proxy.core_available ||
           route.slice(0, -1).includes(n.id)
         }
         title={
           n.blocked_reason
             ? localizeBackendMessage(n.blocked_reason, tr)
-            : (route.slice(0, -1).includes(n.id)
+            : n.relay ? tr("本机中转") : (route.slice(0, -1).includes(n.id)
               ? tr("此节点已用作中转")
               : tr("选为最终出口，点击应用代理后生效"))
         }
@@ -439,11 +444,11 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
           </small>
         </span>
       </button>
-      {active && savedRoute.includes(n.id) && (
+      {active && savedRoute.includes(n.id) ? (
         <span className="proxy-node-role">
           {n.id === proxy.selected ? tr("当前出口") : tr("当前中转")}
         </span>
-      )}
+      ) : n.relay && <span className="proxy-node-role">{tr("本机中转")}</span>}
       <span className="proxy-delay" title={n.blocked_reason ? undefined : (delayReasons.current[n.id] ? localizeBackendMessage(delayReasons.current[n.id], tr) : undefined)}>
         {!n.blocked_reason && (delays[n.id] ? tr(delays[n.id]) : tr("未测速"))}
       </span>
@@ -664,7 +669,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                                 <option
                                   key={n.id}
                                   value={n.id}
-                                  disabled={Boolean(n.blocked_reason) || route.some(
+                                  disabled={Boolean(n.blocked_reason) || !relayHop(n.id, index, route.length) || route.some(
                                     (hop, i) => i !== index && hop === n.id,
                                   )}
                                 >
@@ -1029,6 +1034,55 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
               {tr("手动更新订阅时通过主机网络下载")}
             </label>
           )}
+          <section className="proxy-relays" aria-labelledby="proxy-relays-title">
+            <h4 id="proxy-relays-title">{tr("本机中转")}</h4>
+            {(proxy.local_relays || []).map((value) => (
+              <div className="proxy-relay" key={value}>
+                <code>127.0.0.1:{value}</code>
+                <button
+                  className="icon-button"
+                  type="button"
+                  disabled={busy}
+                  aria-label={tr("撤销 {0}", `127.0.0.1:${value}`)}
+                  title={tr("撤销 {0}", `127.0.0.1:${value}`)}
+                  onClick={() => mutate("local-relay", { port: value, allow: false })}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+            <form
+              className="proxy-relay-add"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const value = Number(relayPort);
+                if (
+                  await onConfirm({
+                    title: tr("允许 127.0.0.1:{0} 作为中转？", value),
+                    body: tr("此端口上的程序可以看到和阻断经它转发的连接。"),
+                    confirm: "允许",
+                  }) &&
+                  await mutate("local-relay", { port: value, allow: true })
+                )
+                  setRelayPort("");
+              }}
+            >
+              <span>127.0.0.1:</span>
+              <input
+                inputMode="numeric"
+                aria-label={tr("本机端口")}
+                placeholder="7890"
+                value={relayPort}
+                onChange={(e) => setRelayPort(e.target.value.replace(/\D/g, "").slice(0, 5))}
+              />
+              <button
+                type="submit"
+                disabled={busy || !(Number(relayPort) >= 1 && Number(relayPort) <= 65535) || Number(relayPort) === proxy.port || (proxy.local_relays || []).includes(Number(relayPort))}
+              >
+                {tr("允许")}
+              </button>
+            </form>
+          </section>
           {form && (
             <div className="proxy-import">
               <h4>{form.id ? tr("编辑来源") : tr("添加节点来源")}</h4>

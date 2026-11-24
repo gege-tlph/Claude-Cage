@@ -97,13 +97,14 @@ func legacyIPv4(host string) netip.Addr {
 // records and IDs so that a user can inspect and replace their saved routes.
 func (s Store) BlockedNodes() map[string]string {
 	local := newLocalServers()
+	relays := s.relays()
 	blocked := map[string]string{}
 	dependents := map[string][]string{}
 	var queue []string
 	for _, src := range s.Sources {
 		for _, n := range src.Nodes {
 			server, _ := n.Config["server"].(string)
-			if local.contains(server) {
+			if local.contains(server) && !relays.relay(n.Config) {
 				blocked[n.ID] = ErrLocalProxyNode.Error()
 				queue = append(queue, n.ID)
 			}
@@ -126,10 +127,15 @@ func (s Store) BlockedNodes() map[string]string {
 }
 
 func (s Store) checkRouteNodes(route []string, blocked map[string]string) ([]string, error) {
-	for _, id := range route {
+	relays := s.relays()
+	for i, id := range route {
+		n, _ := s.Find(id)
 		if blocked[id] != "" {
-			n, _ := s.Find(id)
 			return route, fmt.Errorf("节点 %q 需要迁移：%w", n.Name, ErrLocalProxyNode)
+		}
+		// An allowed relay is only the first hop before a remote exit.
+		if (i > 0 || len(route) == 1) && relays.relay(n.Config) {
+			return route, fmt.Errorf("节点 %q：%w", n.Name, ErrLocalRelayExit)
 		}
 	}
 	return route, nil
