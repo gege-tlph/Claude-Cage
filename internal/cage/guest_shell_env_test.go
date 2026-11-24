@@ -32,11 +32,15 @@ func TestGuestShellProfileExportsOnlyStandardSettings(t *testing.T) {
 		env     []string
 		browser string
 		pulse   string
+		tz      string
 	}{
 		// What a process started before the update hands down.
-		{"earlier values", []string{"CAGE_LANGUAGE=en-US", "BROWSER=/usr/local/bin/cage-open", "PULSE_SERVER=unix:/run/cage-audio/native"}, "/usr/local/bin/xdg-open", ""},
-		{"empty", nil, "/usr/local/bin/xdg-open", ""},
-		{"launcher values", []string{"BROWSER=/tmp/runtime-1/opener.py", "PULSE_SERVER=unix:/tmp/runtime-1/paths/audio"}, "/tmp/runtime-1/opener.py", "unix:/tmp/runtime-1/paths/audio"},
+		{"earlier values", []string{"CAGE_LANGUAGE=en-US", "BROWSER=/usr/local/bin/cage-open", "PULSE_SERVER=unix:/run/cage-audio/native", "TZ=Europe/London"}, "/usr/local/bin/xdg-open", "", "Asia/Shanghai"},
+		{"empty", nil, "/usr/local/bin/xdg-open", "", "Asia/Shanghai"},
+		{"launcher values", []string{"BROWSER=/tmp/runtime-1/opener.py", "PULSE_SERVER=unix:/tmp/runtime-1/paths/audio"}, "/tmp/runtime-1/opener.py", "unix:/tmp/runtime-1/paths/audio", "Asia/Shanghai"},
+		// An account command started through its proxy node keeps that
+		// node's zone in the login shell it runs (#909).
+		{"account zone", []string{"ACCOUNT_TZ=America/New_York", "TZ=America/New_York"}, "/usr/local/bin/xdg-open", "", "America/New_York"},
 	}
 	for _, shell := range []string{"sh", "bash", "zsh"} {
 		if _, err := exec.LookPath(shell); err != nil {
@@ -62,7 +66,7 @@ func TestGuestShellProfileExportsOnlyStandardSettings(t *testing.T) {
 					key, value, _ := strings.Cut(strings.TrimRight(line, "\r"), "=")
 					got[key] = value
 				}
-				want := map[string]string{"TZ": "Asia/Shanghai", "LANG": "zh_CN.UTF-8", "LC_ALL": "zh_CN.UTF-8", "BROWSER": c.browser, "PULSE_SERVER": c.pulse, "BROWSER_LANG": ""}
+				want := map[string]string{"TZ": c.tz, "LANG": "zh_CN.UTF-8", "LC_ALL": "zh_CN.UTF-8", "BROWSER": c.browser, "PULSE_SERVER": c.pulse, "BROWSER_LANG": ""}
 				for key, value := range want {
 					if got[key] != value {
 						t.Errorf("%s=%q, want %q", key, got[key], value)

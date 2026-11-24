@@ -1,4 +1,4 @@
-package cli
+package host
 
 import (
 	"errors"
@@ -9,10 +9,10 @@ import (
 )
 
 // The leftovers of an interrupted VM creation hold the files Lima writes
-// read-only. Where Windows refuses to delete a read-only file, the cleanup
+// read-only. Where a volume refuses to delete a read-only file, the cleanup
 // clears the attribute and succeeds on the second try, as `attrib -R` does
 // by hand (#839).
-func TestRemoveAllWritableClearsReadOnlyFiles(t *testing.T) {
+func TestRemoveAllWritableRetriesWhereReadOnlyFilesAreRefused(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "base-building")
 	if err := os.MkdirAll(filepath.Join(dir, "sock"), 0o700); err != nil {
 		t.Fatal(err)
@@ -22,8 +22,7 @@ func TestRemoveAllWritableClearsReadOnlyFiles(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	// Like a volume that does not honour "ignore read-only": deletion fails
-	// while any file under the directory is still read-only.
+	// Deletion fails while any file under the directory is still read-only.
 	calls := 0
 	refusing := func(path string) error {
 		calls++

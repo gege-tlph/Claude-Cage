@@ -17,6 +17,7 @@ import (
 )
 
 func TestControllerNamesMatchCLIForIndependentProfiles(t *testing.T) {
+	storageOutsideAppData(t)
 	base := os.TempDir()
 	if filepath.Separator == '/' {
 		base = "/tmp"

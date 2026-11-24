@@ -5,6 +5,23 @@ umask 077
 id=$1
 code=$2
 scope=$3
+if [[ $id == default && $scope == delete ]]; then
+  state=$(systemctl show --property=ActiveState --value desktop-session.service 2>/dev/null || :)
+  if [[ $state != "" && $state != inactive && $state != failed ]]; then
+    sudo systemctl stop desktop-session.service 2>/dev/null || ! systemctl is-active --quiet desktop-session.service
+  fi
+  sudo systemctl reset-failed desktop-session.service 2>/dev/null || :
+  if [[ -e /run/systemd/system/desktop-session.service.d/40-account.conf || -e /run/systemd/system/desktop-session.service.d/account-scope ]]; then
+    sudo rm -f -- /run/systemd/system/desktop-session.service.d/40-account.conf /run/systemd/system/desktop-session.service.d/account-scope 2>/dev/null || :
+  fi
+  for target in "$HOME/.config/Claude" "$HOME/.cache/Claude" "$HOME/.local/share/Claude" "$HOME/.local/share/keyrings"; do
+    if [[ -e $target || -L $target ]]; then
+      chmod -R u+rwX -- "$target" 2>/dev/null || :
+      rm -rf -- "$target"
+    fi
+  done
+  exit 0
+fi
 [[ $id =~ ^[0-9a-f]{24}$ && ( $code == default || $code =~ ^[0-9a-f]{24}$ ) ]]
 unit="desktop-$id"
 base="$HOME/.local/share/desktop-profiles/$id"
@@ -111,7 +128,12 @@ import sys
 from configparser import ConfigParser
 base=Path(sys.argv[1])
 apps=Path.home()/'.local/share/applications'
+import re
 def arg(path):
+    # xdg-utils splits Exec on whitespace and keeps quote marks. Quote only
+    # when needed, so the common path also survives that fallback parser.
+    if re.fullmatch(r'[A-Za-z0-9_@+=:,./-]+', str(path)):
+        return str(path)
     return '"'+str(path).replace('\\','\\\\').replace('"','\\"').replace('$','\\$').replace('`','\\`').replace('%','%%')+'"'
 # Claude registers this desktop ID again at startup. A per-profile entry
 # with the same ID keeps that registration pointed at the original process.
@@ -134,16 +156,20 @@ with (apps/'mimeinfo.cache').open('w') as output:
 PY
 # Use the desktop-entry parser for quoted arguments when the browser opens a
 # custom URI. Route local files and folders to this instance's file broker.
-mkdir -p "$XDG_RUNTIME_DIR/bin"
-cat > "$XDG_RUNTIME_DIR/bin/xdg-open" <<'OPEN'
+# /run is mounted noexec, so the opener lives in the private profile. A
+# skipped opener made the login callback start a Desktop without this
+# instance's data folder instead of returning to the one that signed in.
+opener="$base/bin"
+mkdir -p "$opener"
+cat > "$opener/xdg-open" <<'OPEN'
 #!/bin/sh
 case "${1:-}" in
   http://*|https://*|claude://*|about:blank) exec /usr/bin/gio open "$1" ;;
   *) exec /usr/local/libexec/desktop-files --open "${1:-}" ;;
 esac
 OPEN
-chmod 0700 "$XDG_RUNTIME_DIR/bin/xdg-open"
-export PATH="$XDG_RUNTIME_DIR/bin:$PATH" BROWSER="$XDG_RUNTIME_DIR/bin/xdg-open"
+chmod 0700 "$opener/xdg-open"
+export PATH="$opener:$PATH" BROWSER="$opener/xdg-open"
 export XAUTHORITY="$XDG_RUNTIME_DIR/Xauthority"
 touch "$XAUTHORITY"
 cookie=$(mcookie)

@@ -14,7 +14,7 @@ keywords: Clash Mihomo YAML VLESS REALITY ML-KEM SOCKS5 SSH 私钥 住宅 IP DNS
 
 首次安装的代理页，以及本机“设置 → 网络与代理”，会自动查找当前用户配置目录里的 Clash Verge Rev、Clash Neo、Clash Party（原 Mihomo Party）、Clash Nyanpasu、Clash Verge、Clash/ClashX、Mihomo、FlClash、SS/SSR 配置，以及 macOS 上的 ClashX Meta（`~/.config/clash.meta`）与 Surge 配置。找到后会显示软件名称、配置名称和可导入节点数。点击“导入此配置”，再在下方选出口、点击“应用代理”。无需启动原软件，也无需填写它的本地端口。
 
-Cage 会复制节点及认证参数，由内置核心独立连接；原软件的配置、分组、分流规则、系统代理和监听端口保持原样。Clash Verge 的订阅记录如果带有 HTTPS 链接，也会保留，可在 Cage 的“订阅”页手动更新；导入本身读取本地副本，不下载订阅。当前生效配置会包含已缓存的 provider 节点；未缓存或不兼容的节点会提示，Cage 不执行原软件的配置脚本。
+Cage 会复制节点及认证参数，由内置核心独立连接；原软件的配置、分组、分流规则、系统代理和监听端口保持原样。Clash Verge 的订阅记录如果带有 HTTPS 链接，也会保留，可在 Cage 的“订阅”页手动更新；导入本身读取本地副本，不下载订阅。当前生效配置会包含已缓存的 provider 节点；未缓存或不兼容的节点会提示，Cage 不执行原软件的配置脚本。Clash Neo 的 `nexo` 和 Clash Verge Ninja 的 `ninja` 是这些客户端专用核心的私有协议，随附的标准 Mihomo 核心无法解析，这类节点会在预览和导入结果中列为跳过；请向服务商获取同一出口的标准 Mihomo 节点后再导入。
 
 Surge 配置读取 `[Proxy]` 和 `[Proxy Group]` 中的节点，跟随同目录下的本地 `#!include`，`underlying-proxy` 会转成代理链。远程 `#!include` 不会下载，相关节点需在 Surge 中导出完整配置后再导入；WireGuard、Snell v4 及以上、使用钥匙串私钥的 SSH、非 Shadowsocks 的 ShadowTLS，以及链到多成员分组的节点，会在预览中列为未导入。
 
@@ -122,7 +122,7 @@ proxies:
 
 macOS 主机只从 `networksetup` 报告的硬件端口中选择具有可用 IPv4 地址的物理出口；`utun`、`bridge`、`vmen`、`vmenet`、`vmnet`、`tap`、`lima`、`awdl`、`llw`、`p2p`、`gif`、`stf`、`anpi`、`ap` 等隧道、桥接和虚拟机接口即使带有地址或默认路由，也不会被绑定为代理出口。
 
-Windows 主机只选择带可用 IPv4 和默认路由的硬件网卡；VPN、TUN、虚拟机 NAT 等虚拟网卡不会被选中。物理网卡桥接到 Hyper-V 外部虚拟交换机时，物理网卡本身没有 IPv4，Cage 改用与它 MAC 地址相同、带 IPv4 默认路由的管理用 `vEthernet` 网卡。
+Windows 主机只选择带可用 IPv4 和默认路由的硬件网卡；VPN、TUN、虚拟机 NAT 等虚拟网卡不会被选中。物理网卡桥接到 Hyper-V 外部虚拟交换机时，物理网卡本身没有 IPv4，Cage 改用与它 MAC 地址相同、带 IPv4 默认路由的管理用 `vEthernet` 网卡。若主机没有可用的硬件 IPv4 网卡或同 MAC 孪生网卡（例如物理口直通或独享给 Hyper-V 软路由虚拟机），Cage 会回退接受带有效单播 MAC、首选 IPv4 与默认路由的宿主 Hyper-V 虚拟以太网适配器（`Hyper-V Virtual Ethernet Adapter`）；未配置默认路由的 `Default Switch` 以及 TUN、VPN、TAP 等其他虚拟网卡仍会被排除。
 
 如果直连节点使用 Tailscale 私网地址（`100.64.0.0/10`、`fd7a:115c:a1e0::/48`）或主机另一张网卡直连私网网段中的地址，Cage 会仅将该节点绑定到主机路由所指向的对应网卡（例如 Windows 的 `Tailscale`、macOS 的 `utun*`、Linux 的 `tailscale0`），同时保持 DNS 和公网代理节点继续绑定在物理网卡上。通过 `dialer-proxy` 中转的后跳节点不会改绑本机网卡。
 

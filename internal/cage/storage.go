@@ -397,6 +397,12 @@ func validateStorageTarget(profile, directory, app, platform string) error {
 	if err != nil {
 		return err
 	}
+	if platform == "windows" {
+		excluded := windowsTargetStorageExcludedRoots()
+		if windowsStoragePathExcluded(directory, excluded) || windowsStoragePathExcluded(target, excluded) {
+			return errors.New("环境存储不能放在 AppData 或临时目录中，请选择其他本地文件夹")
+		}
+	}
 	// Check the actual mount, including junctions and symlinked parents.
 	existing := target
 	for {

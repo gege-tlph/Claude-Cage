@@ -65,6 +65,8 @@ export const backendMessageKeys = [
   "节点名称为空或过长",
   "节点名称重复，无法确定代理链引用",
   "节点协议暂不支持",
+  "Clash Verge Ninja 专用协议，无法导入，请改用标准 Mihomo 节点",
+  "Clash Neo 专用协议，无法导入，请改用标准 Mihomo 节点",
   "节点服务器缺失或过长",
   "SSH 节点的 private-key 必须直接填写私钥内容，不能引用本机文件",
   "节点不能引用本机文件、网络接口或额外路由",
@@ -280,6 +282,8 @@ export const backendMessageKeys = [
   "文件尚未下载完成或已不可用",
   "所选本机扩展已不可用，请刷新清单",
   "Claude Desktop 尚未启动",
+  "至少保留一个 Desktop 实例，不能删除最后一个",
+  "默认 Desktop 已删除，请从实例列表打开其他 Desktop",
 ];
 
 function unquoteGo(raw) {

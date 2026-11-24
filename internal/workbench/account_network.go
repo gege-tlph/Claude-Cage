@@ -494,7 +494,9 @@ func (s *Server) routeSelected(ctx context.Context, a claudeAccount, command str
 	opener := "/usr/local/lib/account-routes/" + a.ID + "/open"
 	regionExports := ""
 	if tz, _ := s.accountRegionOverrides(a.ProxyNodeID); tz != "" {
-		regionExports = " TZ=" + shellescape.Quote(tz)
+		// A login shell resets TZ from the environment file; ACCOUNT_TZ tells
+		// the shell profile to keep this account's zone (#909).
+		regionExports = " ACCOUNT_TZ=" + shellescape.Quote(tz) + " TZ=" + shellescape.Quote(tz)
 	}
 	return wrapAccountNamespace("ip netns exec net-"+a.ID+" unshare -m", "export ACCOUNT_BROWSER="+opener+" BROWSER="+opener+regionExports+"; "+command), nil
 }

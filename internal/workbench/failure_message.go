@@ -40,6 +40,8 @@ func executionFailure(action string, err error, output string) error {
 		{[]string{"curl: (35)", "unexpected eof while reading", "ssl_error_syscall"}, "与下载服务器的 TLS 加密握手未能完成，连接被中途断开", "这通常发生在所选代理或出口与该服务器之间。请在网络与代理设置中换一个节点后重试；仍失败时，可在“设置 → 网络与代理”中开启“安装与工具下载兼容模式（限制 curl 最高使用 TLS 1.2）”再试。不要关闭证书验证。"},
 		{[]string{"407 proxy authentication", "proxy authentication required"}, "代理服务器拒绝了当前登录凭据", "请在网络与代理设置中更新代理账号或订阅，再应用节点。"},
 		{[]string{"permission denied", "access is denied"}, "系统拒绝访问安装所需的文件或程序", "请检查应用及环境目录的权限；若安全软件拦截了 Cage lite，请先核实其拦截记录。"},
+		// Lima refuses an instance whose socket paths exceed the system limit (#913).
+		{[]string{"must be less than unix_path_max", "` too long: `", "vm name too long"}, "环境目录路径太长，虚拟机的本机套接字超出系统长度限制", "请把配置目录或环境存储改到更短的路径（例如 D:\\Cage）后重试。"},
 		{[]string{"which lima cannot mount"}, "目录路径含有空格，Lima 无法把它共享进环境", "操作详情中列出了这个目录；把它移到不含空格的路径后重试。若是 Cage lite 配置目录旁的内部传输目录，步骤见故障排查文档“用户目录含空格时环境无法启动”。"},
 		{[]string{"is also your own lima's home", "set agent_vm_lima_home to a folder for agent-vm alone"}, "宿主机环境变量 LIMA_HOME 与 Cage lite 的虚拟机目录重合", "请取消设置 LIMA_HOME 或将其改为其他目录，完全退出并重新打开 Cage lite 后重试；若正在安装应用更新，请完全退出 Cage lite 后直接运行官方安装包原地升级，原有数据和虚拟机磁盘会保留。"},
 		{[]string{"tried to start delayed item"}, "环境的软件包下载程序反复重试，未能完成安装", "请使用包含 APT 修复的 Cage lite 构建后继续安装；仍失败时导出诊断包。"},

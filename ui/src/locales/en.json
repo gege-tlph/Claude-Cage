@@ -1378,6 +1378,7 @@
   "环境启动并连接代理后检测网络延迟": "Latency is measured once the environment starts and connects to the proxy",
   "环境和浏览器可继续使用。": "The environment and browser keep working.",
   "环境声音：未启动": "Environment sound: not started",
+  "环境存储不能放在 AppData 或临时目录中，请选择其他本地文件夹": "Environment storage cannot be in AppData or a temp folder. Choose another local folder",
   "环境存储目录": "Environment storage folder",
   "环境存储需要恢复": "Environment storage needs restoring",
   "环境存储需要恢复。请连接迁移使用的磁盘后重试。恢复完成后可以启动环境。": "Environment storage needs restoring. Connect the disk used for migration and try again; then you can start the environment.",
@@ -2816,6 +2817,8 @@
   "节点不存在": "Node doesn't exist",
   "节点不能引用本机文件、网络接口或额外路由": "Nodes can't reference local files, network interfaces or extra routes",
   "节点协议暂不支持": "Node protocol not supported yet",
+  "Clash Verge Ninja 专用协议，无法导入，请改用标准 Mihomo 节点": "Clash Verge Ninja protocol, cannot be imported. Use a standard Mihomo node",
+  "Clash Neo 专用协议，无法导入，请改用标准 Mihomo 节点": "Clash Neo protocol, cannot be imported. Use a standard Mihomo node",
   "节点名称为空或过长": "Node name is empty or too long",
   "节点名称重复，无法确定代理链引用": "Duplicate node names make the chain reference ambiguous",
   "节点字段 {0} 存在重复写法，请仅保留一种": "Node field {0} is written more than one way. Keep only one",
@@ -3096,6 +3099,9 @@
   "Apple Virtualization": "Apple Virtualization",
   "设备已改名": "Device renamed",
   "待登录 Desktop": "Desktop (not signed in)",
+  "至少保留一个 Desktop 实例，不能删除最后一个": "Keep at least one Desktop instance. The last one can't be deleted",
+  "默认 Desktop 已删除，请从实例列表打开其他 Desktop": "Default Desktop was deleted. Open another Desktop from the list",
+  "已删除的默认 Desktop 记录无效": "Invalid record of the deleted default Desktop",
   "私有配置": "Private config",
   "私有格式，无法导入；请改用服务商提供的 Clash/Mihomo 订阅": "Private format, cannot be imported; use the Clash/Mihomo subscription from your provider"
 }

@@ -11,7 +11,19 @@ import (
 	"github.com/sylvinus/agent-vm/internal/cage"
 )
 
+// storageOutsideAppData points the Windows user folders away from the test's
+// temporary folders, which sit in %LOCALAPPDATA%\Temp: new storage targets may
+// not be inside AppData (#676).
+func storageOutsideAppData(t *testing.T) {
+	t.Helper()
+	root := t.TempDir()
+	t.Setenv("LOCALAPPDATA", filepath.Join(root, "AppData", "Local"))
+	t.Setenv("APPDATA", filepath.Join(root, "AppData", "Roaming"))
+	t.Setenv("USERPROFILE", root)
+}
+
 func TestStorageFirstSelectionAndMigrationThroughWorkbench(t *testing.T) {
+	storageOutsideAppData(t)
 	s := testServer(t)
 	const endpoint = "/api/environment/storage"
 	query := func() cage.StorageLocation {
@@ -116,6 +128,7 @@ func TestStorageChangeIsLocalAndRequiresUnlockedSession(t *testing.T) {
 // A storage directory deleted by hand must not leave settings unable to pick
 // a new one. An unplugged disk (parent gone too) keeps the reconnect error.
 func TestDeletedStorageDirectoryCanBeReplaced(t *testing.T) {
+	storageOutsideAppData(t)
 	s := testServer(t)
 	const endpoint = "/api/environment/storage"
 	type view struct {
