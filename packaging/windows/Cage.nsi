@@ -31,6 +31,8 @@ ManifestSupportedOS all
 !define APP_ID "io.github.lee-xeo.claude-cage"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\ClaudeCage"
 !define WEBVIEW2_APP_ID "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+; SHA-1 thumbprint of cage-lite-signing.cer, the release signing certificate.
+!define PUBLISHER_THUMBPRINT "C907D4C6B1C3806D5BF839C232977ACD79A8C1D5"
 Name "Cage lite ${VERSION}"
 OutFile "${OUTPUT_FILE}"
 InstallDir "$LOCALAPPDATA\Programs\Cage"
@@ -69,6 +71,9 @@ Var BackupDir
 Var ExistingInstall
 Var DesktopShortcutControl
 Var StartMenuShortcutsControl
+Var TrustPublisherControl
+Var TrustPublisher
+Var PublisherChecked
 Var InstallationMutex
 Var TransactionRecord
 Var InstallPhase
@@ -225,6 +230,21 @@ Function ShortcutOptionsPage
   ${NSD_CreateCheckbox} 0 36u 100% 16u "$(CageStartMenuShortcuts)"
   Pop $StartMenuShortcutsControl
   ${NSD_SetState} $StartMenuShortcutsControl $StartMenuShortcuts
+  ; Offered once Windows is found not to trust the publisher yet: in-app
+  ; updates are accepted only from a trusted signature.
+  ${If} $PublisherChecked != 1
+    StrCpy $PublisherChecked 1
+    Call PublisherTrusted
+    ${If} $0 != 1
+      StrCpy $TrustPublisher 1
+    ${EndIf}
+  ${EndIf}
+  StrCpy $TrustPublisherControl ""
+  ${If} $TrustPublisher != ""
+    ${NSD_CreateCheckbox} 0 64u 100% 16u "$(CageTrustPublisher)"
+    Pop $TrustPublisherControl
+    ${NSD_SetState} $TrustPublisherControl $TrustPublisher
+  ${EndIf}
   ${NSD_OnBack} ShortcutOptionsLeave
   nsDialogs::Show
 FunctionEnd
@@ -232,6 +252,21 @@ FunctionEnd
 Function ShortcutOptionsLeave
   ${NSD_GetState} $DesktopShortcutControl $DesktopShortcut
   ${NSD_GetState} $StartMenuShortcutsControl $StartMenuShortcuts
+  ${If} $TrustPublisherControl != ""
+    ${NSD_GetState} $TrustPublisherControl $TrustPublisher
+  ${EndIf}
+FunctionEnd
+
+; Sets $0 to 1 when the user or the machine trusts the release publisher.
+Function PublisherTrusted
+  nsExec::ExecToStack '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -Command "if ((Test-Path Cert:\CurrentUser\Root\${PUBLISHER_THUMBPRINT}) -or (Test-Path Cert:\LocalMachine\Root\${PUBLISHER_THUMBPRINT})) { exit 0 } else { exit 3 }"'
+  Pop $0
+  Pop $1
+  ${If} $0 == 0
+    StrCpy $0 1
+  ${Else}
+    StrCpy $0 0
+  ${EndIf}
 FunctionEnd
 
 Function SetDefaultInstallDirectory
@@ -688,6 +723,18 @@ Section "Cage" Main
   ${EndIf}
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "DesktopShortcut" $DesktopShortcut
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "StartMenuShortcuts" $StartMenuShortcuts
+  ${If} $TrustPublisher == 1
+    ; Windows asks the user to confirm adding the certificate. Declining
+    ; leaves the installation as it is. certutil runs visibly: a hidden
+    ; process could keep that confirmation out of sight.
+    !insertmacro InstallPhase "trusting_publisher"
+    SetOutPath "$PLUGINSDIR"
+    File /oname=cage-lite-signing.cer "cage-lite-signing.cer"
+    ExecWait '"$SYSDIR\certutil.exe" -user -addstore Root "$PLUGINSDIR\cage-lite-signing.cer"' $0
+    StrCpy $HelperExit $0
+    Call WriteInstallDiagnostic
+    SetOutPath "$INSTDIR"
+  ${EndIf}
   ; Terminals can run `cage` (#861). cage.exe edits the user PATH itself, so
   ; its type (REG_EXPAND_SZ) and any length survive. A failure leaves the
   ; installation as it is.
