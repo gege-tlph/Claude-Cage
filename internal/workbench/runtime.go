@@ -402,6 +402,8 @@ func (s *Server) startEnvironment(syncTimezone bool) error {
 	} else if err := mountableEnvironmentDir(s.environmentDir()); err != nil {
 		// A container's share is sshfs over a quoted path, a VM's is Lima's.
 		return err
+	} else if err := s.requireLimaPathFits(); err != nil {
+		return err
 	}
 	cfg, err := loadConfig(s.configPath)
 	if err != nil {
