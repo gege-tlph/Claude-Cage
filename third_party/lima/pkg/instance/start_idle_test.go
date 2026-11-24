@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	hostagentevents "github.com/lima-vm/lima/v2/pkg/hostagent/events"
 	"github.com/lima-vm/lima/v2/pkg/limatype"
 )
@@ -146,5 +148,40 @@ func TestWatchHostAgentEventsStallsDespiteHeartbeats(t *testing.T) {
 	}
 	if elapsed := time.Since(started); elapsed > 10*time.Second {
 		t.Fatalf("heartbeats kept the wait alive for %v", elapsed)
+	}
+}
+
+// A cloud-init monitor that stops before cloud-init reports completion, such
+// as one whose SSH session ended, sends a last event without Completed. The
+// start then ends with the running VM instead of waiting for a completion
+// that will not come, and does not log "done" (#828).
+func TestWatchHostAgentEventsUnconfirmedCloudInit(t *testing.T) {
+	dir := t.TempDir()
+	stdout, stderr := filepath.Join(dir, "ha.stdout.log"), filepath.Join(dir, "ha.stderr.log")
+	begin := time.Now().Add(-time.Second)
+	writeHostAgentEvent(t, stdout, hostagentevents.Status{SSHLocalPort: 60022, CloudInitProgress: &hostagentevents.CloudInitProgress{Active: true}})
+	writeHostAgentEvent(t, stdout, hostagentevents.Status{SSHLocalPort: 60022, CloudInitProgress: &hostagentevents.CloudInitProgress{LogLine: "Cloud-init monitoring ended before cloud-init reported completion"}})
+	writeHostAgentEvent(t, stdout, hostagentevents.Status{SSHLocalPort: 60022, PortForward: &hostagentevents.PortForwardEvent{}})
+	writeHostAgentEvent(t, stdout, hostagentevents.Status{Running: true, SSHLocalPort: 60022})
+
+	var log strings.Builder
+	saved := logrus.StandardLogger().Out
+	logrus.SetOutput(&log)
+	defer logrus.SetOutput(saved)
+	ctx := WithWatchHostAgentIdleTimeout(WithWatchHostAgentTimeout(context.Background(), 30*time.Second), 5*time.Second)
+	plain := true
+	inst := &limatype.Instance{Config: &limatype.LimaYAML{Plain: &plain}}
+	started := time.Now()
+	if err := watchHostAgentEvents(ctx, inst, stdout, stderr, begin, true); err != nil {
+		t.Fatalf("unconfirmed cloud-init ended the start with %v", err)
+	}
+	if elapsed := time.Since(started); elapsed > 4*time.Second {
+		t.Fatalf("the start waited %v for a completion that was never reported", elapsed)
+	}
+	if strings.Contains(log.String(), "monitoring done") {
+		t.Fatalf("unconfirmed cloud-init logged as done:\n%s", log.String())
+	}
+	if n := strings.Count(log.String(), "ended before cloud-init reported completion"); n != 1 {
+		t.Fatalf("end of monitoring logged %d times:\n%s", n, log.String())
 	}
 }
