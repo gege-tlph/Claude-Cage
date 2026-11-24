@@ -24,6 +24,7 @@ import (
 	"github.com/sylvinus/agent-vm/internal/hostimage"
 	"github.com/sylvinus/agent-vm/internal/managedproxy"
 	"github.com/sylvinus/agent-vm/internal/vm"
+	"github.com/sylvinus/agent-vm/internal/vmname"
 )
 
 var loadConfig = cage.Load
@@ -67,8 +68,24 @@ func (s *Server) environmentPrepared() bool {
 		state, err := environment.State(ctx)
 		return err == nil && state.Exists
 	}
-	_, err := os.Stat(filepath.Join(s.profile, "state", ".agent-vm-base-version"))
-	return err == nil
+	return s.limaPrepared()
+}
+
+// limaPrepared: setup finished (its marker) and a VM can start from what is
+// on disk, as `cage up` requires: the work instance, which runs on its own
+// disks, or the template a new one is cloned from. A marker left behind by
+// deleted storage must send the next start back through setup (#846).
+func (s *Server) limaPrepared() bool {
+	state := filepath.Join(s.profile, "state")
+	if _, err := os.Stat(filepath.Join(state, ".agent-vm-base-version")); err != nil {
+		return false
+	}
+	for _, name := range []string{cage.InstanceName(s.profile, s.environmentDir()), vmname.Template} {
+		if _, err := os.Stat(filepath.Join(state, "lima", name, "lima.yaml")); err == nil {
+			return true
+		}
+	}
+	return false
 }
 func (s *Server) sshCommand(ctx context.Context, args ...string) *exec.Cmd {
 	return s.sshCommandOptions(ctx, false, args...)
@@ -481,7 +498,7 @@ func (s *Server) startEnvironment(syncTimezone bool) error {
 	} else if probeErr != nil {
 		s.setMessage("代理出口无法通过检查，正在启动离线环境…")
 	}
-	if _, err = os.Stat(filepath.Join(s.profile, "state", ".agent-vm-base-version")); !containerenv.Configured(s.profile) && os.IsNotExist(err) {
+	if !containerenv.Configured(s.profile) && !s.limaPrepared() {
 		s.setMessage("首次准备 Linux 环境与开发工具，可能需要数分钟…")
 		job := s.jobs.execution()
 		job.setSetupProgress(&SetupProgress{Phase: "image", System: linuxSystem, Label: "正在准备 " + guestProgressName(linuxSystem) + " 镜像"})

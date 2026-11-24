@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/sylvinus/agent-vm/internal/cage"
+	"github.com/sylvinus/agent-vm/internal/vmname"
 )
 
 func initializationRequest(s *Server, action string, trusted bool) *httptest.ResponseRecorder {
@@ -109,6 +110,17 @@ func TestInitializationPersistsBeforeDiskCreationAndDoesNotResetExisting(t *test
 		t.Fatalf("restart: %+v %v", next, err)
 	}
 	if err := os.Remove(filepath.Join(s.profile, "initialization.json")); err != nil {
+		t.Fatal(err)
+	}
+	// #846: a marker whose Lima files are gone is no installation.
+	if !read().Required {
+		t.Fatal("base marker without Lima files bypassed initialization")
+	}
+	base := filepath.Join(s.profile, "state", "lima", vmname.Template)
+	if err := os.MkdirAll(base, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(base, "lima.yaml"), []byte("{}"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	if read().Required {
