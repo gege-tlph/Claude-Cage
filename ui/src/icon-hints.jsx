@@ -70,7 +70,14 @@ export function IconHints() {
       hovering = null;
       if (focused) show(focused); else hide();
     }
-    function focus(event) { focused = candidate(event.target); if (focused) show(focused); }
+    // Only keyboard focus shows a hint. A dialog focusing its first control
+    // (often the close button) or a mouse click would otherwise pin the hint
+    // until the pointer passes over the control.
+    function focus(event) {
+      if (!(event.target instanceof Element) || !event.target.matches(":focus-visible")) return;
+      focused = candidate(event.target);
+      if (focused) show(focused);
+    }
     function blur(event) { if (focused === event.target) { focused = null; if (hovering) show(hovering); else hide(); } }
     function down(event) {
       if (event.pointerType !== "touch") return;

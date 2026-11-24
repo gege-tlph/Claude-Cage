@@ -2254,25 +2254,28 @@ function App() {
               key={`speed:${proxy?.selected}:${proxy?.revision}:${running}:${busy}:${Boolean(connectionError)}`}
               enabled={running && !busy && !connectionError && windowVisible}
             />
-            <span className="status-spacer" />
+            {/* Messages sit in the free space and grow toward the start, so the
+                clock and controls after them keep their place as text changes. */}
+            <span className="status-spacer">
+              <span className={`status-feedback${toast && toastTone ? ` ${toastTone}` : ""}`} role="status">
+                <SafetyMessage message={toast ||
+                  (busy
+                    ? status.job.message
+                    : running
+                      ? status.ready
+                        ? isRemoteClient() ? "文件保存在云端" : ""
+                        : "环境运行中 · 浏览器待恢复"
+                      : "")} />
+              </span>
+              {status.job?.log && (
+                <button title={tr("操作详情")} onClick={() => setDetails(true)}>
+                  <MoreHorizontal size={15} />
+                </button>
+              )}
+            </span>
             <MicrophoneIndicator mic={mic} />
             <AudioControls audio={audio} />
             <EnvironmentClock timezone={settings.timezone} clock12Hour={settings.clock_12_hour} />
-            <span className={`status-feedback${toast && toastTone ? ` ${toastTone}` : ""}`} role="status">
-              <SafetyMessage message={toast ||
-                (busy
-                  ? status.job.message
-                  : running
-                    ? status.ready
-                      ? isRemoteClient() ? "文件保存在云端" : ""
-                      : "环境运行中 · 浏览器待恢复"
-                    : "")} />
-            </span>
-            {status.job?.log && (
-              <button title={tr("操作详情")} onClick={() => setDetails(true)}>
-                <MoreHorizontal size={15} />
-              </button>
-            )}
             <button
               onClick={stop}
               disabled={

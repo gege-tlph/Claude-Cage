@@ -8,7 +8,7 @@
 .tailscale-state span, .tailscale-peer-info span, .tailscale-address { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; overflow-wrap: anywhere; }
 .tailscale-overview > .field-help { margin: 14px 0 0; }
 .tailscale-account { color: var(--muted); font-size: 12px; margin: 8px 0 0; overflow-wrap: anywhere; }
-.tailscale-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.tailscale-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; min-height: 36px; }
 .tailscale-section { display: flex; flex-direction: column; gap: 12px; min-width: 0; border-top: 1px solid var(--border); padding-top: 18px; }
 .tailscale-section h3 { margin: 0; font-size: 14px; }
 .tailscale-section h3 > span { margin-left: 8px; color: var(--muted); font-weight: 400; }

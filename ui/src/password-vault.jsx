@@ -161,6 +161,7 @@ export function PasswordVaultSettings({ onConfirm, onDirty }) {
         </div>
       </article>)}</div>}
     {store.blocked.length > 0 && <section className="vault-blocked"><h4>{tr("不再提示保存的网站")}</h4>{store.blocked.map(origin => <div key={origin}><span>{origin}</span><button disabled={busy} onClick={() => run({ action: "unblock", origin }, tr("已恢复此网站的保存提示"))}>{tr("恢复提示")}</button></div>)}</section>}
-    <p className="footnote">{tr("目前支持 HTTPS 顶层网页的常见登录表单。密码不会同步到其他设备；备份时需同时保留本地账户文件与密码库。")}</p>
+    {/* After the list loads; shown earlier, the list would push it down. */}
+    {!loading && <p className="footnote">{tr("目前支持 HTTPS 顶层网页的常见登录表单。密码不会同步到其他设备；备份时需同时保留本地账户文件与密码库。")}</p>}
   </section>;
 }

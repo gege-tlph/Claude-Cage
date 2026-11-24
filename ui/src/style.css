@@ -911,6 +911,14 @@ button.large {
 }
 .status-spacer {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.status-spacer > .status-feedback {
+  min-width: 0;
 }
 .status-latency {
   flex-shrink: 0;
@@ -1083,6 +1091,13 @@ button.large {
   color: var(--muted);
   flex: 1;
   max-width: 55%;
+}
+/* Footer buttons sit at the end edge; a note, when present, stays at the start. */
+.modal-footer {
+  justify-content: flex-end;
+}
+.modal-footer .save-note {
+  margin-inline-end: auto;
 }
 .modal-body {
   padding: 22px;
@@ -1598,10 +1613,6 @@ button.large {
   min-width: 0;
 }
 
-.settings-content.settings-content--remote {
-  padding: 40px clamp(16px, 4vw, 64px);
-}
-.remote-link-settings { max-width: 960px; margin-inline: auto; }
 .settings-content .remote-link-settings .section-title { margin-bottom: 32px; }
 .settings-content .remote-link-settings .section-title h3 { font-size: 2rem; }
 .settings-content .remote-link-settings .section-title p { font-size: 1rem; line-height: 1.7; }

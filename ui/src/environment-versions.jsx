@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "./api";
+import { RefreshCw } from "lucide-react";
 import { SafetyMessage } from "./safety-message";
 import { useTranslation } from "./interface-language.mjs";
 
@@ -89,7 +90,8 @@ export function EnvironmentVersions({ status, onConfirm }) {
       </table>}
       {(error || data?.error) && <p role="alert" className="error-message"><SafetyMessage message={error || data.error} /></p>}
       <div className="environment-version-actions">
-        <button disabled={loading || busy} onClick={refresh}>{loading ? tr("正在读取…") : tr("刷新版本")}</button>
+        {/* A fixed label keeps the buttons after it in place while reading. */}
+        <button disabled={loading || busy} aria-busy={loading} onClick={refresh}><RefreshCw size={14} className={loading ? "spin" : undefined} aria-hidden="true" />{tr("刷新版本")}</button>
         {data?.components?.update_required && <button className="primary" disabled={busy || !status.vm_running} onClick={() => update(false)}>{tr("更新环境组件")}</button>}
         <button disabled={busy || !data?.tools_update_allowed} onClick={() => update(true)}>{tr("更新环境工具")}</button>
         {desktop?.installed && <button disabled={busy || !status.vm_running} onClick={updateDesktop}>{tr("更新 Claude Desktop")}</button>}
