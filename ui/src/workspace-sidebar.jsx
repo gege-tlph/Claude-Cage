@@ -156,7 +156,7 @@ export function WorkspaceSidebar({
           title={tr("工作台")}
         >
           <CageLogo className="brand-logo" />
-          <span>Cage</span>
+          <span>Cage lite</span>
         </button>
         <button
           className="icon-button"

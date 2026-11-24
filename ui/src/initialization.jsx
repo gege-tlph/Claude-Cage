@@ -60,7 +60,7 @@ export function InitializationGate({ children }) {
     return () => { live = false; };
   }, [remote, attempt]);
   if (remote) return children;
-  if (error) return <InitializationFrame><section className="initialization-content"><h1>{tr("继续准备 Cage")}</h1><p role="alert"><SafetyMessage message={error} /></p><button className="primary" onClick={() => retry(value => value + 1)}>{tr("重新连接")}</button><DiagnosticSettings /></section></InitializationFrame>;
+  if (error) return <InitializationFrame><section className="initialization-content"><h1>{tr("继续准备 Cage lite")}</h1><p role="alert"><SafetyMessage message={error} /></p><button className="primary" onClick={() => retry(value => value + 1)}>{tr("重新连接")}</button><DiagnosticSettings /></section></InitializationFrame>;
   if (!state) return <InitializationFrame><section className="initialization-content"><h1>{tr("正在读取环境状态")}</h1><p role="status"><LoaderCircle size={18} className="spin" />{tr("正在检查已有配置和安装进度…")}</p></section></InitializationFrame>;
   return state.required ? <Initialization initial={state} onComplete={() => setState({ required: false })} /> : children;
 }
@@ -272,7 +272,7 @@ function Initialization({ initial, onComplete }) {
   const checkPending = Boolean(status?.ready && network.mode !== "open" && !busy && !needsRestart);
   return <InitializationFrame>
     <section className="initialization-content">
-      <ol className="initialization-steps" aria-label={tr("首次设置步骤")}>{steps.map(([key, label], position) => <li key={key} aria-current={step === key ? "step" : undefined}><span>{position < index ? <Check size={14} /> : position + 1}</span>{tr(label)}</li>)}</ol>
+      <ol className="initialization-steps" aria-label={tr("首次设置步骤")}>{steps.map(([key, label], position) => <li key={key} aria-current={step === key ? "step" : undefined}><span>{position < index ? <Check size={14} /> : position + 1}</span><span className="initialization-step-label" data-label={tr(label)}>{tr(label)}</span></li>)}</ol>
       <div className="initialization-title"><h1>{tr(title)}</h1></div>
       {connectionError && <div className="initialization-notice" role="alert"><SafetyMessage message={connectionError} /><button onClick={() => pollNow.current?.()}>{tr("重新连接")}</button></div>}
       {!status ? <p role="status"><LoaderCircle size={18} className="spin" />{tr("正在读取安装状态…")}</p> : <>

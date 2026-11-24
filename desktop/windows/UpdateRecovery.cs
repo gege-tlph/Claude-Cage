@@ -73,7 +73,7 @@ internal static class UpdateRecovery
         while (RunningFrom(prefix) is { } running)
         {
             if (DateTime.UtcNow >= deadline)
-                throw new IOException("新版 Cage 的 " + running + " 仍在运行，安装目录尚未改动。请退出 Cage 后重试恢复");
+                throw new IOException("新版 Cage lite 的 " + running + " 仍在运行，安装目录尚未改动。请退出 Cage lite 后重试恢复");
             await Task.Delay(250);
         }
     }

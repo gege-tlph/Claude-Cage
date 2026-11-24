@@ -207,9 +207,9 @@ for (const platform of ["darwin", "windows", "linux"]) {
     await page.reload();
     await page.getByRole("complementary", { name: "项目与终端" }).waitFor();
     await page.evaluate(() => window.cageNativeAction("quit"));
-    const quitDialog = page.getByRole("dialog", { name: "退出 Cage", exact: true });
+    const quitDialog = page.getByRole("dialog", { name: "退出 Cage lite", exact: true });
     await quitDialog.getByRole("button", { name: "取消", exact: true }).click();
-    assert.equal(await page.getByRole("heading", { name: "为 Cage 准备独立环境" }).count(), 0);
+    assert.equal(await page.getByRole("heading", { name: "为 Cage lite 准备独立环境" }).count(), 0);
     assert.deepEqual(errors, []);
     console.log(`PASS ${platform}: independent initialization without a system choice, back navigation, progress, refresh, retry, completion gate and reopen`);
   } finally { await browser.close(); }

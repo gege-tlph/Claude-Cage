@@ -87,15 +87,22 @@ func TestProxyDNSOutdatedCoversEveryDNSSetting(t *testing.T) {
 	if proxyDNSOutdated(store, cfg) {
 		t.Fatal("matching core DNS reported outdated")
 	}
-	if proxyDNSOutdated(managedproxy.Store{}, cfg) {
-		t.Fatal("a store from before the DNS options must not force a core reload with default settings")
+	legacy := cfg
+	legacy.DNS = cage.DNSOptions{}
+	if proxyDNSOutdated(managedproxy.Store{}, legacy) {
+		t.Fatal("a store from before the DNS options must not force a core reload with its settings")
+	}
+	// #470 added the public fallback and node resolvers to the defaults: an
+	// older store reloads the core once, at the next environment start.
+	if !proxyDNSOutdated(managedproxy.Store{}, cfg) {
+		t.Fatal("an older store kept the previous default resolvers")
 	}
 	primary := cfg
 	primary.DNSURL = "https://dns.example/dns-query"
 	backup := cfg
 	backup.DNS = cage.NewDNSOptions([]string{"https://9.9.9.9/dns-query"}, nil, false)
 	public := cfg
-	public.DNS = cage.NewDNSOptions(nil, nil, true)
+	public.DNS = cage.NewDNSOptions(nil, nil, false)
 	bootstrap := cfg
 	bootstrap.DNS = cage.NewDNSOptions(nil, []string{"https://223.5.5.5/dns-query"}, false)
 	for name, changed := range map[string]cage.Config{"primary": primary, "backup": backup, "public fallback": public, "node resolvers": bootstrap} {

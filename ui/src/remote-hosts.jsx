@@ -74,7 +74,7 @@ export function ClientRoot({ children }) {
     const value = await api("/client/context");
     if (!mounted.current || query !== serial.current) return value;
     if (!["none", "local", "remote"].includes(value.mode))
-      throw new Error("客户端未返回有效的工作环境，请更新 Cage。");
+      throw new Error("客户端未返回有效的工作环境，请更新 Cage lite。");
     const next = identity(value);
     const previous = currentIdentity.current;
     // Destroy callbacks, local files in flight and input handlers from the
@@ -157,7 +157,7 @@ export function ClientRoot({ children }) {
         </Environment>
       ) : (
         !error && (
-          <StartupStage status={tr("正在连接 Cage…")} />
+          <StartupStage status={tr("正在连接 Cage lite…")} />
         )
       )}
     </div>
@@ -533,7 +533,7 @@ function Environment({ context, refresh, children }) {
         ) : (
           <CageLogo className="brand-logo" />
         )}
-        <strong>{ready ? hostName : "Cage"}</strong>
+        <strong>{ready ? hostName : "Cage lite"}</strong>
         {ready && (
           <span className="client-toolbar-hint">
             {remote ? tr("SSH · 云端运行") : tr("当前工作环境")}
@@ -947,7 +947,7 @@ function Environment({ context, refresh, children }) {
                   (decision.pending.connection?.host_id ||
                     decision.pending.host_id),
               )?.name || tr("目标主机")}{" "}
-              {tr("的 SSH 与 Cage 服务。")}
+              {tr("的 SSH 与服务。")}
             </p>
             <p>
               <strong>{localSummary(decision.status)}。</strong>{" "}

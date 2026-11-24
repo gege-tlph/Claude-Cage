@@ -7,7 +7,7 @@ import "./startup-brand.css";
 // the other keeps the logo and the language menu in place.
 export function StartupBrand({ label }) {
   return <header className="startup-brand">
-    <CageLogo /><strong>Cage</strong>{label && <span>{label}</span>}
+    <CageLogo /><strong>Cage lite</strong>{label && <span>{label}</span>}
     <div className="startup-language-slot"><LanguageSettings compact /></div>
   </header>;
 }

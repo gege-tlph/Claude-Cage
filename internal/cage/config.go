@@ -37,7 +37,7 @@ type Config struct {
 }
 
 func DefaultConfig() Config {
-	return Config{ProxyURL: "socks5://127.0.0.1:17896", DNSURL: "https://1.1.1.1/dns-query", Timezone: "Etc/UTC", Locale: "en_US.UTF-8", BrowserLanguage: "en-US"}
+	return Config{ProxyURL: "socks5://127.0.0.1:17896", DNSURL: "https://1.1.1.1/dns-query", DNS: DefaultDNSOptions(), Timezone: "Etc/UTC", Locale: "en_US.UTF-8", BrowserLanguage: "en-US"}
 }
 
 func Load(path string) (Config, error) {
@@ -66,6 +66,16 @@ func Load(path string) (Config, error) {
 	c.TLSClientHelloSplit = loadTLSClientHelloSplit(filepath.Dir(path))
 	c.GuestProfile, err = guestprofile.Load(filepath.Dir(path))
 	return c, err
+}
+
+// SameSettings reports whether two configurations hold the same settings.
+// GuestProfile is left out: it comes from its own file (guestprofile.Load
+// returns a new pointer on every load) and the settings form never carries
+// it, so comparing the structs saw a change on every save and restarted a
+// running environment.
+func (c Config) SameSettings(o Config) bool {
+	c.GuestProfile, o.GuestProfile = nil, nil
+	return c == o
 }
 
 func loadTLSClientHelloSplit(dir string) bool {

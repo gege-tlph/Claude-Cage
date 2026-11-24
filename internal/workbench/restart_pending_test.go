@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/sylvinus/agent-vm/internal/cage"
+	"github.com/sylvinus/agent-vm/internal/guestprofile"
 )
 
 // Settings read only at environment start are reported as pending while the
@@ -21,17 +23,6 @@ func TestRestartPendingNamesSettingsSavedWhileRunning(t *testing.T) {
 		defer s.mu.Unlock()
 		return s.restartPendingLocked(running, saved)
 	}
-	same := func(got []string, want ...string) bool {
-		if len(got) != len(want) {
-			return false
-		}
-		for i := range got {
-			if got[i] != want[i] {
-				return false
-			}
-		}
-		return true
-	}
 	if got := pending(false); len(got) != 0 {
 		t.Fatalf("stopped environment has pending settings: %v", got)
 	}
@@ -41,19 +32,41 @@ func TestRestartPendingNamesSettingsSavedWhileRunning(t *testing.T) {
 	}
 	s.preferences.BalancedDisplay = false
 	s.preferences.ProjectFileCache = true
-	if err := writePrivate(cage.ResourceAllocationPath(s.configPath), cage.ResourceAllocation{MemoryGiB: 2, CPUs: 1, DiskGiB: 9999}); err != nil {
+	// The VM's disk is 24 GiB now.
+	if err := os.MkdirAll(s.instanceDir(), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(s.instanceDir(), "lima.yaml"), []byte("disk: 24GiB\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// Saving the memory writes the present disk size with it: not a disk change.
+	if err := writePrivate(cage.ResourceAllocationPath(s.configPath), cage.ResourceAllocation{MemoryGiB: 2, CPUs: 1, DiskGiB: 24}); err != nil {
 		t.Fatal(err)
 	}
 	got := pending(true)
-	if !same(got, "balanced_display", "project_file_cache", "memory", "cpus", "disk") && !same(got, "balanced_display", "project_file_cache", "memory", "disk") && !same(got, "balanced_display", "project_file_cache", "cpus", "disk") {
+	for _, id := range got {
+		if id == "disk" {
+			t.Fatalf("disk at its present size reported pending: %v", got)
+		}
+	}
+	if len(got) < 3 || got[0] != "balanced_display" || got[1] != "project_file_cache" {
 		t.Fatalf("saved changes not pending: %v", got)
+	}
+	if err := writePrivate(cage.ResourceAllocationPath(s.configPath), cage.ResourceAllocation{MemoryGiB: 2, CPUs: 1, DiskGiB: 40}); err != nil {
+		t.Fatal(err)
+	}
+	if got := pending(true); got[len(got)-1] != "disk" {
+		t.Fatalf("a larger disk is not pending: %v", got)
 	}
 	// Changing a setting back clears it.
 	s.preferences.BalancedDisplay = true
 	if got := pending(true); len(got) == 0 || got[0] == "balanced_display" {
 		t.Fatalf("setting changed back still pending: %v", got)
 	}
-	// A start applies everything saved.
+	// A start applies everything saved (here the disk grew to 40 GiB).
+	if err := os.WriteFile(filepath.Join(s.instanceDir(), "lima.yaml"), []byte("disk: 40GiB\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	s.markApplied()
 	if got := pending(true); len(got) != 0 {
 		t.Fatalf("pending after a start: %v", got)
@@ -75,4 +88,42 @@ func TestRestartPendingNamesSettingsSavedWhileRunning(t *testing.T) {
 		t.Fatalf("restart of a stopped environment: %d", w.Code)
 	}
 	_ = os.Remove(cage.ResourceAllocationPath(s.configPath))
+}
+
+// Saving a preference applied at the next start (balanced display) must not
+// count as an environment change, or the save restarts the environment at
+// once. With a guest profile on disk every load compared unequal before.
+func TestPreferenceSaveDoesNotRestartEnvironment(t *testing.T) {
+	s := testServer(t)
+	profile, err := guestprofile.New(guestprofile.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := guestprofile.Replace(s.profile, profile); err != nil {
+		t.Fatal(err)
+	}
+	old, err := loadConfig(s.configPath)
+	if err != nil || old.GuestProfile == nil {
+		t.Fatal("fixture needs a loaded guest profile", err)
+	}
+	form := settingsView(old, s.preferences)
+	form.BalancedDisplay = !form.BalancedDisplay
+	form.Clock12Hour = !form.Clock12Hour
+	c, p, err := proposedSettings(form, old, s.profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if old == c {
+		t.Fatal("fixture: the form's configuration should differ by pointer only")
+	}
+	if environmentSettingsChanged(old, s.preferences, savedProfile{c, p}) {
+		t.Fatal("a preference-only save restarts the environment")
+	}
+	form.Timezone = "Asia/Tokyo"
+	if c, p, err = proposedSettings(form, old, s.profile); err != nil {
+		t.Fatal(err)
+	}
+	if !environmentSettingsChanged(old, s.preferences, savedProfile{c, p}) {
+		t.Fatal("a time zone change went unnoticed")
+	}
 }

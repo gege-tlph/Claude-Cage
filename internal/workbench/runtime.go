@@ -541,7 +541,7 @@ func (s *Server) stopEnvironment() (returned error) {
 			returned = managedproxy.Stop(s.profile)
 		}
 	}()
-	s.setMessage("正在停止 Cage 环境…")
+	s.setMessage("正在停止环境…")
 	if (explicitStop || s.jobs.snapshot().Kind == "storage") && cage.InstanceJobID(filepath.Join(s.profile, "state"), "base-building") != "" {
 		if err := s.runCage("stop", "--keep-proxy", "base-building"); err != nil {
 			return err
@@ -609,7 +609,7 @@ func (s *Server) applyWithOptions(v savedProfile, validate, saveStaticDraft bool
 	}
 	wasReady := vmAlive(s.profile, s.environmentDir())
 	s.mu.Unlock()
-	changed := old != v.Config || oldPrefs.AutoTimezone != v.Preferences.AutoTimezone || oldPrefs.AutoLanguage != v.Preferences.AutoLanguage
+	changed := environmentSettingsChanged(old, oldPrefs, v)
 	var pendingStaticDraftErr error
 	if changed && validate && old.RequireManagedProxy(s.profile) == nil {
 		s.setMessage("正在验证新出口，现有环境保持运行…")

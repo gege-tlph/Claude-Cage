@@ -111,7 +111,7 @@ func (s *Server) recoverEnvironmentStorage(w http.ResponseWriter, r *http.Reques
 // keeps its own flows.
 func (s *Server) resetEnvironmentStorage(w http.ResponseWriter, r *http.Request) {
 	if !s.hasTrustedView(r) {
-		http.Error(w, "请在已信任的 Cage 窗口重建环境", http.StatusForbidden)
+		http.Error(w, "请在已信任的 Cage lite 窗口重建环境", http.StatusForbidden)
 		return
 	}
 	if !s.localVMStorage() {

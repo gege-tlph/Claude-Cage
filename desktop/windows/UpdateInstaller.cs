@@ -45,7 +45,7 @@ internal static class UpdateInstaller
             // is invoked by a launcher that did not choose a safe directory.
             Directory.SetCurrentDirectory(AppUpdater.Root);
             if (File.ReadAllText(Path.Combine(plan.Target, "Cage.install-id")).Trim() != "io.github.lee-xeo.claude-cage")
-                throw new IOException("请先使用 Cage 安装程序安装应用，再自动更新");
+                throw new IOException("请先使用 Cage lite 安装程序安装应用，再自动更新");
             var original = Path.Combine(plan.Target, "Cage.exe");
             string targetPublisher;
             if (plan.UnsignedSource)
@@ -113,7 +113,7 @@ internal static class UpdateInstaller
             if (File.Exists(marker)) File.Delete(marker);
             var launch = new ProcessStartInfo(original) { UseShellExecute = false, WorkingDirectory = plan.Target };
             launch.Environment["CAGE_UPDATE_CONFIRMATION"] = plan.Confirmation;
-            launched = Process.Start(launch) ?? throw new IOException("新版 Cage 无法启动");
+            launched = Process.Start(launch) ?? throw new IOException("新版 Cage lite 无法启动");
             var deadline = DateTime.UtcNow.AddSeconds(120);
             var ready = false;
             while (DateTime.UtcNow < deadline && !launched.HasExited)
@@ -133,7 +133,7 @@ internal static class UpdateInstaller
             }
             if (!ready) throw new IOException("新版工作台未能完成启动确认");
             succeeded = true;
-            Result(true, "Cage 已更新至 " + plan.Version);
+            Result(true, "Cage lite 已更新至 " + plan.Version);
             // The currently executing helper cannot delete itself on Windows.
             // Keep this small signed file; the next successful update may remove it.
             return 0;
@@ -208,7 +208,7 @@ internal static class UpdateInstaller
                 }
             }
             Result(false, "更新未完成：" + detail);
-            if (recoveryIncomplete && OperatingSystem.IsWindows()) MessageBoxW(IntPtr.Zero, detail, "Cage 更新需要恢复", 0x00010010);
+            if (recoveryIncomplete && OperatingSystem.IsWindows()) MessageBoxW(IntPtr.Zero, detail, "Cage lite 更新需要恢复", 0x00010010);
             return 1;
         }
         finally

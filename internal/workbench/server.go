@@ -398,7 +398,7 @@ func (s *Server) handler() http.Handler {
 		}
 		ok, remoteDesktop := s.consumeTicketWithScope(v.Token)
 		if !ok {
-			http.Error(w, "访问凭证无效，请从 Cage 应用重新打开。", http.StatusUnauthorized)
+			http.Error(w, "访问凭证无效，请从 Cage lite 应用重新打开。", http.StatusUnauthorized)
 			return
 		}
 		http.SetCookie(w, &http.Cookie{Name: s.cookieName(), Value: s.session, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: 86400 * 30})
@@ -597,7 +597,7 @@ func (s *Server) handler() http.Handler {
 		if strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != "/api/session" && r.URL.Path != "/api/launch" && r.URL.Path != "/api/handoff" {
 			c, e := r.Cookie(s.cookieName())
 			if e != nil || !equalSecret(c.Value, s.session) {
-				http.Error(w, "请从 Cage 应用重新打开工作台", 401)
+				http.Error(w, "请从 Cage lite 应用重新打开工作台", 401)
 				return
 			}
 		}
@@ -628,7 +628,7 @@ func (s *Server) handler() http.Handler {
 				}
 			}
 			if s.clientOnly || s.desktopEntry {
-				http.Error(w, "请连接运行 Cage 环境的主机", http.StatusConflict)
+				http.Error(w, "请连接运行环境的主机", http.StatusConflict)
 				return
 			}
 		} else if s.routeRemote(w, r) {
@@ -636,7 +636,7 @@ func (s *Server) handler() http.Handler {
 		}
 		ctx, finish, err := s.beginActivity(r.Context())
 		if err != nil {
-			http.Error(w, "后台正在更新，请重新打开 Cage。", http.StatusServiceUnavailable)
+			http.Error(w, "后台正在更新，请重新打开 Cage lite。", http.StatusServiceUnavailable)
 			return
 		}
 		defer finish()
@@ -654,7 +654,7 @@ func (s *Server) handler() http.Handler {
 					return
 				}
 				s.account.markMissingAccount(w)
-				http.Error(w, "Cage 已锁定，请先登录", http.StatusLocked)
+				http.Error(w, "Cage lite 已锁定，请先登录", http.StatusLocked)
 				return
 			}
 			ctx, cancel := context.WithCancel(r.Context())
@@ -942,7 +942,7 @@ func (s *Server) saveSettings(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	previous := s.preferences
 	s.mu.Unlock()
-	if err == nil && old == v.Config && previous.AutoTimezone == v.Preferences.AutoTimezone && previous.AutoLanguage == v.Preferences.AutoLanguage && previous.Workspace != v.Preferences.Workspace {
+	if err == nil && !environmentSettingsChanged(old, previous, v) && previous.Workspace != v.Preferences.Workspace {
 		kind = "project"
 	}
 	s.launchRequest(w, r, kind, func() error {
@@ -976,7 +976,7 @@ func (s *Server) restore(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) start(w http.ResponseWriter, r *http.Request) {
 	if requestInitiator(r) == jobInitiatorAgent && s.desktopOnboardingActive() {
-		http.Error(w, "桌面端正在进行首次引导，请先在 Cage 窗口完成引导；如需由 Agent 继续，请先调用 initialization.set 并传入 {\"action\":\"release\"}", http.StatusConflict)
+		http.Error(w, "桌面端正在进行首次引导，请先在 Cage lite 窗口完成引导；如需由 Agent 继续，请先调用 initialization.set 并传入 {\"action\":\"release\"}", http.StatusConflict)
 		return
 	}
 	var request struct {
@@ -1049,7 +1049,7 @@ func (s *Server) start(w http.ResponseWriter, r *http.Request) {
 // confirmed that the old environment is moved aside.
 func (s *Server) startAfterSettingAside(w http.ResponseWriter, r *http.Request, input guestInstallRequest) {
 	if !s.hasTrustedView(r) || requestInitiator(r) == jobInitiatorAgent || !s.localVMStorage() {
-		http.Error(w, "请在本机 Cage 窗口确认保留旧 Ubuntu 环境并新建 Debian", http.StatusForbidden)
+		http.Error(w, "请在本机 Cage lite 窗口确认保留旧 Ubuntu 环境并新建 Debian", http.StatusForbidden)
 		return
 	}
 	if input.System != "" && input.System != guestos.Debian13 {

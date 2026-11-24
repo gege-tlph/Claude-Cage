@@ -141,7 +141,7 @@ try {
   for (let attempt = 0; attempt < 50 && references.length < 2; attempt++) await new Promise(resolve => setTimeout(resolve, 100));
   assert.deepEqual(references, ["releases", "releases"], "an unsigned Windows build opens the release page");
   assert.equal(count("install"), installs, "an unsigned Windows build must not start an automatic installation");
-  await publish({ phase: "manual", currentVersion: "0.2.0-rc", latestVersion: "0.2.0", message: "当前 macOS 应用未签名或签名无法验证，请从官方发布页下载安装包，退出 Cage 后替换原应用；配置、凭据、项目和虚拟机磁盘会保留。" });
+  await publish({ phase: "manual", currentVersion: "0.2.0-rc", latestVersion: "0.2.0", message: "当前 macOS 应用未签名或签名无法验证，请从官方发布页下载安装包，退出 Cage lite 后替换原应用；配置、凭据、项目和虚拟机磁盘会保留。" });
   assert.match(await view.getAttribute("title"), /0.2.0.*macOS.*未签名.*官方发布页/);
   await view.click();
   for (let attempt = 0; attempt < 50 && references.length < 3; attempt++) await new Promise(resolve => setTimeout(resolve, 100));

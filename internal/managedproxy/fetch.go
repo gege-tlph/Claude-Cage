@@ -111,8 +111,9 @@ func publicIP(ip netip.Addr) bool {
 
 // BootstrapDNSURLs is shared by host downloads and the core's node resolver.
 // Numeric HTTPS endpoints need neither the host resolver nor a working proxy.
+// Keep in step with cage.DefaultBootstrapDNS (#470).
 func BootstrapDNSURLs() []string {
-	return []string{"https://1.1.1.1/dns-query", "https://223.5.5.5/dns-query"}
+	return []string{"https://1.1.1.1/dns-query", "https://223.5.5.5/dns-query", "https://223.6.6.6/dns-query", "https://1.12.12.12/dns-query"}
 }
 
 func resolveInfrastructureWith(ctx context.Context, host string, client *http.Client, servers []string) (netip.Addr, error) {

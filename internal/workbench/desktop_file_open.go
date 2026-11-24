@@ -50,15 +50,15 @@ func resolveProjectFilePath(guest string, projects []string) (string, error) {
 		}
 		relative, err := filepath.Rel(hostRoot, target)
 		if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.IsAbs(relative) {
-			return "", errors.New("文件指向 Cage 项目目录之外，无法打开")
+			return "", errors.New("文件指向项目目录之外，无法打开")
 		}
 		info, err := os.Stat(target)
 		if err != nil || (!info.Mode().IsRegular() && !info.IsDir()) {
-			return "", errors.New("请选择 Cage 项目中的普通文件或文件夹")
+			return "", errors.New("请选择项目中的普通文件或文件夹")
 		}
 		return target, nil
 	}
-	return "", errors.New("只能打开 Cage 项目目录中的文件和文件夹")
+	return "", errors.New("只能打开项目目录中的文件和文件夹")
 }
 
 func (s *Server) desktopFileOpenAction(w http.ResponseWriter, r *http.Request) {

@@ -37,7 +37,9 @@ export function InitializationDNS({ status, disabled, open }) {
     else load();
   }, [jobId, status.job]);
 
-  if (!draft) return error ? <p role="alert" className="error-message"><SafetyMessage message={error} /></p> : null;
+  // The collapsed header holds the block's place while the settings load.
+  if (!draft) return error ? <p role="alert" className="error-message"><SafetyMessage message={error} /></p>
+    : <details className="initialization-dns" aria-busy="true"><summary>{tr("加密 DNS")}</summary></details>;
   const busy = disabled || checking || Boolean(jobId) || Boolean(status.job?.running);
   const dirty = draft.dns_url !== saved.dns_url || !sameList(draft.dns_fallback_urls, saved.dns_fallback_urls);
   const update = (key, value) => {
@@ -76,10 +78,10 @@ export function InitializationDNS({ status, disabled, open }) {
 
   return <details className="initialization-dns" open={open || undefined}>
     <summary>{tr("加密 DNS")}<small>{endpointHost(saved.dns_url)}</small></summary>
-    <label>{tr("加密 DNS")}
+    <label><span className="initialization-dns-name">{tr("加密 DNS")}</span>
       <input value={draft.dns_url} onChange={(e) => update("dns_url", e.target.value)} disabled={busy} spellCheck="false" />
     </label>
-    <label>{tr("备用加密 DNS")}
+    <label><span className="initialization-dns-name">{tr("备用加密 DNS")}</span>
       <textarea rows={2} value={(draft.dns_fallback_urls ?? []).join("\n")} disabled={busy} spellCheck="false" placeholder="https://…/dns-query"
         onChange={(e) => update("dns_fallback_urls", e.target.value.split(/\r?\n/))} />
     </label>

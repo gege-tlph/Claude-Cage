@@ -205,13 +205,13 @@ static void command_finished(GObject *source, GAsyncResult *result, gpointer dat
     if (g_subprocess_communicate_utf8_finish(G_SUBPROCESS(source), result, &output, NULL, &error)) {
         if (!output || strlen(output) > command->output_limit || !json_parser_load_from_data(parser, output, -1, NULL) ||
             !JSON_NODE_HOLDS_OBJECT(json_parser_get_root(parser))) {
-            g_set_error_literal(&error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA, "Cage 后台未返回有效状态，请查看私有配置中的 logs/。");
+            g_set_error_literal(&error, G_IO_ERROR, G_IO_ERROR_INVALID_DATA, "Cage lite 后台未返回有效状态，请查看私有配置中的 logs/。");
         } else {
             object = json_node_get_object(json_parser_get_root(parser));
             if (!g_subprocess_get_successful(command->process)) {
                 const char *message = text_member(object, "message");
                 g_set_error_literal(&error, G_IO_ERROR, G_IO_ERROR_FAILED,
-                    *message ? message : "Cage 后台操作失败，请查看 logs/。");
+                    *message ? message : "Cage lite 后台操作失败，请查看 logs/。");
             }
         }
     }
@@ -339,7 +339,7 @@ static char *choose_file(GtkFileChooserAction kind, const char *title, const cha
     if (kind != GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER) {
         GtkFileFilter *filter = gtk_file_filter_new();
         gboolean diagnostic = filename && g_str_has_suffix(filename, ".zip");
-        gtk_file_filter_set_name(filter, ui_text(diagnostic ? "诊断包 (*.zip)" : "Cage 主题 (*.json)"));
+        gtk_file_filter_set_name(filter, ui_text(diagnostic ? "诊断包 (*.zip)" : "Cage lite 主题 (*.json)"));
         gtk_file_filter_add_pattern(filter, diagnostic ? "*.zip" : "*.json");
         gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
     }
@@ -525,7 +525,7 @@ static void language_refreshed(JsonObject *object, const GError *error, gpointer
         gtk_button_set_label(GTK_BUTTON(app.retry), ui_text("重试连接"));
         gtk_button_set_label(GTK_BUTTON(app.existing), ui_text("打开现有环境保存文件"));
         gtk_button_set_label(GTK_BUTTON(app.complete), ui_text("保存后停止环境并完成更新"));
-        gtk_window_set_title(GTK_WINDOW(app.window), app.needs_update ? ui_text("Cage（更新待完成）") : "Cage");
+        gtk_window_set_title(GTK_WINDOW(app.window), app.needs_update ? ui_text("Cage lite（更新待完成）") : "Cage");
         reply_json(pending->reply, pending->context, "true");
     }
     pending_free(pending);
@@ -538,7 +538,7 @@ typedef struct { GSubprocess *process; GCancellable *cancel; guint deadline; Pen
 static void reply_update_state(WebKitScriptMessageReply *reply, JSCContext *context) {
     const char *text = CAGE_CLIENT_ONLY
         ? "轻量客户端使用独立安装包更新。退出客户端后更换程序；连接配置会保留，云端任务继续运行。"
-        : "Linux 版本使用系统安装包更新。请保存工作、停止环境并退出 Cage，再安装新版 .deb；用户数据会保留。";
+        : "Linux 版本使用系统安装包更新。请保存工作、停止环境并退出 Cage lite，再安装新版 .deb；用户数据会保留。";
     char *version = quote(CAGE_VERSION), *message = quote(text), *latest = update_latest ? quote(update_latest) : NULL;
     char *state = latest
         ? g_strdup_printf("{\"phase\":\"manual\",\"currentVersion\":%s,\"latestVersion\":%s,\"message\":%s}", version, latest, message)
@@ -1095,7 +1095,7 @@ static gboolean bridge_received(WebKitUserContentManager *manager, JSCValue *val
         }
     } else if (!strcmp(name, "accountDevice")) {
         if (!strcmp(text_member(request, "operation"), "status")) reply_json(reply, context, "{\"supported\":false}");
-        else reply_error(reply, "Linux 版本使用 Cage 账户密码解锁。");
+        else reply_error(reply, "Linux 版本使用账户密码解锁。");
     } else if (!strcmp(name, "appReference")) {
         const char *kind = text_member(request, "kind");
         const char *uri = !strcmp(kind, "source") ? "https://github.com/Lee-xeo/Claude-Cage/commits/main"
@@ -1159,7 +1159,7 @@ static gboolean bridge_received(WebKitUserContentManager *manager, JSCValue *val
         if (app.picker_open || !*connection || (strcmp(mode,"read") && strcmp(mode,"write"))) {
             reply_error(reply, "请在云端工作台重新选择项目。");
         } else {
-            const char *prompt = !strcmp(mode,"write") ? "云端 Cage 可以读取、修改和删除所选项目中的文件。" : "云端 Cage 可以读取所选项目中的文件。";
+            const char *prompt = !strcmp(mode,"write") ? "云端 Cage lite 可以读取、修改和删除所选项目中的文件。" : "云端 Cage lite 可以读取所选项目中的文件。";
             char *path = choose_file(GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER, prompt, NULL);
             if (path) {
                 const char *args[] = {app.backend,"share-project","--json","--connection",connection,mode,path,NULL};
@@ -1171,7 +1171,7 @@ static gboolean bridge_received(WebKitUserContentManager *manager, JSCValue *val
         if (app.picker_open) reply_error(reply, "请先完成当前文件选择。");
         else {
             const char *prompt = !strcmp(text_member(request, "purpose"), "environmentStorage")
-                ? "请选择用于保存镜像和虚拟磁盘的空文件夹。" : "仅此文件夹会与 Cage 共享。请选择具体项目。";
+                ? "请选择用于保存镜像和虚拟磁盘的空文件夹。" : "仅此文件夹会与 Cage lite 共享。请选择具体项目。";
             char *path = choose_file(GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER, prompt, NULL);
             reply_string(reply, context, path ? path : "");
             g_free(path);
@@ -1430,13 +1430,13 @@ static void bootstrapped(JsonObject *object, const GError *error, gpointer data)
     g_uri_unref(uri);
     app.ready = FALSE;
     install_bridge();
-    gtk_window_set_title(GTK_WINDOW(app.window), app.needs_update ? ui_text("Cage（更新待完成）") : "Cage");
+    gtk_window_set_title(GTK_WINDOW(app.window), app.needs_update ? ui_text("Cage lite（更新待完成）") : "Cage");
     webkit_web_view_load_uri(app.web, url);
 }
 static void bootstrap(const char *option) {
     if (app.bootstrapping) return;
     app.bootstrapping = TRUE;
-    gtk_label_set_text(GTK_LABEL(app.status), ui_text("正在连接 Cage 工作台…"));
+    gtk_label_set_text(GTK_LABEL(app.status), ui_text("正在连接工作台…"));
     gtk_stack_set_visible_child_name(GTK_STACK(app.stack), "status");
     gtk_widget_hide(app.retry); gtk_widget_hide(app.existing); gtk_widget_hide(app.complete);
     backend("desktop", option, bootstrapped, NULL);
@@ -1446,7 +1446,7 @@ static void existing_clicked(GtkButton *button, gpointer data) { (void)button; (
 static void complete_clicked(GtkButton *button, gpointer data) {
     (void)button; (void)data;
     GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(app.window), GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION, GTK_BUTTONS_OK_CANCEL,
-        "%s", ui_text("请先保存文件。继续后将停止 Cage 环境并完成后台更新，终端任务会结束，项目和登录状态会保留。"));
+        "%s", ui_text("请先保存文件。继续后将停止环境并完成后台更新，终端任务会结束，项目和登录状态会保留。"));
     gboolean accepted = gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK;
     gtk_widget_destroy(dialog);
     if (accepted) bootstrap("--complete-update");
@@ -1545,7 +1545,7 @@ static void menu_action(GSimpleAction *simple, GVariant *parameter, gpointer dat
         else g_application_quit(G_APPLICATION(app.application));
     } else if (!strcmp(name, "updates")) {
         GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(app.window), GTK_DIALOG_MODAL, GTK_MESSAGE_INFO, GTK_BUTTONS_CLOSE,
-            "%s", ui_text("Linux 版本通过安装包更新。请保存文件、停止环境并退出 Cage，再安装已核对摘要的官方新版本。"));
+            "%s", ui_text("Linux 版本通过安装包更新。请保存文件、停止环境并退出 Cage lite，再安装已核对摘要的官方新版本。"));
         gtk_dialog_run(GTK_DIALOG(dialog)); gtk_widget_destroy(dialog);
     } else if (!strcmp(name, "about")) {
         gtk_show_about_dialog(GTK_WINDOW(app.window), "program-name", "Cage", "version", CAGE_VERSION,
@@ -1559,10 +1559,10 @@ static void update_menu(void) {
     g_menu_append(file, ui_text("新建终端"), "app.newTerminal");
     g_menu_append(file, ui_text("关闭当前标签"), "app.closeTab");
     g_menu_append(file, ui_text("关闭窗口（保留环境）"), "app.closeWindow");
-    g_menu_append(file, ui_text("退出 Cage…"), "app.quit");
+    g_menu_append(file, ui_text("退出 Cage lite…"), "app.quit");
     g_menu_append(settings, ui_text("打开设置"), "app.settings");
     g_menu_append(settings, ui_text("应用更新…"), "app.updates");
-    g_menu_append(help, ui_text("关于 Cage"), "app.about");
+    g_menu_append(help, ui_text("关于 Cage lite"), "app.about");
     g_menu_remove_all(app.menu);
     g_menu_append_submenu(app.menu, ui_text("文件"), G_MENU_MODEL(file));
     g_menu_append_submenu(app.menu, ui_text("设置"), G_MENU_MODEL(settings));
@@ -1601,7 +1601,7 @@ static void create_window(void) {
     GtkWidget *status_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_widget_set_margin_start(status_box, 48); gtk_widget_set_margin_end(status_box, 48);
     gtk_widget_set_margin_top(status_box, 48); gtk_widget_set_valign(status_box, GTK_ALIGN_START);
-    app.status = gtk_label_new(ui_text("正在启动 Cage 工作台…"));
+    app.status = gtk_label_new(ui_text("正在启动工作台…"));
     gtk_label_set_line_wrap(GTK_LABEL(app.status), TRUE);
     gtk_label_set_xalign(GTK_LABEL(app.status), 0);
     gtk_box_pack_start(GTK_BOX(status_box), app.status, FALSE, FALSE, 0);
@@ -1722,13 +1722,13 @@ int main(int argc, char **argv) {
         g_printerr("Usage: cage-desktop [--version | --self-test | --smoke-test /absolute/report.json]\nSmoke tests require an isolated CLAUDE_CAGE_CONFIG with an unlocked test account.\n");
         return 2;
     }
-    if (geteuid() == 0) { g_printerr("Cage 桌面需要以普通用户运行，请勿使用 sudo 启动。\n"); return 1; }
+    if (geteuid() == 0) { g_printerr("Cage lite 桌面需要以普通用户运行，请勿使用 sudo 启动。\n"); return 1; }
     char *executable = g_file_read_link("/proc/self/exe", NULL);
-    if (!executable) { g_printerr("无法定位 Cage 安装目录。\n"); return 1; }
+    if (!executable) { g_printerr("无法定位 Cage lite 安装目录。\n"); return 1; }
     char *directory = g_path_get_dirname(executable);
     app.backend = g_build_filename(directory, "cage", NULL);
     g_free(directory); g_free(executable);
-    if (!g_file_test(app.backend, G_FILE_TEST_IS_EXECUTABLE)) { g_printerr("安装目录缺少 Cage 后台，请重新安装。\n"); return 1; }
+    if (!g_file_test(app.backend, G_FILE_TEST_IS_EXECUTABLE)) { g_printerr("安装目录缺少 Cage lite 后台，请重新安装。\n"); return 1; }
     const char *configured = g_getenv("CLAUDE_CAGE_CONFIG");
     app.profile = configured && *configured ? g_canonicalize_filename(configured, NULL)
         : CAGE_CLIENT_ONLY ? g_build_filename(g_get_home_dir(), ".claude-cage", "client", "config.json", NULL)
@@ -1737,7 +1737,7 @@ int main(int argc, char **argv) {
     load_language();
     g_log_set_default_handler(diagnostic_glib, NULL);
     if (!prepare_web_storage()) {
-        g_printerr("无法创建 Cage 私有界面数据目录，请检查配置目录的所有者、权限或符号链接。\n");
+        g_printerr("无法创建 Cage lite 私有界面数据目录，请检查配置目录的所有者、权限或符号链接。\n");
         return 1;
     }
     app.media_plugins_isolated = media_plugins_isolate(app.web_cache, media_plugins_system_dirs);

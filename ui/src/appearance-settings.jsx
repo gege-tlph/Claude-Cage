@@ -784,7 +784,7 @@ export function AppearanceSettings() {
                 fontSize: appearance.codeFontSize,
               }}
             >
-              const workspace = "Cage";
+              const workspace = "Cage lite";
             </code>
           </div>
         </div>

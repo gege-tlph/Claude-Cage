@@ -127,7 +127,7 @@ export function PasswordVaultSettings({ onConfirm, onDirty }) {
   const entries = store.entries.filter(entry => `${entry.origin} ${entry.username}`.toLowerCase().includes(search.toLowerCase()));
   return <section className="vault-settings">
     <div className="section-title"><h3>{tr("密码保险箱")}</h3></div>
-    <div className="vault-note"><ShieldCheck size={17} /><span>{tr("查看或复制密码需要再次验证 Cage 账户密码。填充后由你提交登录。")}</span></div>
+    <div className="vault-note"><ShieldCheck size={17} /><span>{tr("查看或复制密码需要再次验证账户密码。填充后由你提交登录。")}</span></div>
     {error && <p className="account-error" role="alert">{tr(error)}</p>}
     {message && <p role="status">{message}</p>}
     <div className="vault-toolbar"><label className="vault-search"><span><Search size={14} />{tr("搜索网站或账号")}</span>
@@ -144,7 +144,7 @@ export function PasswordVaultSettings({ onConfirm, onDirty }) {
     </form>}
     {verify && <form className="vault-editor" onSubmit={event => { event.preventDefault(); void run({ action: "reveal", id: verify.entry.id, account_password: accountPassword }); }}>
       <h4>{verify.mode === "copy" ? tr("验证后复制密码") : tr("验证后查看密码")}</h4><p>{verify.entry.origin} · {verify.entry.username}</p>
-      <label>{tr("Cage 账户密码")}<input type="password" autoComplete="off" autoFocus required maxLength={1024} value={accountPassword} onChange={event => setAccountPassword(event.target.value)} /></label>
+      <label>{tr("账户密码")}<input type="password" autoComplete="off" autoFocus required maxLength={1024} value={accountPassword} onChange={event => setAccountPassword(event.target.value)} /></label>
       <div className="vault-actions"><button className="primary" disabled={busy} type="submit">{verify.mode === "copy" ? tr("验证并复制") : tr("验证并查看")}</button>
         <button type="button" disabled={busy} onClick={() => { setVerify(null); setAccountPassword(""); }}>{tr("取消验证")}</button></div>
     </form>}

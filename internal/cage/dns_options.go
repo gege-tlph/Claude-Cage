@@ -19,14 +19,20 @@ import (
 // rollback never fails on these options.
 const DNSOptionsFile = "dns.json"
 
-// PublicDNSFallback is the second public provider used only when the user
-// turns on DNSOptions.PublicFallback. It is reached through the selected
-// proxy, like the primary endpoint.
+// PublicDNSFallback is the second public provider, used after the primary
+// endpoint while DNSOptions.PublicFallback is on (the default, #470). It is
+// reached through the selected proxy, like the primary endpoint.
 const PublicDNSFallback = "https://8.8.8.8/dns-query"
 
 // DefaultBootstrapDNS resolves proxy server names on the host network. The
-// entries are IP literals because nothing can resolve a DoH name first.
-var DefaultBootstrapDNS = []string{"https://1.1.1.1/dns-query", "https://223.5.5.5/dns-query"}
+// entries are IP literals because nothing can resolve a DoH name first. They
+// are queried together, so one a network blocks costs no time; several
+// providers keep mainland networks working (#470). Keep in step with
+// managedproxy.BootstrapDNSURLs.
+var DefaultBootstrapDNS = []string{"https://1.1.1.1/dns-query", "https://223.5.5.5/dns-query", "https://223.6.6.6/dns-query", "https://1.12.12.12/dns-query"}
+
+// DefaultDNSOptions has the public fallback on (#470).
+func DefaultDNSOptions() DNSOptions { return DNSOptions{PublicFallback: true} }
 
 const maxDNSEndpoints = 4
 
@@ -39,9 +45,11 @@ type DNSOptions struct {
 }
 
 type dnsOptionsFile struct {
-	FallbackURLs   []string `json:"fallback_urls,omitempty"`
-	BootstrapURLs  []string `json:"bootstrap_urls,omitempty"`
-	PublicFallback bool     `json:"public_fallback,omitempty"`
+	FallbackURLs  []string `json:"fallback_urls,omitempty"`
+	BootstrapURLs []string `json:"bootstrap_urls,omitempty"`
+	// PublicFallback is absent in files written before it defaulted to on;
+	// absent is on. Older versions read the same key.
+	PublicFallback *bool `json:"public_fallback,omitempty"`
 }
 
 func NewDNSOptions(fallback, bootstrap []string, publicFallback bool) DNSOptions {
@@ -132,7 +140,7 @@ func loadDNSOptions(dir string) (DNSOptions, error) {
 func LoadDNSOptionsFile(path string) (DNSOptions, error) {
 	info, err := os.Lstat(path)
 	if os.IsNotExist(err) {
-		return DNSOptions{}, nil
+		return DefaultDNSOptions(), nil
 	}
 	if err != nil {
 		return DNSOptions{}, err
@@ -151,7 +159,7 @@ func LoadDNSOptionsFile(path string) (DNSOptions, error) {
 	if err := d.Decode(&file); err != nil {
 		return DNSOptions{}, errors.New("DNS 设置文件无效")
 	}
-	o := NewDNSOptions(file.FallbackURLs, file.BootstrapURLs, file.PublicFallback)
+	o := NewDNSOptions(file.FallbackURLs, file.BootstrapURLs, file.PublicFallback == nil || *file.PublicFallback)
 	return o, o.Validate()
 }
 
@@ -166,13 +174,14 @@ func SaveDNSOptionsFile(path string, o DNSOptions) error {
 	if err := o.Validate(); err != nil {
 		return err
 	}
-	if o == (DNSOptions{}) {
+	if o == DefaultDNSOptions() {
 		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 		return nil
 	}
-	b, err := json.MarshalIndent(dnsOptionsFile{FallbackURLs: o.FallbackURLs(), BootstrapURLs: o.BootstrapURLs(), PublicFallback: o.PublicFallback}, "", "  ")
+	publicFallback := o.PublicFallback
+	b, err := json.MarshalIndent(dnsOptionsFile{FallbackURLs: o.FallbackURLs(), BootstrapURLs: o.BootstrapURLs(), PublicFallback: &publicFallback}, "", "  ")
 	if err != nil {
 		return err
 	}

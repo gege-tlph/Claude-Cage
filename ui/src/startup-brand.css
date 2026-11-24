@@ -1,4 +1,4 @@
-.startup-brand { display: flex; align-items: center; gap: 10px; padding: 24px 32px; align-self: stretch; }
+.startup-brand { display: flex; align-items: center; gap: 10px; padding: 24px 32px; align-self: stretch; line-height: 1.5; }
 .startup-brand .cage-mark { width: 28px; height: 28px; border-radius: 7px; }
 .startup-brand strong { font-size: 18px; color: var(--strong); letter-spacing: -0.02em; }
 .startup-brand > span { margin-inline-start: 8px; color: var(--muted); font-size: 14px; }

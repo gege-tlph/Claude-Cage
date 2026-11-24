@@ -291,7 +291,7 @@ func sshConfigProfile(alias, defaultUser string, keys []string, values map[strin
 				compatible = "yes"
 			}
 			if len(args) != 1 || !strings.EqualFold(args[0], compatible) {
-				return HostProfile{}, "Cage 无法保留此连接设置：" + key
+				return HostProfile{}, "Cage lite 无法保留此连接设置：" + key
 			}
 		case "preferredauthentications":
 			if len(args) != 1 || !strings.Contains(","+strings.ToLower(args[0])+",", ",publickey,") {
@@ -348,7 +348,7 @@ func sshConfigProfile(alias, defaultUser string, keys []string, values map[strin
 	p := HostProfile{Name: alias, Host: expanded.String(), Port: port, User: get("user", defaultUser), Auth: AuthConfig{Kind: "agent", AgentSocket: socket}}
 	normalized, err := normalizeProfile(p)
 	if err != nil {
-		return HostProfile{}, "主机名、用户名或端口不符合 Cage 连接要求"
+		return HostProfile{}, "主机名、用户名或端口不符合 Cage lite 连接要求"
 	}
 	return normalized, ""
 }

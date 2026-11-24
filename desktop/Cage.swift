@@ -142,7 +142,7 @@ final class CageApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNaviga
         nativeInput.configure(web: webView)
         content.addSubview(nativeInput)
         NSLayoutConstraint.activate([webView.leadingAnchor.constraint(equalTo: content.leadingAnchor), webView.trailingAnchor.constraint(equalTo: content.trailingAnchor), webView.topAnchor.constraint(equalTo: content.topAnchor), webView.bottomAnchor.constraint(equalTo: content.bottomAnchor)])
-        loading = NSTextField(labelWithString: CageLanguage.text("正在启动 Cage 工作台…"))
+        loading = NSTextField(labelWithString: CageLanguage.text("正在启动工作台…"))
         loading.font = NSFont.systemFont(ofSize: 16, weight: .medium)
         loading.textColor = NSColor(srgbRed: 54.0/255, green: 54.0/255, blue: 54.0/255, alpha: 1)
         loading.alignment = .center
@@ -185,17 +185,17 @@ final class CageApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNaviga
         main.addItem(appItem)
         let appMenu = NSMenu(title: "Cage")
         appItem.submenu = appMenu
-        appMenu.addItem(withTitle: CageLanguage.text("关于 Cage"), action: #selector(about), keyEquivalent: "")
+        appMenu.addItem(withTitle: CageLanguage.text("关于 Cage lite"), action: #selector(about), keyEquivalent: "")
         appMenu.addItem(withTitle: CageLanguage.text("检查应用更新…"), action: #selector(checkApplicationUpdate), keyEquivalent: "")
         completeUpdateMenu = appMenu.addItem(withTitle: CageLanguage.text("完成待安装更新…"), action: #selector(completePendingUpdate), keyEquivalent: "")
         completeUpdateMenu.isHidden = !controllerNeedsUpdate
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: CageLanguage.text("设置…"), action: #selector(settings), keyEquivalent: ",")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: CageLanguage.text("隐藏 Cage"), action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        appMenu.addItem(withTitle: CageLanguage.text("隐藏 Cage lite"), action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(withTitle: CageLanguage.text("显示全部"), action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: CageLanguage.text("退出 Cage…"), action: #selector(requestQuit), keyEquivalent: "q")
+        appMenu.addItem(withTitle: CageLanguage.text("退出 Cage lite…"), action: #selector(requestQuit), keyEquivalent: "q")
         let file = NSMenu(title: CageLanguage.text("文件"))
         file.addItem(withTitle: CageLanguage.text("打开项目…"), action: #selector(openProject), keyEquivalent: "o")
         file.addItem(.separator())
@@ -291,7 +291,7 @@ final class CageApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNaviga
         }
     }
     private func bootstrap(options: [String] = []) {
-        loading.stringValue = options.contains("--complete-update") ? CageLanguage.text("正在停止环境并切换到新版后台…") : CageLanguage.text("正在启动 Cage 工作台…")
+        loading.stringValue = options.contains("--complete-update") ? CageLanguage.text("正在停止环境并切换到新版后台…") : CageLanguage.text("正在启动工作台…")
         loading.isHidden = false; retry.isHidden = true; webView.isHidden = true
         completeUpdateButton.isHidden = true; existingEnvironmentButton.isHidden = true
         requestEntry(options: options) { result in
@@ -300,7 +300,7 @@ final class CageApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNaviga
                 self.controllerNeedsUpdate = entry.status != "ready"
                 self.completeUpdateMenu.isHidden = !self.controllerNeedsUpdate
                 let appTitle = "Cage"
-                self.window.title = self.controllerNeedsUpdate ? CageLanguage.text("Cage（更新待完成）") : appTitle
+                self.window.title = self.controllerNeedsUpdate ? CageLanguage.text("Cage lite（更新待完成）") : appTitle
                 if let url = entry.url { self.expectedPort = url.port!; self.webView.load(URLRequest(url: url)) }
                 else { self.showError(entry.message); self.completeUpdateButton.isHidden = false; self.existingEnvironmentButton.isHidden = false }
             case .failure(let error):
@@ -459,7 +459,7 @@ final class CageApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNaviga
             let connection = body["connection_id"] as? String ?? "local"
             requestEntry { result in
                 guard case .success(let entry) = result, let url = entry.url else {
-                    self.accountDeviceBusy = false; replyHandler(nil,"无法连接本地账户，请重新打开 Cage"); return
+                    self.accountDeviceBusy = false; replyHandler(nil,"无法连接本地账户，请重新打开 Cage lite"); return
                 }
                 Task.detached {
                     do {
@@ -502,7 +502,7 @@ final class CageApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNaviga
             retry.title = CageLanguage.text("重试连接")
             existingEnvironmentButton.title = CageLanguage.text("打开现有环境保存文件")
             completeUpdateButton.title = CageLanguage.text("保存后停止环境并完成更新")
-            window.title = controllerNeedsUpdate ? CageLanguage.text("Cage（更新待完成）") : "Cage"
+            window.title = controllerNeedsUpdate ? CageLanguage.text("Cage lite（更新待完成）") : "Cage"
             replyHandler(true, nil)
         case "appearance":
             guard let mode = body["mode"] as? String, ["system", "light", "dark"].contains(mode), let background = body["background"] as? String, background.range(of: "^#[0-9a-fA-F]{6}$", options: .regularExpression) != nil else { replyHandler(nil,"外观参数无效"); return }
@@ -698,7 +698,7 @@ final class CageApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNaviga
             panel.canChooseDirectories = true; panel.canChooseFiles = false
             panel.canCreateDirectories = false; panel.allowsMultipleSelection = false
             panel.prompt = CageLanguage.text(mode == "write" ? "允许云端读写" : "允许云端读取")
-            panel.message = CageLanguage.text(mode == "write" ? "云端 Cage 可以读取、修改和删除所选项目中的文件。" : "云端 Cage 可以读取所选项目中的文件。")
+            panel.message = CageLanguage.text(mode == "write" ? "云端 Cage lite 可以读取、修改和删除所选项目中的文件。" : "云端 Cage lite 可以读取所选项目中的文件。")
             nativeFilePanelOpen = true
             panel.beginSheetModal(for: window) { response in
                 self.nativeFilePanelOpen = false
@@ -709,7 +709,7 @@ final class CageApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNaviga
             let panel = NSOpenPanel(); panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.canCreateDirectories = true; panel.allowsMultipleSelection = false
             let storage = (body["purpose"] as? String) == "environmentStorage"
             panel.prompt = CageLanguage.text(storage ? "选择文件夹" : "共享此项目")
-            panel.message = CageLanguage.text(storage ? "请选择用于保存镜像和虚拟磁盘的空文件夹。" : "仅此文件夹会与 Cage 共享。请选择具体项目。")
+            panel.message = CageLanguage.text(storage ? "请选择用于保存镜像和虚拟磁盘的空文件夹。" : "仅此文件夹会与 Cage lite 共享。请选择具体项目。")
             nativeFilePanelOpen = true
             panel.beginSheetModal(for:window) { response in self.nativeFilePanelOpen = false; replyHandler(response == .OK ? panel.url?.path : "",nil) }
         case "notificationStatus":

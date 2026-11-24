@@ -83,9 +83,9 @@ func abandonedGuestMessage(system string) string {
 	case "ubuntu", "ubuntu-22.04", "ubuntu-24.04":
 		name = "Ubuntu"
 	}
-	message := "Cage 已不再支持 " + name + " 客机，现在只提供 Debian 环境；原有客机数据仍保留在数据目录中，未被改动。"
+	message := "Cage lite 已不再支持 " + name + " 客机，现在只提供 Debian 环境；原有客机数据仍保留在数据目录中，未被改动。"
 	if name == "Ubuntu" {
-		message += "可在 Cage 窗口选择“保留旧 Ubuntu 环境并新建 Debian”。"
+		message += "可在 Cage lite 窗口选择“保留旧 Ubuntu 环境并新建 Debian”。"
 	}
 	return message
 }

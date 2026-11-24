@@ -168,7 +168,7 @@ export function ProjectDialog({
           <span className="save-note">
             {busy
               ? submitting ? removeTarget ? tr("正在移除项目…") : tr("正在连接项目…") : status.job?.message
-              : adding ? editing ? tr("会话历史保留") : tr("首个文件夹为默认目录") : tr("使用已授权的 Cage 项目")}
+              : adding ? editing ? tr("会话历史保留") : tr("首个文件夹为默认目录") : tr("使用已授权的项目")}
           </span>
           <button disabled={busy} onClick={onClose}>
             {tr("取消")}
@@ -199,7 +199,7 @@ export function ProjectDialog({
             <FolderOpen size={16} />{tr("共享本机项目…")}
           </button>
           {sharing && <fieldset className="project-picker-list project-permissions" disabled={busy}>
-            <legend>{tr("共享给")}{context.name || tr("当前云端 Cage")}</legend>
+            <legend>{tr("共享给")}{context.name || tr("当前云端 Cage lite")}</legend>
             <label><input type="checkbox" checked={writeAccess} onChange={(e) => setWriteAccess(e.target.checked)} />{tr("允许云端修改和删除本机项目文件")}</label>
             <button type="button" onClick={share}>{tr("选择本机文件夹…")}</button>
           </fieldset>}
@@ -219,7 +219,7 @@ export function ProjectDialog({
               </label>
               {path === project && !selectedShare && !removeTarget && <div className="project-picker-actions">
                 {selectedGroup && <button type="button" className="icon-button" aria-label={tr("编辑名称与文件夹…")} disabled={busy || !status.ready} onClick={edit}><PencilLine size={16} aria-hidden="true" /></button>}
-                {activate && <button type="button" className="icon-button project-picker-remove" aria-label={tr("从 Cage 移除此项目")} disabled={busy} onClick={() => { setRemoveTarget(path); setError(""); setRecovery(""); }}><FolderMinus size={16} aria-hidden="true" /></button>}
+                {activate && <button type="button" className="icon-button project-picker-remove" aria-label={tr("从 Cage lite 移除此项目")} disabled={busy} onClick={() => { setRemoveTarget(path); setError(""); setRecovery(""); }}><FolderMinus size={16} aria-hidden="true" /></button>}
               </div>}
             </div>)}
           </fieldset>

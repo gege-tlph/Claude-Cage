@@ -81,8 +81,9 @@ func TestDNSFailsOverToBackupEndpointThroughProxy(t *testing.T) {
 
 func TestDNSEndpointsDefaultsAndOptIn(t *testing.T) {
 	c := DefaultConfig()
-	if got := c.DNSEndpoints(); !reflect.DeepEqual(got, []string{"https://1.1.1.1/dns-query"}) {
-		t.Fatalf("default must stay a single provider: %v", got)
+	// #470: the public fallback is on by default.
+	if got := c.DNSEndpoints(); !reflect.DeepEqual(got, []string{"https://1.1.1.1/dns-query", PublicDNSFallback}) {
+		t.Fatalf("default must be the primary with the public fallback: %v", got)
 	}
 	if got := c.BootstrapEndpoints(); !reflect.DeepEqual(got, DefaultBootstrapDNS) {
 		t.Fatalf("bootstrap default changed: %v", got)
@@ -134,11 +135,29 @@ func TestDNSOptionsFileKeepsMainConfigReadableByOlderVersions(t *testing.T) {
 	if strings.Contains(string(main), "dns.example") {
 		t.Fatal("options leaked into the strict main configuration")
 	}
-	if err := SaveDNSOptions(path, DNSOptions{}); err != nil {
+	if err := SaveDNSOptions(path, DefaultDNSOptions()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, DNSOptionsFile)); !os.IsNotExist(err) {
 		t.Fatal("default options must not leave a file")
+	}
+	// #470: files from before the fallback defaulted to on lack the key and
+	// read as on; turning it off is written and read back.
+	file := filepath.Join(dir, DNSOptionsFile)
+	if err := os.WriteFile(file, []byte(`{"fallback_urls":["https://dns.example/dns-query"]}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if o, err := LoadDNSOptionsFile(file); err != nil || !o.PublicFallback {
+		t.Fatalf("an older file without the key must read as on: %+v %v", o, err)
+	}
+	if err := SaveDNSOptions(path, DNSOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if o, err := LoadDNSOptionsFile(file); err != nil || o.PublicFallback {
+		t.Fatalf("turned-off fallback not kept: %+v %v", o, err)
+	}
+	if err := os.Remove(file); err != nil {
+		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, DNSOptionsFile), []byte(`{"unknown":1}`), 0600); err != nil {
 		t.Fatal(err)

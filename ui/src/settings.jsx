@@ -669,6 +669,7 @@ export function SettingsPanel({
                     <label
                       className={`choice ${(isRemoteClient() ? localKeyboard : draft.keyboard) === value ? "checked" : ""}`}
                       key={value}
+                      title={tr(help)}
                     >
                       <input
                         type="radio"
@@ -683,7 +684,6 @@ export function SettingsPanel({
                       />
                       <span>
                         <strong>{tr(title)}</strong>
-                        <small>{tr(help)}</small>
                       </span>
                     </label>
                   ))}

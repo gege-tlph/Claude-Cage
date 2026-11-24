@@ -21,8 +21,8 @@ func TestDNSSettingsPersistBesideConfigAndSurviveLegacyClients(t *testing.T) {
 		t.Fatal(err)
 	}
 	view := settingsView(cfg, s.preferences)
-	if view.DNSFallbackURLs == nil || view.DNSBootstrapURLs == nil || view.DNSPublicFallback {
-		t.Fatalf("defaults must be empty lists with the public fallback off: %+v", view)
+	if view.DNSFallbackURLs == nil || view.DNSBootstrapURLs == nil || !view.DNSPublicFallback {
+		t.Fatalf("defaults must be empty lists with the public fallback on (#470): %+v", view)
 	}
 	view.DNSFallbackURLs = []string{"https://dns.example/dns-query"}
 	view.DNSBootstrapURLs = []string{"https://223.5.5.5/dns-query"}

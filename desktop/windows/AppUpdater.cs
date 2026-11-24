@@ -99,7 +99,7 @@ internal sealed class AppUpdater : IDisposable
         if (!Guid.TryParse(Environment.GetEnvironmentVariable("CAGE_UPDATE_CONFIRMATION"), out var token)) return;
         Directory.CreateDirectory(Root); UpdatePolicy.PlainPath(Root);
         File.WriteAllText(Path.Combine(Root, "launch-" + token + ".json"), JsonSerializer.Serialize(new { version = Version }));
-        Change("current", "Cage 已更新至 " + Version);
+        Change("current", "Cage lite 已更新至 " + Version);
         Environment.SetEnvironmentVariable("CAGE_UPDATE_CONFIRMATION", null);
     }
 
@@ -154,7 +154,7 @@ internal sealed class AppUpdater : IDisposable
                         _ => property.Value.Clone(),
                     };
                 if (publisher == null && state.GetValueOrDefault("phase") as string == "available")
-                    Change("manual", "当前 Windows 程序未签名或签名无法验证，请从官方发布页下载安装包，退出 Cage 后安装到原位置；配置、凭据、项目和虚拟机磁盘会保留。");
+                    Change("manual", "当前 Windows 程序未签名或签名无法验证，请从官方发布页下载安装包，退出 Cage lite 后安装到原位置；配置、凭据、项目和虚拟机磁盘会保留。");
                 else
                 {
                     state["officialUpgrade"] = state.GetValueOrDefault("phase") as string != "current" && unsignedSource;
@@ -226,7 +226,7 @@ internal sealed class AppUpdater : IDisposable
             if (helper.HasExited) throw new IOException("安装程序已退出，原应用已保留");
             await helper.StandardInput.WriteLineAsync("COMMIT"); await helper.StandardInput.FlushAsync(token);
             helper.StandardInput.Close(); committed = true;
-            Change("installing", "正在安装并重启 Cage"); quit();
+            Change("installing", "正在安装并重启 Cage lite"); quit();
         }
         catch (Exception error) { Change("failed", error is OperationCanceledException ? "安装准备超时，原应用已保留" : error.Message, true); reconnect(); }
         finally

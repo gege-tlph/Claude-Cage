@@ -11,10 +11,10 @@ test("Cage's interface languages are Chinese and English, with first-run transla
   const native = JSON.parse(read("../../internal/uilocale/native.json"));
   for (const { id } of languages.slice(1)) {
     const catalog = JSON.parse(read(`./locales/${id}.json`));
-    for (const source of ["界面语言", "跟随系统", "注册 Cage 账户", "为 Cage 准备独立环境", "连接你的网络代理"]) {
+    for (const source of ["界面语言", "跟随系统", "注册账户", "为 Cage lite 准备独立环境", "连接你的网络代理"]) {
       assert.ok(catalog[source] && catalog[source] !== source, `${id} is missing "${source}"`);
     }
-    assert.ok(native[id]?.["正在启动 Cage 工作台…"], `${id} is missing the startup message`);
+    assert.ok(native[id]?.["正在启动工作台…"], `${id} is missing the startup message`);
     for (const [source, value] of Object.entries(catalog)) {
       const placeholders = text => (text.match(/\{\d+\}/g) ?? []).sort();
       assert.deepEqual(placeholders(value), placeholders(source), `${id}: interpolation for "${source}"`);
