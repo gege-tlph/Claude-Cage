@@ -18,6 +18,7 @@ import { RemoteView } from "./views";
 import { useWindowVisibility } from "./window-visibility";
 import "./claude-desktop.css";
 import { useTranslation } from "./interface-language.mjs";
+import { localizeBackendMessage } from "./backend-message.mjs";
 
 const desktopZooms = [0.75, 0.9, 1, 1.1, 1.25, 1.5];
 
@@ -239,7 +240,7 @@ export function ClaudeDesktop({
       {busy && ownJob && (
         <div className="desktop-progress" role="status">
           <RefreshCw size={16} className="spin" />
-          {status.job.message}
+          {localizeBackendMessage(status.job.message, tr)}
           <button className="text-button" onClick={onDetails}>
             {tr("查看进度")}
           </button>

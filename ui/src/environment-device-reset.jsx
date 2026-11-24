@@ -3,6 +3,7 @@ import { api } from "./api";
 import { InlineSelect } from "./inline-select";
 import { SafetyMessage } from "./safety-message";
 import { activeInterfaceLanguage, translate, useTranslation } from "./interface-language.mjs";
+import { localizeBackendMessage } from "./backend-message.mjs";
 import "./environment-device-reset.css";
 
 const customTextFields = [
@@ -475,7 +476,7 @@ export function EnvironmentDeviceReset({ status, onConfirm, onOpenProxy }) {
           )}
           {status.job?.running && (status.job.kind === "device-reset" || status.job.kind === "device-reset-restore") && (
             <p role="status" className="field-help">
-              {status.job.message}
+              {localizeBackendMessage(status.job.message, tr)}
             </p>
           )}
           {notice && (

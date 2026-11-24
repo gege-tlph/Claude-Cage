@@ -116,7 +116,7 @@ export function SafetyPanel({
       onClose={onClose}
       footer={
         <>
-          {busy && <span className="save-note">{status.job.message}</span>}
+          {busy && <span className="save-note">{localizeBackendMessage(status.job.message, tr)}</span>}
           {(online || network.mode === "checking") && (
             <button onClick={pause}>
               {network.mode === "checking" ? tr("取消检测并关闭外网") : tr("暂停外网")}
