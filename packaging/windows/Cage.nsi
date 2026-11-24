@@ -613,6 +613,12 @@ Section "Cage" Main
   ${EndIf}
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "DesktopShortcut" $DesktopShortcut
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "StartMenuShortcuts" $StartMenuShortcuts
+  ; Terminals can run `cage` (#861). cage.exe edits the user PATH itself, so
+  ; its type (REG_EXPAND_SZ) and any length survive. A failure leaves the
+  ; installation as it is.
+  !insertmacro InstallPhase "adding_user_path"
+  nsExec::ExecToLog /TIMEOUT=10000 '"$INSTDIR\resources\cage.exe" user-path add "$INSTDIR\resources"'
+  Pop $0
   ${If} $LANGUAGE != $InstallerSystemLanguage
     ; Seed a fresh profile after a successful interactive installation.
     nsExec::ExecToLog /TIMEOUT=10000 '"$INSTDIR\resources\cage.exe" interface-language --seed-windows-id "$LANGUAGE"'
@@ -669,6 +675,10 @@ Section "Uninstall"
   ; PowerShell 5.1 Add-Type must not resolve NSIS's native System.dll as a
   ; managed compiler reference from the plugin working directory.
   SetOutPath "$TEMP"
+  ; Before its files go: cage.exe removes its own PATH entry.
+  !insertmacro UninstallPhase "removing_user_path"
+  nsExec::ExecToLog /TIMEOUT=10000 '"$INSTDIR\resources\cage.exe" user-path remove "$INSTDIR\resources"'
+  Pop $0
   !insertmacro UninstallPhase "removing_owned_files"
   nsExec::ExecToStack '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\installation-files.ps1" -Operation uninstall -Target "$INSTDIR" -Manifest "$PLUGINSDIR\install-files.json" $DiagnosticArguments'
   Pop $0

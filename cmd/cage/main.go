@@ -131,6 +131,9 @@ func run() int {
 	if args[0] == "agent" {
 		return runAgent(args[1:], os.Stdin, os.Stdout)
 	}
+	if args[0] == "user-path" {
+		return userPathCommand(args[1:])
+	}
 	if args[0] == "verify-web-assets" {
 		if len(args) != 1 {
 			return 2
