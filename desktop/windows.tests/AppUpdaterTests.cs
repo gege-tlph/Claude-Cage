@@ -36,6 +36,21 @@ internal static class AppUpdaterTests
                 File.Copy(file, Path.Combine(resources, Path.GetFileName(file)));
             File.Copy(Environment.ProcessPath!, Backend.Executable, true);
             if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(Backend.Executable, File.GetUnixFileMode(Environment.ProcessPath!));
+            // The copy that installed the last update is removed at a later
+            // start; one still running (locked) and other files stay.
+            Directory.CreateDirectory(AppUpdater.Root);
+            var finishedHelper = Path.Combine(AppUpdater.Root, "helper-" + Guid.NewGuid() + ".exe");
+            var runningHelper = Path.Combine(AppUpdater.Root, "helper-" + Guid.NewGuid() + ".exe");
+            var unrelated = Path.Combine(AppUpdater.Root, "keep.txt");
+            foreach (var file in new[] { finishedHelper, runningHelper, unrelated }) File.WriteAllText(file, "fixture");
+            using (var running = new FileStream(runningHelper, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (new AppUpdater(_ => { }, () => { }, () => { }, () => "fixture-publisher"))
+            {
+                if (File.Exists(finishedHelper)) throw new Exception("finished update helper was left behind");
+                if (OperatingSystem.IsWindows() && !File.Exists(runningHelper)) throw new Exception("a running update helper was deleted");
+                if (!File.Exists(unrelated)) throw new Exception("an unrelated update file was deleted");
+            }
+            File.Delete(runningHelper); File.Delete(unrelated);
             var requests = Path.Combine(root, "update-requests");
             var phases = new ConcurrentQueue<string>();
             void Check(bool value, string message) { if (!value) throw new Exception(message); }

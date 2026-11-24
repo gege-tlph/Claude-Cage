@@ -38,6 +38,21 @@ internal sealed class AppUpdater : IDisposable
             }
         }
         catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException) { }
+        RemoveFinishedHelpers();
+    }
+
+    // The helper that installed an update runs from a copy of the previous App
+    // and cannot delete itself. Later starts remove finished copies; one that
+    // still runs is locked by Windows and stays until the next start.
+    private static void RemoveFinishedHelpers()
+    {
+        try
+        {
+            if (!Directory.Exists(Root)) return;
+            foreach (var helper in Directory.EnumerateFiles(Root, "helper-*.exe"))
+                try { File.Delete(helper); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 
     public Dictionary<string, object?> Handle(string operation)
