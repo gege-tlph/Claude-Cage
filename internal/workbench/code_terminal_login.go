@@ -131,6 +131,27 @@ func (m *terminalManager) ownsLoginRequest(owner *terminalSession, guest string,
 	return claimed || unbound && !sibling
 }
 
+// bindObservedSubject records subject as the identity of a session that has
+// none, unless the session changed since record was read.
+func (s *Server) bindObservedSubject(record *mobileRecord, subject string) bool {
+	m := &s.mobileCLI
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	current, err := m.record(s.profile, record.ID)
+	if err != nil || current.Connection != record.Connection || current.Account != record.Account || current.Archived || current.Deleted {
+		return false
+	}
+	current.Account.Subject = subject
+	current.changed()
+	if err := writePrivate(mobileRecordPath(s.profile, current.ID), current); err != nil {
+		return false
+	}
+	if m.catalog != nil {
+		m.catalog[current.ID] = current.summary()
+	}
+	return true
+}
+
 func (s *Server) acceptLoginHint(ctx context.Context, record *mobileRecord, subject string) bool {
 	query := map[string]any{"connection": record.Connection, "cli_id": record.CLIID, "config": record.GuestConfig, "subject": subject}
 	var reply struct {
@@ -182,6 +203,16 @@ func (s *Server) observeCodeLogin(ctx context.Context, view mobileSession, state
 		}
 		if reading.subject() == record.Account.Subject {
 			if !s.acceptLoginHint(ctx, record, hint.Subject) {
+				return true
+			}
+			state.stamp = hint.Stamp
+			return false
+		}
+		if record.Account.Subject == "" {
+			// Saved before its identity was recorded: there is no earlier
+			// login to protect, so the session takes the login its own
+			// directory holds instead of being stopped (#800).
+			if !s.acceptLoginHint(ctx, record, reading.subject()) || !s.bindObservedSubject(record, reading.subject()) {
 				return true
 			}
 			state.stamp = hint.Stamp
