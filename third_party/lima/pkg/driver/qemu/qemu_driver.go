@@ -891,13 +891,13 @@ func (l *LimaQemuDriver) shutdownQEMU(ctx context.Context, timeout time.Duration
 	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, timeout)
 	defer timeoutCancel()
 
-	select {
-	case qWaitErr, ok := <-qWaitCh:
-		if !ok {
-			logrus.Info("QEMU wait channel was closed")
-			_ = l.removeVNCFiles()
-			return errors.Join(l.killVhosts(), l.killSwtpm())
-		}
+	qWaitErr, exited, closed := awaitPowerdown(timeoutCtx, qWaitCh, rawClient.SystemPowerdown)
+	switch {
+	case closed:
+		logrus.Info("QEMU wait channel was closed")
+		_ = l.removeVNCFiles()
+		return errors.Join(l.killVhosts(), l.killSwtpm())
+	case exited:
 		entry := logrus.NewEntry(logrus.StandardLogger())
 		if qWaitErr != nil {
 			entry = entry.WithError(qWaitErr)
@@ -905,7 +905,7 @@ func (l *LimaQemuDriver) shutdownQEMU(ctx context.Context, timeout time.Duration
 		entry.Info("QEMU has exited")
 		_ = l.removeVNCFiles()
 		return errors.Join(qWaitErr, l.killVhosts(), l.killSwtpm())
-	case <-timeoutCtx.Done():
+	default:
 		if qCmd.ProcessState != nil {
 			logrus.Info("QEMU has already exited")
 			_ = l.removeVNCFiles()
@@ -913,6 +913,37 @@ func (l *LimaQemuDriver) shutdownQEMU(ctx context.Context, timeout time.Duration
 		}
 		logrus.Warnf("QEMU did not exit in %v, forcibly killing QEMU", timeout)
 		return l.killQEMU(ctx, timeout, qCmd, qWaitCh)
+	}
+}
+
+// powerButtonRepeat is how often awaitPowerdown presses the power button
+// again. A variable, for tests.
+var powerButtonRepeat = 5 * time.Second
+
+// awaitPowerdown waits for QEMU to exit after the first power button press.
+// A guest that is still booting has no handler for the button yet and loses
+// that press; it would then run on until the timeout kills it, so stopping
+// right after a start took the whole timeout. The button is pressed again
+// every powerButtonRepeat, and the guest powers off cleanly once it can.
+// exited is false when ctx ended first; closed reports a closed wait channel.
+func awaitPowerdown(ctx context.Context, qWaitCh <-chan error, press func() error) (qWaitErr error, exited, closed bool) {
+	ticker := time.NewTicker(powerButtonRepeat)
+	defer ticker.Stop()
+	for presses := 1; ; {
+		select {
+		case err, ok := <-qWaitCh:
+			return err, true, !ok
+		case <-ticker.C:
+			presses++
+			if presses == 2 {
+				logrus.Info("QEMU has not exited yet; pressing the power button again until the guest handles it")
+			}
+			if err := press(); err != nil {
+				logrus.WithError(err).Debug("failed to press the power button again")
+			}
+		case <-ctx.Done():
+			return nil, false, false
+		}
 	}
 }
 
