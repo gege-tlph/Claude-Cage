@@ -96,6 +96,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
   const [manual, setManual] = useState(emptyManual);
   const [routeDraft, setRouteDraft] = useState(null);
   const [hostRefresh, setHostRefresh] = useState(false);
+  const [relayPort, setRelayPort] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
   const [readingFile, setReadingFile] = useState(false);
   const alive = useRef(true),
@@ -223,16 +224,16 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
             : action === "refresh"
               ? updated.sources.find((source) => source.id === input.id)
               : null;
+        // Imports report their counts; other actions show their result in
+        // the summary and lists, so no "done" line lingers below (S4).
         setNotice(
           importedSource
-            ? importedSource.skipped?.length
-              ? tr("已导入 {0} 个节点，跳过 {1} 个；可在来源下查看跳过原因", importedSource.nodes.length, importedSource.skipped.length)
-              : tr("已导入 {0} 个节点，跳过 {1} 个", importedSource.nodes.length, 0)
-            : current.message || tr("已完成"),
+            ? tr("已导入 {0} 个节点，跳过 {1} 个", importedSource.nodes.length, importedSource.skipped?.length || 0)
+            : "",
         );
         setDelays({});
         if (action === "import" && needsMigration) setTab("nodes");
-        if (action === "import-local") { setTab("nodes"); setSearch(""); setSource(""); setRegion(""); setNotice(tr("配置已导入。请在下方选择出口，再点击“应用代理”。")); }
+        if (action === "import-local") { setTab("nodes"); setSearch(""); setSource(""); setRegion(""); setNotice(tr("配置已导入")); }
       }
       return true;
     } catch (e) {
@@ -383,10 +384,14 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
   );
   const selected = allNodes.find((n) => n.id === proxy.selected);
   const usableNodes = allNodes.filter((node) => !node.blocked_reason);
+  // A local relay (#595) is only the first hop of a chain, never the exit.
+  const relayHop = (id, index, length) =>
+    !allNodes.find((n) => n.id === id)?.relay || (index === 0 && length > 1);
   const needsMigration = allNodes.some((node) => node.blocked_reason && savedRoute.includes(node.id));
   const active = proxy.active && !needsMigration;
   const routeValid =
     route.every((id) => usableNodes.some((n) => n.id === id)) &&
+    route.every((id, index) => relayHop(id, index, route.length)) &&
     new Set(route).size === route.length;
   const routeName = (id) => allNodes.find((n) => n.id === id)?.name || tr("待选择");
   const updateHop = (index, id) =>
@@ -414,14 +419,14 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
       <button
         className="proxy-node-choice"
         disabled={
-          busy || Boolean(n.blocked_reason) ||
+          busy || Boolean(n.blocked_reason) || n.relay ||
           !proxy.core_available ||
           route.slice(0, -1).includes(n.id)
         }
         title={
           n.blocked_reason
             ? localizeBackendMessage(n.blocked_reason, tr)
-            : (route.slice(0, -1).includes(n.id)
+            : n.relay ? tr("本机中转") : (route.slice(0, -1).includes(n.id)
               ? tr("此节点已用作中转")
               : tr("选为最终出口，点击应用代理后生效"))
         }
@@ -439,11 +444,11 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
           </small>
         </span>
       </button>
-      {active && savedRoute.includes(n.id) && (
+      {active && savedRoute.includes(n.id) ? (
         <span className="proxy-node-role">
           {n.id === proxy.selected ? tr("当前出口") : tr("当前中转")}
         </span>
-      )}
+      ) : n.relay && <span className="proxy-node-role">{tr("本机中转")}</span>}
       <span className="proxy-delay" title={n.blocked_reason ? undefined : (delayReasons.current[n.id] ? localizeBackendMessage(delayReasons.current[n.id], tr) : undefined)}>
         {!n.blocked_reason && (delays[n.id] ? tr(delays[n.id]) : tr("未测速"))}
       </span>
@@ -495,7 +500,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
           <ol className="proxy-help-steps">
             <li>
               <strong>{tr("导入你的代理")}</strong>
-              <p>{tr("打开「订阅」→「添加来源」，填写来源名称，再选择一种方式：")}</p>
+              <p>{tr("打开「订阅」→「添加订阅」，填写订阅名称，再选择一种方式：")}</p>
               <ul>
                 <li>
                   <strong>{tr("订阅链接：")}</strong>{tr("从代理服务商处复制 Clash/Mihomo 格式的 HTTPS 订阅地址，粘贴后点击「导入并验证」。首次还没有可用节点时，勾选「通过主机网络下载这份订阅」；主机需要能访问该地址。")}
@@ -536,7 +541,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
         <Server size={22} />
         <div>
           <strong>
-            {needsMigration ? tr("代理链需要迁移") : selected ? tr("最终出口 · {0}", selected.name) : tr("尚未配置代理节点")}
+            {needsMigration ? tr("代理链需要迁移") : selected ? (savedRoute.length > 1 ? tr("最终出口 · {0}", selected.name) : tr("出口 · {0}", selected.name)) : tr("尚未配置代理节点")}
           </strong>
           {needsMigration ? (
             <span className="proxy-current-route">{savedRoute.map(routeName).join(" → ")}</span>
@@ -550,10 +555,10 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
               ? tr("旧配置使用本机代理端口。请导入原代理链中的节点，再按原顺序应用。")
               : active
               ? proxy.running
-                ? tr("Cage 自带核心运行中")
+                ? tr("核心运行中")
                 : tr("核心未就绪")
-              : tr("请选择节点后应用，未配置时无法联网")}{" "}
-            {!needsMigration && "· " + tr("独立端口 {0}", proxy.port)}
+              : tr("尚未应用")}{" "}
+            {!needsMigration && "· " + tr("端口 {0}", proxy.port)}
           </span>
         </div>
         {needsMigration ? (
@@ -564,7 +569,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
       </div>
       {active && status.location && (
         <p className="field-help">
-          {tr("最近检测出口：{0}", `${status.location.ip} · ${status.location.country} ${status.location.city}`.trim())}
+          {tr("最近检查出口：{0}", `${status.location.ip} · ${status.location.country} ${status.location.city}`.trim())}
         </p>
       )}
       {!proxy.core_available && (
@@ -629,7 +634,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                 {route.map((id, index) => {
                   const final = index === route.length - 1;
                   const label = final
-                    ? tr("最终出口")
+                    ? route.length > 1 ? tr("最终出口") : tr("出口")
                     : route.length > 2 ? tr("中转节点 {0}", index + 1) : tr("中转节点");
                   return (
                     <li
@@ -664,7 +669,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                                 <option
                                   key={n.id}
                                   value={n.id}
-                                  disabled={Boolean(n.blocked_reason) || route.some(
+                                  disabled={Boolean(n.blocked_reason) || !relayHop(n.id, index, route.length) || route.some(
                                     (hop, i) => i !== index && hop === n.id,
                                   )}
                                 >
@@ -724,7 +729,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                     ? tr("有未应用的代理修改")
                     : active
                       ? tr("当前配置已应用")
-                      : tr("选择完成后应用代理")}
+                      : tr("尚未应用")}
                 </span>
                 <div>
                   {routeDraft !== null && (
@@ -774,7 +779,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                 onClick={() => openImport("url")}
               >
                 <Plus size={14} />
-                {tr("添加来源")}
+                {tr("添加订阅")}
               </button>
             </div>
           )}
@@ -786,16 +791,16 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                 aria-label={tr("搜索节点")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder={tr("搜索节点、来源或协议")}
+                placeholder={tr("搜索节点、订阅或协议")}
               />
             </div>
             <InlineSelect
               inline
-              aria-label={tr("节点来源")}
+              aria-label={tr("订阅")}
               value={source}
               onValueChange={(next) => setSource(next)}
             >
-              <option value="">{tr("全部来源")}</option>
+              <option value="">{tr("全部订阅")}</option>
               {proxy.sources.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
@@ -868,7 +873,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
           {!allNodes.length ? (
             <div className="proxy-empty">
               <Download size={26} />
-              <strong>{tr("添加第一份节点来源")}</strong>
+              <strong>{tr("添加第一份订阅")}</strong>
               <button
                 onClick={() => openImport("file")}
               >
@@ -917,7 +922,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
         <>
           <div className="proxy-toolbar">
             <span>
-              {tr("{0} 个来源 · {1} 个节点", proxy.sources.length, allNodes.length)}
+              {tr("{0} 个订阅 · {1} 个节点", proxy.sources.length, allNodes.length)}
             </span>
             <button
               disabled={busy}
@@ -927,7 +932,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
               }}
             >
               <Plus size={14} />
-              {tr("添加来源")}
+              {tr("添加订阅")}
             </button>
           </div>
           {proxy.sources.map((s) => (
@@ -1003,11 +1008,11 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                   onClick={async () => {
                     if (
                       await onConfirm({
-                        title: tr("删除来源“{0}”？", s.name),
+                        title: tr("删除订阅“{0}”？", s.name),
                         body: s.nodes.some((n) => n.id === proxy.selected)
-                          ? tr("当前节点来自此来源。删除后 Cage 会保持离线，直到你选择其他节点。")
-                          : tr("将移除此来源及其节点，本地项目文件不受影响。"),
-                        confirm: "删除来源",
+                          ? tr("当前出口在此订阅中，删除后保持离线，直到选择其他节点。")
+                          : tr("此订阅的节点会一起移除。"),
+                        confirm: "删除订阅",
                       })
                     )
                       mutate("delete", { id: s.id });
@@ -1029,9 +1034,58 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
               {tr("手动更新订阅时通过主机网络下载")}
             </label>
           )}
+          <section className="proxy-relays" aria-labelledby="proxy-relays-title">
+            <h4 id="proxy-relays-title">{tr("本机中转")}</h4>
+            {(proxy.local_relays || []).map((value) => (
+              <div className="proxy-relay" key={value}>
+                <code>127.0.0.1:{value}</code>
+                <button
+                  className="icon-button"
+                  type="button"
+                  disabled={busy}
+                  aria-label={tr("撤销 {0}", `127.0.0.1:${value}`)}
+                  title={tr("撤销 {0}", `127.0.0.1:${value}`)}
+                  onClick={() => mutate("local-relay", { port: value, allow: false })}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+            <form
+              className="proxy-relay-add"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const value = Number(relayPort);
+                if (
+                  await onConfirm({
+                    title: tr("允许 127.0.0.1:{0} 作为中转？", value),
+                    body: tr("此端口上的程序可以看到和阻断经它转发的连接。"),
+                    confirm: "允许",
+                  }) &&
+                  await mutate("local-relay", { port: value, allow: true })
+                )
+                  setRelayPort("");
+              }}
+            >
+              <span>127.0.0.1:</span>
+              <input
+                inputMode="numeric"
+                aria-label={tr("本机端口")}
+                placeholder="7890"
+                value={relayPort}
+                onChange={(e) => setRelayPort(e.target.value.replace(/\D/g, "").slice(0, 5))}
+              />
+              <button
+                type="submit"
+                disabled={busy || !(Number(relayPort) >= 1 && Number(relayPort) <= 65535) || Number(relayPort) === proxy.port || (proxy.local_relays || []).includes(Number(relayPort))}
+              >
+                {tr("允许")}
+              </button>
+            </form>
+          </section>
           {form && (
             <div className="proxy-import">
-              <h4>{form.id ? tr("编辑来源") : tr("添加节点来源")}</h4>
+              <h4>{form.id ? tr("编辑订阅") : tr("添加订阅")}</h4>
               {!form.id && (
                 <div className="proxy-tabs">
                   {[
@@ -1053,7 +1107,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                 </div>
               )}
               <label>
-                {tr("来源名称")}
+                {tr("订阅名称")}
                 <input
                   autoFocus
                   value={form.name}
@@ -1340,7 +1394,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                   }
                   onClick={submit}
                 >
-                  {form.id ? tr("保存来源") : tr("导入并验证")}
+                  {form.id ? tr("保存订阅") : tr("导入并验证")}
                 </button>
               </div>
             </div>
@@ -1434,7 +1488,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
         <p className="proxy-progress" role="status">
           <LoaderCircle size={14} className="spin" />
           {pending === "delay"
-            ? tr("正在检测节点延迟…")
+            ? tr("正在测速…")
             : status.job?.message
               ? localizeBackendMessage(status.job.message, tr)
               : tr("正在处理…")}

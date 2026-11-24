@@ -102,6 +102,7 @@ func AgentOperations() []AgentOperation {
 	get("appearance.get", "Read complete appearance and saved themes", "/api/appearance")
 	post("appearance.set", "Save complete appearance using the workbench validator", "/api/appearance", from(Appearance{}))
 	get("appearance.codex", "Read the same local Codex appearance import as the UI", "/api/appearance/codex")
+	post("appearance.guest-theme", "Record and sync the resolved light or dark appearance variant to the guest environment when guest theme sync is enabled", "/api/appearance/guest-theme", object(map[string]string{"variant": "string"}))
 	post("settings.probe", "Probe actual exit location for a complete settings draft", "/api/settings/probe", from(Settings{}))
 	post("settings.dns_check", "Query each encrypted DNS endpoint of a complete settings draft for deb.debian.org through the selected proxy", "/api/settings/dns-check", from(Settings{}))
 	get("proxy.connections", "Inspect live proxy connections", "/api/proxy/connections")

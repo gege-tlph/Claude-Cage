@@ -59,6 +59,9 @@ type Store struct {
 	// applied, so a core restarted from this store keeps using them.
 	GuestDNS     []string `json:"guest_dns,omitempty"`
 	BootstrapDNS []string `json:"bootstrap_dns,omitempty"`
+	// LocalRelays are the 127.0.0.1 ports the user allowed as the first hop
+	// of a chain (see local_relay.go). Empty by default.
+	LocalRelays []int `json:"local_relays,omitempty"`
 }
 
 // NodeResolvers resolve proxy server names on the host network.
@@ -230,7 +233,7 @@ func (s *Store) Import(name, rawURL string, data []byte, id string, interval int
 	if id == "" {
 		id = Token()[:16]
 	}
-	nodes, skipped, err := parseNodes(data, id)
+	nodes, skipped, err := parseNodesWith(data, id, s.relays())
 	if err != nil {
 		return err
 	}
@@ -443,9 +446,11 @@ func (s Store) Runtime(profile string) ([]byte, error) {
 	}
 	auth := []string{"cage:" + s.Auth}
 	rules := []string{"IN-USER,cage," + Group}
+	relays := s.relays()
 	for _, src := range s.Sources {
 		for _, n := range src.Nodes {
-			if blocked[n.ID] != "" {
+			// A local relay is never an exit, so it gets no account route.
+			if blocked[n.ID] != "" || relays.relay(n.Config) {
 				continue
 			}
 			user := nodeUser(n.ID)

@@ -33,6 +33,11 @@ func Parse(data []byte, sourceID string) ([]Node, error) {
 // Node import keeps remote files from changing listeners, routes, or file paths.
 // Store.Import separately adopts the bounded source-specific node resolver list.
 func parseNodes(data []byte, sourceID string) ([]Node, []NodeIssue, error) {
+	return parseNodesWith(data, sourceID, localRelays{})
+}
+
+// parseNodesWith also keeps nodes that are allowed local relays.
+func parseNodesWith(data []byte, sourceID string, relays localRelays) ([]Node, []NodeIssue, error) {
 	if len(data) == 0 || len(data) > MaxImport {
 		return nil, nil, errors.New("配置为空或超过 8 MiB")
 	}
@@ -109,7 +114,7 @@ func parseNodes(data []byte, sourceID string) ([]Node, []NodeIssue, error) {
 			issue.Reason = "节点协议暂不支持"
 		case server == "" || len(server) > 253:
 			issue.Reason = "节点服务器缺失或过长"
-		case local.contains(server):
+		case local.contains(server) && !relays.relay(p):
 			localCount++
 			issue.Reason = ErrLocalProxyNode.Error()
 		default:

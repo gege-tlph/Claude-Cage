@@ -156,7 +156,11 @@ func BindInterface(data []byte, name string) ([]byte, error) {
 			if node, ok := item.(map[string]any); ok {
 				server, _ := node["server"].(string)
 				dialerProxy, _ := node["dialer-proxy"].(string)
-				if routed := resolveNodeInterface(server, dialerProxy, name, &resolver); routed != "" {
+				// The runtime keeps a local address only for an allowed relay,
+				// which dials the loopback interface instead of the uplink.
+				if server == localRelayHost && dialerProxy == "" {
+					node["interface-name"] = loopbackInterface()
+				} else if routed := resolveNodeInterface(server, dialerProxy, name, &resolver); routed != "" {
 					node["interface-name"] = routed
 				} else if _, bound := node["interface-name"]; bound {
 					node["interface-name"] = name
@@ -174,17 +178,17 @@ func BoundInterface(path string) (string, error) {
 		return "", err
 	}
 	var config struct {
-		Interface string `yaml:"interface-name"`
-		Proxies   []struct {
-			Server string `yaml:"server"`
-		} `yaml:"proxies"`
+		Interface string           `yaml:"interface-name"`
+		Proxies   []map[string]any `yaml:"proxies"`
 	}
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return "", err
 	}
 	local := newLocalServers()
+	relays := relaysBeside(path)
 	for _, proxy := range config.Proxies {
-		if local.contains(proxy.Server) {
+		server, _ := proxy["server"].(string)
+		if local.contains(server) && !relays.relay(proxy, "interface-name") {
 			return "", ErrLocalProxyNode
 		}
 	}
@@ -203,24 +207,26 @@ func BindingMatches(path, physical string) bool {
 		return false
 	}
 	var config struct {
-		Interface string `yaml:"interface-name"`
-		Proxies   []struct {
-			Server      string `yaml:"server"`
-			DialerProxy string `yaml:"dialer-proxy"`
-			Interface   string `yaml:"interface-name"`
-		} `yaml:"proxies"`
+		Interface string           `yaml:"interface-name"`
+		Proxies   []map[string]any `yaml:"proxies"`
 	}
 	if err := yaml.Unmarshal(data, &config); err != nil || config.Interface != physical {
 		return false
 	}
 	local := newLocalServers()
+	relays := relaysBeside(path)
 	var resolver *nodeInterfaceResolver
 	for _, proxy := range config.Proxies {
-		if local.contains(proxy.Server) {
-			return false
+		server, _ := proxy["server"].(string)
+		dialerProxy, _ := proxy["dialer-proxy"].(string)
+		have, _ := proxy["interface-name"].(string)
+		if local.contains(server) {
+			if !relays.relay(proxy, "interface-name") || have != loopbackInterface() {
+				return false
+			}
+			continue
 		}
-		want := resolveNodeInterface(proxy.Server, proxy.DialerProxy, physical, &resolver)
-		have := proxy.Interface
+		want := resolveNodeInterface(server, dialerProxy, physical, &resolver)
 		if have == physical {
 			have = ""
 		}

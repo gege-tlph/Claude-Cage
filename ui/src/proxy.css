@@ -911,6 +911,30 @@ button.proxy-region-group-header:hover:not(:disabled) {
 .proxy-host-refresh {
   margin-top: 10px;
 }
+/* Allowed local relay ports (#595), after the sources they serve. */
+.proxy-relays {
+  margin-top: 18px;
+  display: grid;
+  gap: 8px;
+}
+.settings-content .proxy-relays h4 {
+  margin: 0;
+  font-size: 14px;
+}
+.proxy-relay,
+.proxy-relay-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.proxy-relay code,
+.proxy-relay-add > span {
+  font-size: 13px;
+}
+/* The settings input rule sets width: 100% with higher specificity. */
+.proxy-relays .proxy-relay-add input {
+  max-width: 96px;
+}
 /* Breathing room between the node address card, the drop zone and the
    content field; an empty status line takes no space. */
 .proxy-import .proxy-node-edit {
@@ -921,4 +945,30 @@ button.proxy-region-group-header:hover:not(:disabled) {
 }
 .proxy-yaml-input > label {
   margin-top: 14px;
+}
+/* First-run step 2 ("网络代理"). Until the proxy data arrives the step shows
+   only its loading line: the button bar and the sections below would first
+   move up to it and then be pushed far down (J5). A load error (role="alert")
+   keeps everything visible. Settings hide the same siblings above. */
+.initialization-content:has(.initialization-stage > .proxy-loading[role="status"]) > :is(.initialization-actions, .initialization-support),
+.initialization-stage:has(> .proxy-loading[role="status"]) > :not(.proxy-loading) {
+  display: none;
+}
+/* Two heading levels in step 2 (T2/T3), only in the first-run guide:
+   sections 16px/600, cards 14px/600, field names 14px/550. */
+.initialization .proxy-manager .section-title h3,
+.initialization .local-config-heading h4,
+.initialization .initialization-dns > summary {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.65;
+}
+.initialization .proxy-manager .proxy-route-heading h4,
+.initialization .proxy-manager .proxy-node-heading h4 {
+  font-size: 14px;
+  font-weight: 600;
+}
+.initialization .proxy-manager .proxy-hop-control > label {
+  font-size: 14px;
+  font-weight: 550;
 }

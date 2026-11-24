@@ -664,6 +664,7 @@ export function AppearanceSettings() {
         await update((previous) => ({
           ...value,
           customThemes: previous.customThemes,
+          syncGuestTheme: previous.syncGuestTheme,
         }))
       )
         setSynced(true);
@@ -717,6 +718,17 @@ export function AppearanceSettings() {
                 </button>
               ))}
             </div>
+          </SettingRow>
+          <SettingRow label={tr("同步环境内部主题")}>
+            <label className="appearance-switch">
+              <input
+                type="checkbox"
+                role="switch"
+                aria-label={tr("同步环境内部主题")}
+                checked={appearance.syncGuestTheme}
+                onChange={(e) => patch({ syncGuestTheme: e.target.checked })}
+              />
+            </label>
           </SettingRow>
         </div>
         <div className="theme-card-grid">

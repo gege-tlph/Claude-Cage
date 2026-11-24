@@ -12,6 +12,8 @@ import { CageLogo } from "./cage-logo.jsx";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Clock3,
+  Eye,
+  EyeOff,
   FolderOpen,
   Globe2,
   LoaderCircle,
@@ -73,6 +75,7 @@ import { SafetyPanel } from "./safety";
 import { SafetyChecklistContext, SafetyMessage } from "./safety-message";
 import { networkState, isGuestLocalURL } from "./safety-state.mjs";
 import { needsProxySetup } from "./onboarding-state.mjs";
+import { statusExitText } from "./status-exit.mjs";
 import { NetworkLatency } from "./network-latency";
 import { NetworkSpeed } from "./network-speed";
 import { isWindowFocused, useWindowVisibility } from "./window-visibility";
@@ -162,6 +165,9 @@ function App() {
       ),
     ),
     [sidebarResizing, setSidebarResizing] = useState(false),
+    [exitHidden, setExitHidden] = useState(
+      readLocal(clientStorageKey("cage-status-exit-hidden"), false) === true,
+    ),
     sidebarDrag = useRef(null),
     [browserTabLayout, setBrowserTabLayout] = useState(
       readLocal(clientStorageKey("cage-browser-tab-layout"), "horizontal"),
@@ -2235,22 +2241,23 @@ function App() {
               <span>{running ? tr(network.label) : tr("网络检查")}</span>
             </button>
             <span className="status-divider" />
-            <button onClick={() => openSettings("network")}>
+            {/* The toggle sits before the exit text so it keeps its place
+                when the text changes length. */}
+            <button
+              className="status-exit-toggle"
+              aria-label={tr("隐藏 IP")}
+              aria-pressed={exitHidden}
+              title={exitHidden ? tr("显示 IP") : tr("隐藏 IP")}
+              onClick={() => persist("cage-status-exit-hidden", !exitHidden, setExitHidden)}
+            >
+              {exitHidden ? <EyeOff size={12} /> : <Eye size={12} />}
+            </button>
+            <button className="status-exit" onClick={() => openSettings("network")}>
               <MapPin size={12} />
-              <span>
-                {status.network_error
-                  ? tr("出口待确认")
-                  : status.location || status.safety?.exit_ip
-                    ? [
-                        status.safety?.exit_ip || status.location?.ip,
-                        status.location?.country,
-                        status.location?.city,
-                      ].filter(Boolean).join(" · ")
-                    : tr("指定代理出口")}
-              </span>
+              <span>{statusExitText(status, exitHidden, tr)}</span>
             </button>
             <span className="status-divider" />
-            <button onClick={() => openSettings("region")}>
+            <button className="status-timezone" onClick={() => openSettings("region")}>
               <Clock3 size={12} />
               {settings.timezone}
               {settings.auto_timezone ? " " + tr("· 自动") : ""}

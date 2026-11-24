@@ -23,7 +23,8 @@ func (s Store) NodeEndpoint(id string) (string, error) {
 	if _, ok := s.Find(id); !ok {
 		return "", errors.New("账号绑定的代理节点已移除，请重新选择")
 	}
-	if s.BlockedNodes()[id] != "" {
+	// An account always exits through a remote node, never a local relay.
+	if s.BlockedNodes()[id] != "" || s.LocalRelay(id) {
 		return "", ErrLocalProxyNode
 	}
 	return fmt.Sprintf("socks5://%s@127.0.0.1:%d", url.UserPassword(nodeUser(id), s.nodePassword(id)), s.Port), nil
