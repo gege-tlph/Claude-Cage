@@ -277,12 +277,15 @@ export const RemoteView = forwardRef(function RemoteView(
         </div>
       )}
       {connection !== "connected" && (
+        // Once an attempt has failed, retries (automatic or from the button)
+        // only spin the icon: the title and button stay put instead of
+        // swapping with "connecting" on every attempt.
         <div className="view-overlay">
           <RefreshCw className={connection === "connecting" ? "spin" : ""} />
           <h3>
-            {connection === "connecting" ? translate("正在连接画面") : translate("画面连接已断开")}
+            {connection === "connecting" && failures.current === 0 ? translate("正在连接画面") : translate("画面连接已断开")}
           </h3>
-          {connection === "disconnected" && (
+          {(connection === "disconnected" || failures.current > 0) && (
             <button
               className="primary"
               onClick={() => setAttempt((v) => v + 1)}
