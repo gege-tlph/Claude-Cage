@@ -58,11 +58,15 @@ type Lima struct {
 	err   error
 }
 
+// logicalLimaHomeEnv names a Lima home Lima uses without resolving its
+// symlinks; cmd/cage sets it when the profile's storage was moved.
+const logicalLimaHomeEnv = "CAGE_LOGICAL_LIMA_HOME"
+
 // MaxName is the longest VM name whose sockets fit under the Lima home
 // home (UNIX_PATH_MAX: 104 bytes on macOS), and Lima's 76 at most. Lima
 // resolves the home's symlinks: so does this, as far as it exists.
 func MaxName(home string) int {
-	stable := os.Getenv("CAGE_LOGICAL_LIMA_HOME")
+	stable := os.Getenv(logicalLimaHomeEnv)
 	return int(vmname.HomeLimit(home, stable != "" && filepath.Clean(home) == filepath.Clean(stable)))
 }
 
@@ -218,8 +222,29 @@ func (l *Lima) inspect(ctx context.Context, name string) (*limatype.Instance, er
 // LIMA_HOME back: a process that only looks at VMs must not pass home to the
 // programs it starts next, which take it for the user's own Lima home.
 func InstanceIn(ctx context.Context, home, name string) (*Instance, error) {
+	return InstanceAt(ctx, home, false, name)
+}
+
+// InstanceAt is InstanceIn for the home cmd/cage gives Lima, which is
+// logical when the profile's storage was moved (CAGE_LOGICAL_LIMA_HOME): Lima
+// then takes home as it is. Resolving it fails on Windows, where the moved
+// storage is reached through a junction, and the VM would look missing.
+func InstanceAt(ctx context.Context, home string, logical bool, name string) (*Instance, error) {
 	limaHomeMu.Lock()
 	defer limaHomeMu.Unlock()
+	if logical {
+		saved, had := os.LookupEnv(logicalLimaHomeEnv)
+		if err := os.Setenv(logicalLimaHomeEnv, home); err != nil {
+			return nil, err
+		}
+		defer func() {
+			if had {
+				os.Setenv(logicalLimaHomeEnv, saved)
+			} else {
+				os.Unsetenv(logicalLimaHomeEnv)
+			}
+		}()
+	}
 	var out *Instance
 	err := withLimaHome(home, func() error {
 		inst, err := (&Lima{}).inspect(ctx, name)

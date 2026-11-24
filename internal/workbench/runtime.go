@@ -949,7 +949,8 @@ func (s *Server) vmOrphaned() bool {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	inst, err := vm.InstanceIn(ctx, s.deviceResetLimaHome(), cage.InstanceName(s.profile, s.environmentDir()))
+	home, logical := s.commandLimaHome()
+	inst, err := vm.InstanceAt(ctx, home, logical, cage.InstanceName(s.profile, s.environmentDir()))
 	return err == nil && inst.Orphaned
 }
 
