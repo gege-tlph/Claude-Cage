@@ -122,7 +122,7 @@ export function TerminalMenu({ choice, busy, atLimit = false, profiles, usesOffi
     </div>;
   }
   return (
-    <div ref={menu} id="terminal-create-menu" className="menu terminal-create-menu" role="menu" aria-label={tr("新建终端")}
+    <div ref={menu} id="terminal-create-menu" className="menu terminal-create-menu" role="menu" aria-label={choice.split?.side === "right" ? tr("向右拆分") : choice.split?.side === "bottom" ? tr("向下拆分") : tr("新建终端")}
       aria-describedby={atLimit ? "terminal-limit-note" : undefined}>
       {atLimit && <p id="terminal-limit-note" className="terminal-limit-note">
         {tr("最多同时运行 {0} 个终端，请先关闭或归档不用的会话", TERMINAL_LIMIT)}

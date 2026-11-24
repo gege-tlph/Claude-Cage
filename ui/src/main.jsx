@@ -1,4 +1,6 @@
 import { StartupStage } from "./startup-splash.jsx";
+import { TerminalSplitView } from "./terminal-split-view";
+import { adjacentTerminal, containsPane, reconcileSplits, resizeTerminalSplit, splitTerminal } from "./terminal-splits.mjs";
 import { isMac, shortcut, primaryModifier } from "./platform.mjs";
 import {
   DEFAULT_SIDEBAR_WIDTH,
@@ -219,8 +221,12 @@ function App() {
     : clientStatus;
   const { active } = layout;
   const setActive = id => setLayout(previous => focusTab(previous, id));
+  const [terminalGroups, setTerminalGroups] = useState([]);
+  const terminalGroupsRef = useRef(terminalGroups);
+  terminalGroupsRef.current = terminalGroups;
+
   const workspaceBox = useRef(null);
-  const [dropSide, setDropSide] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null);
   const terminalControls = useRef(new Map());
   const remote = useRef(),
     activeRef = useRef(active),
@@ -255,6 +261,19 @@ function App() {
   const split = Boolean(other && current && !showHome && !desktopOpen);
   const panes = !split ? [current].filter(Boolean)
     : layout.side === "left" ? [current, other] : [other, current];
+  const visibleTerminalTree = !split && terminal && !showHome
+    ? terminalGroups.find(tree => containsPane(tree, active)) : null;
+  useEffect(() => {
+    const available = new Set(tabs.filter(tab => tab.kind === "terminal").map(tab => tab.id));
+    const next = reconcileSplits(terminalGroups, available);
+    if (next === terminalGroups) return;
+    setTerminalGroups(previous => reconcileSplits(previous, available));
+    if (!layout.other && !available.has(active)) {
+      const group = terminalGroups.find(tree => containsPane(tree, active));
+      const neighbor = group && adjacentTerminal(group, active, available);
+      if (neighbor) setLayout(previous => previous.active === active ? { active: neighbor } : previous);
+    }
+  }, [tabs, terminalGroups, layout.other, active]);
   const webPanes = panes.filter(tab => tab.kind !== "terminal");
   const passwordVault = usePasswordVault(Boolean(status?.ready), browser.active);
   const dualBrowser = split && webPanes.length === 2;
@@ -597,24 +616,58 @@ function App() {
   };
   const destination = (id, x, y) => {
     const box = workspaceBox.current?.getBoundingClientRect();
-    if (!box || busy || !running || desktopOpen || tabs.length < 2 ||
-        document.elementFromPoint(x, y)?.closest(".chrome") ||
-        !tabs.some(tab => tab.id === id) || tabs.find(tab => tab.id === id)?.kind === "browser-settings" ||
-        current?.kind === "browser-settings" || x < box.left || x > box.right ||
-        y < box.top || y > box.bottom) return null;
-    return x < box.left + box.width * (dualBrowser && nativeSplit?.fraction || 0.5) ? "left" : "right";
+    const dragged = tabs.find(tab => tab.id === id);
+    if (!box || !dragged || busy || !running || desktopOpen || tabs.length < 2 ||
+        dragged.kind === "browser-settings" || current?.kind === "browser-settings" ||
+        x < box.left || x > box.right || y < box.top || y > box.bottom) return null;
+
+    const underPointer = document.elementFromPoint(x, y);
+    if (underPointer?.closest(".chrome, .terminal-divider")) return null;
+    const target = underPointer?.closest("[data-terminal-pane]");
+    if (dragged.kind === "terminal" && target) {
+      if (target.dataset.terminalPane === id) return null;
+      const pane = target.getBoundingClientRect();
+      const across = (x - pane.left) / pane.width;
+      const down = (y - pane.top) / pane.height;
+      const edges = [["left", across], ["right", 1 - across], ["top", down], ["bottom", 1 - down]];
+      const [side] = edges.reduce((closest, edge) => edge[1] < closest[1] ? edge : closest);
+      const horizontal = side === "left" || side === "right";
+      const width = horizontal ? pane.width / 2 : pane.width;
+      const height = horizontal ? pane.height : pane.height / 2;
+      return { side, pane: target.dataset.terminalPane, style: {
+        inset: "auto", width, height,
+        left: pane.left - box.left + (side === "right" ? width : 0),
+        top: pane.top - box.top + (side === "bottom" ? height : 0),
+      }};
+    }
+    const side = x < box.left + box.width * (dualBrowser && nativeSplit?.fraction || 0.5) ? "left" : "right";
+    return { side };
+  };
+  const placeTerminal = (target, pane, side) => {
+    const divider = crypto.randomUUID();
+    setTerminalGroups(previous => splitTerminal(previous, target, pane, side, divider));
+    setLayout({ active: pane });
   };
   const splitDrag = {
-    clear: () => setDropSide(null),
+    clear: () => setDropTarget(null),
     hover(id, x, y) {
-      const side = destination(id, x, y);
-      setDropSide(side);
-      return side;
+      const target = destination(id, x, y);
+      setDropTarget(target);
+      return target?.side;
     },
     drop(id, x, y) {
-      const side = destination(id, x, y);
-      if (!side) return false;
-      setLayout(previous => splitTab(previous, tabs, id, side));
+      const target = destination(id, x, y);
+      if (!target) return false;
+      if (target.pane) {
+        placeTerminal(target.pane, id, target.side);
+      } else {
+        const pair = splitTab(layout, tabs, id, target.side);
+        if (id.startsWith("terminal:") && pair.other?.startsWith("terminal:")) {
+          placeTerminal(pair.other, id, target.side);
+        } else {
+          setLayout(pair);
+        }
+      }
       void select(id);
       return true;
     },
@@ -704,14 +757,18 @@ function App() {
       previous?.anchor === anchor ? null : { path, anchor },
     );
   };
-  const createTerminal = async (path, kind, accountId, autoHandoff) => {
+  const newSplit = (tab, side, anchor) => {
+    setTerminalChoice(previous => previous?.anchor === anchor ? null
+      : { path: tab.workspace, anchor, split: { target: tab.id, side } });
+  };
+  const createTerminal = async (path, kind, accountId, autoHandoff, split) => {
     setTerminalChoice(null);
     const result = await api("/terminals", {
       workspace: path, kind,
       ...(accountId && { claude_account_id: accountId }),
       ...(autoHandoff !== undefined && { auto_handoff: autoHandoff }),
     });
-    showTerminal(result);
+    showTerminal(result, split);
     sessionsChanged();
     if (kind === "claude" && result.claude_account_id &&
         !claudeProfiles.accounts?.some((profile) => profile.id === result.claude_account_id)) {
@@ -730,7 +787,7 @@ function App() {
     if (tab) showBrowserResult(tab);
     return result.id;
   };
-  const showTerminal = result => {
+  const showTerminal = (result, split) => {
     setTailnetLogin(null);
     setManagementPage("");
     const tab = {
@@ -741,7 +798,9 @@ function App() {
     setSelectedProject(result.workspace);
     setDesktopOpen(false);
     setHome(false);
-    setActive(tab.id);
+    if (split) {
+      placeTerminal(split.target, tab.id, split.side);
+    } else setActive(tab.id);
   };
   const openSessionTerminal = async session => {
     if (session.running && !session.paused) return;
@@ -798,7 +857,7 @@ function App() {
       atLimit={liveTerminalCount(tabs) + (enrollmentID ? 1 : 0) >= TERMINAL_LIMIT}
       usesOfficialCLI={(settings?.claude_terminal_command?.trim() || "claude") === "claude"}
       onClose={() => setTerminalChoice(null)}
-      onSelect={(kind, accountId, autoHandoff) => createTerminal(terminalChoice.path, kind, accountId, autoHandoff).catch((e) => notify(e.message))} />
+      onSelect={(kind, accountId, autoHandoff) => createTerminal(terminalChoice.path, kind, accountId, autoHandoff, terminalChoice.split).catch((e) => notify(e.message))} />
   );
   const openEditor = async (path = workspace) => {
     if (!path) { setProjectDialog({}); return; }
@@ -870,7 +929,7 @@ function App() {
       const remaining = tab.id === active ? other.id : active;
       setLayout({ active: remaining });
       await select(remaining);
-    } else if (active === tab.id) {
+    } else if (active === tab.id && !terminalGroups.some(tree => containsPane(tree, tab.id))) {
       const group = displayTabs.filter((item) =>
         tab.kind === "terminal"
           ? item.kind === "terminal" && item.workspace === tab.workspace
@@ -1068,9 +1127,13 @@ function App() {
               b.active &&
               !browserIds.current.has(b.active))
           ) {
-            if (browserDismissed.current && !all.some(item => item.id === activeRef.current)) setHome(true);
             // Let split reconciliation promote the remaining pane on close.
-            if (!layoutRef.current.other || all.some(item => item.id === activeRef.current))
+            const activeExists = all.some(item => item.id === activeRef.current);
+            const splitGroup = terminalGroupsRef.current.find(tree => containsPane(tree, activeRef.current));
+            const waitForNeighbor = splitGroup && adjacentTerminal(splitGroup, activeRef.current,
+              new Set(t.map(item => "terminal:" + item.id)));
+            if (browserDismissed.current && !activeExists && !waitForNeighbor) setHome(true);
+            if (activeExists || (!layoutRef.current.other && !waitForNeighbor))
               setActive(b.active || all[0]?.id || "");
           }
           browserIds.current = new Set(b.tabs.map((item) => item.id));
@@ -1705,7 +1768,8 @@ function App() {
   };
   const sidebarButton = side => sidebarCollapsed && side !== "right" &&
     <ExpandSidebar onClick={() => persist("cage-sidebar-collapsed", false, setSidebarCollapsed)} />;
-  const expandButton = tab => split && tab && <ExpandPane onClick={() => {
+  const expandButton = tab => (split || visibleTerminalTree) && tab && <ExpandPane onClick={() => {
+    if (visibleTerminalTree) setTerminalGroups(previous => previous.filter(tree => !containsPane(tree, tab.id)));
     setLayout({ active: tab.id });
     void select(tab.id);
   }} />;
@@ -1717,14 +1781,16 @@ function App() {
     const account = tab?.claude_account_id && terminalAccountName(tab);
     const detail = tab?.terminalKind === "claude-login" ? tr("登录 · {0}", account || tr("新账号"))
       : account ? tab.claude_account_source === "default" ? tr("Claude · {0}（启动时账号）", account) : `Claude · ${account}` : "";
-    const location = split && tab ? `heading-${tab.id}` : "heading";
+    const location = tab ? `heading-${tab.id}` : "heading";
     return <TerminalHeader tab={tab} project={tr(projectName(path, groups, tr("新项目")))} metadata={metadata}
       contentWorkspace={path} terminalDetail={detail} terminalDetailHint={tab?.claude_account_source === "default"
         ? "此终端按启动时的普通终端登录标记。若普通终端已换号，请重新打开工作会话确认身份。" : detail}
-      busy={busy} onHome={() => setHome(true)}
-      sidebarButton={sidebarButton(paneSide(tab?.id))} exitButton={expandButton(tab)}
+      busy={busy} onHome={() => setHome(true)} canSplit={running && tab && !tab.closed}
+      onSplit={(side, anchor) => newSplit(tab, side, anchor)}
+      sidebarButton={sidebarButton(visibleTerminalTree && tab?.id !== active ? "right" : paneSide(tab?.id))}
+      exitButton={expandButton(tab)}
       location={location} triggerRef={!tab || tab.id === active ? terminalTrigger : undefined}
-      menu={terminalMenuAt(location)} onClose={() => closeTab(tab)} />;
+      menu={terminalMenuAt(location) || terminalMenuAt(location + "-right") || terminalMenuAt(location + "-bottom")} onClose={() => closeTab(tab)} />;
   };
   const recoverEditor = async tab => {
     if (!(await confirm({ title: "重启编辑器？", body: "请先保存文件。浏览器、终端和环境会继续运行。", confirm: "重启编辑器" }))) return;
@@ -2068,9 +2134,13 @@ function App() {
               </div>
             </main>
           )}
-          <main className={`workspace ${split ? "workspace-split" : ""}`} ref={workspaceBox} hidden={Boolean(managementPage)}
+          <main className={`workspace ${split || visibleTerminalTree ? "workspace-split" : ""}`} ref={workspaceBox} hidden={Boolean(managementPage)}
             style={{ "--split-left": `${100 * (dualBrowser && nativeSplit?.fraction || 0.5)}%` }}>
-            {dropSide && <div aria-hidden="true" className={`split-drop split-${dropSide}`}>{dropSide === "left" ? tr("放到左侧") : tr("放到右侧")}</div>}
+            {dropTarget && <div aria-hidden="true" className={`split-drop split-${dropTarget.side}`} style={dropTarget.style}>
+              {dropTarget.pane
+                ? { left: tr("向左拆分"), right: tr("向右拆分"), top: tr("向上拆分"), bottom: tr("向下拆分") }[dropTarget.side]
+                : dropTarget.side === "left" ? tr("放到左侧") : tr("放到右侧")}
+            </div>}
             {!storageRecovery && desktopOpen && <DesktopPanes
               ref={accountDesktopControl}
               defaultControl={remote}
@@ -2144,33 +2214,40 @@ function App() {
                     </div>
                   </section>
                 )}
-                {tabs.filter(t => t.kind === "terminal").map(tab => {
-                  const visible = !desktopOpen && !showHome && panes.some(pane => pane.id === tab.id);
-                  return <section key={tab.id} className={`pane-lane terminal-lane split-${paneSide(tab.id)}`}
-                    data-focused={active === tab.id} hidden={!visible}
-                    onPointerDownCapture={() => focusHeader(tab)} onFocusCapture={() => focusHeader(tab)}>
-                    {visible && terminalHeader(tab)}
-                    <div className="pane-body">
-                      <TerminalView
-                        session={{ ...tab, id: tab.sessionId, paused: !tab.closed && cliSessions.sessions.some(s => s.id === tab.cli_session_id && s.paused) }}
-                        onContinued={cliSessions.continued}
-                        onLoginTab={result => showBrowserResult({
-                          id: result.id, kind: "web", login: true, incognito: result.incognito !== false, title: "账号授权",
-                        })}
-                        onOpenPage={url => openBrowserPage(url, false)}
-                        onControls={(control) =>
-                          control
-                            ? terminalControls.current.set(tab.id, control)
-                            : terminalControls.current.delete(tab.id)
-                        }
-                        visible={visible && windowVisible && !settingsOpen && !managementPage}
-                        focused={active === tab.id}
-                        onStatus={notify}
-                        onAccountChanged={view => { if (view?.desktop_terminal_id && view.desktop_terminal_id !== tab.sessionId) void openSessionTerminal({id:tab.cli_session_id}); }}
-                      />
-                    </div>
-                  </section>;
-                })}
+                <TerminalSplitView tree={visibleTerminalTree} active={active}
+                  visible={!desktopOpen && !showHome && (terminal || panes.some(pane => pane.kind === "terminal"))}
+                  onResize={(id, ratio) => setTerminalGroups(previous => resizeTerminalSplit(previous, id, ratio))}>
+                  {positions => tabs.filter(t => t.kind === "terminal").map(tab => {
+                    const bounds = positions?.get(tab.id);
+                    const visible = !desktopOpen && !showHome && (positions ? Boolean(bounds) : panes.some(pane => pane.id === tab.id));
+                    return <section key={tab.id} className={`pane-lane terminal-lane split-${paneSide(tab.id)}`}
+                      style={bounds && { ...bounds, right: "auto", bottom: "auto" }}
+                      data-terminal-pane={tab.id} data-focused={active === tab.id} hidden={!visible}
+                      onPointerDownCapture={event => { if (!event.target.closest("button, input, select")) focusHeader(tab); }}
+                      onFocusCapture={event => { if (event.target.closest(".terminal-host")) focusHeader(tab); }}>
+                      {visible && terminalHeader(tab)}
+                      <div className="pane-body">
+                        <TerminalView
+                          session={{ ...tab, id: tab.sessionId, paused: !tab.closed && cliSessions.sessions.some(s => s.id === tab.cli_session_id && s.paused) }}
+                          onContinued={cliSessions.continued}
+                          onLoginTab={result => showBrowserResult({
+                            id: result.id, kind: "web", login: true, incognito: result.incognito !== false, title: "账号授权",
+                          })}
+                          onOpenPage={url => openBrowserPage(url, false)}
+                          onControls={(control) =>
+                            control
+                              ? terminalControls.current.set(tab.id, control)
+                              : terminalControls.current.delete(tab.id)
+                          }
+                          visible={visible && windowVisible && !settingsOpen && !managementPage}
+                          focused={active === tab.id}
+                          onStatus={notify}
+                          onAccountChanged={view => { if (view?.desktop_terminal_id && view.desktop_terminal_id !== tab.sessionId) void openSessionTerminal({id:tab.cli_session_id}); }}
+                        />
+                      </div>
+                    </section>;
+                  })}
+                </TerminalSplitView>
               </>
             )}
             {showHome && (

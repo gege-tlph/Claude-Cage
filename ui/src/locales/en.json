@@ -6379,5 +6379,11 @@
   "重新运行完整包的安装程序后继续安装": "Run the full package's installer again, then continue the install",
   "原因是 {0} 个节点都没能导入（MASQUE 协议不支持）": "none of the {0} nodes could be imported (MASQUE not supported)",
   "改用其他协议的节点": "Use a node with another protocol",
-  "（MASQUE 协议不支持）": " (MASQUE not supported)"
+  "（MASQUE 协议不支持）": " (MASQUE not supported)",
+  "向左拆分": "Split left",
+  "向右拆分": "Split right",
+  "向上拆分": "Split up",
+  "向下拆分": "Split down",
+  "调整终端窗格宽度": "Resize terminal width",
+  "调整终端窗格高度": "Resize terminal height"
 }

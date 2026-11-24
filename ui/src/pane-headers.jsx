@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Archive, ArrowLeft, ArrowRight, ChevronRight, FolderOpen,
+import { Columns2, Rows2, Archive, ArrowLeft, ArrowRight, ChevronRight, FolderOpen,
   Globe2, Cookie, Settings, Puzzle, ScanEye, Maximize2, MoreHorizontal, PanelLeftOpen, Plus, RefreshCw, X } from "lucide-react";
 import { BrowserVaultBar } from "./password-vault";
 import { WorkspaceTabs } from "./workspace-tabs";
@@ -23,7 +23,7 @@ export const ExpandPane = ({ onClick }) => { const tr = useTranslation(); return
   aria-label={tr("退出分屏")} title={tr("在整个工作区显示此页")} onClick={onClick}><Maximize2 size={14} /></button>; };
 
 export function TerminalHeader({ tab, contentWorkspace, project, metadata, terminalDetail, terminalDetailHint,
-  onHome, busy, onClose, sidebarButton, exitButton, location, triggerRef, menu }) {
+  onHome, canSplit, onSplit, busy, onClose, sidebarButton, exitButton, location, triggerRef, menu }) {
   const tr = useTranslation();
   // Matches closeTab: only a running conversation terminal is archived; an ended one is just closed.
   const archives = tab?.cli_session_id && !tab.closed;
@@ -51,6 +51,14 @@ export function TerminalHeader({ tab, contentWorkspace, project, metadata, termi
         )}
       </div>
       <div className="heading-actions">
+        {canSplit && <>
+          <button type="button" className="icon-button" title={tr("向右拆分")} aria-label={tr("向右拆分")}
+            aria-haspopup="menu" data-terminal-location={location + "-right"} disabled={busy}
+            onClick={event => onSplit("right", event.currentTarget)}><Columns2 size={15} /></button>
+          <button type="button" className="icon-button" title={tr("向下拆分")} aria-label={tr("向下拆分")}
+            aria-haspopup="menu" data-terminal-location={location + "-bottom"} disabled={busy}
+            onClick={event => onSplit("bottom", event.currentTarget)}><Rows2 size={15} /></button>
+        </>}
         {tab && (
           <button
             className="icon-button"
