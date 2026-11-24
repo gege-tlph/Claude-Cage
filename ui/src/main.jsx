@@ -48,7 +48,7 @@ import { TERMINAL_LIMIT, liveTerminalCount } from "./session-order.mjs";
 import { InitializationGate } from "./initialization";
 import { ProjectRecovery } from "./project-recovery";
 import { DesktopPanes, useAccountDesktops } from "./account-desktops";
-import { desktopTitle, mergedDefaultInstance } from "./account-desktop-state.mjs";
+import { desktopLabel, desktopTitle, mergedDefaultInstance } from "./account-desktop-state.mjs";
 import { ClaudeDesktop } from "./claude-desktop";
 import { ClaudeAccountsPanel, useClaudeAccounts } from "./claude-accounts";
 import { AccountProvider, AccountGate, useAccount } from "./account";
@@ -1852,7 +1852,7 @@ function App() {
             defaultDesktopRunning={defaultDesktopRunning}
             onDefaultDesktopStop={stopDefaultDesktop}
             accountDesktops={status.account_desktops_supported ? accountDesktops : null}
-            onDesktopRename={(desktop) => setRename({ id: desktop.id, title: desktop.label || "", desktop: true })}
+            onDesktopRename={(desktop) => setRename({ id: desktop.id, title: desktop.label ? desktopLabel(desktop) : "", desktop: true })}
             onClaudeDesktop={() => {
               const merged = mergedDefaultInstance(accountDesktops.catalog);
               if (merged) {

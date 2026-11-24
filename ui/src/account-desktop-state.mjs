@@ -1,8 +1,18 @@
 import { accountName } from "./privacy-mask.mjs";
+import { translate } from "./message-catalog.mjs";
+
+// The controller names instances nobody named in Chinese; they are shown in
+// the interface language. Names the user gave stay as they are.
+const generatedLabels = new Set(["默认 Desktop", "待登录 Desktop"]);
 
 // masked: the privacy mask (#836) hides a label that is an email.
-export const desktopTitle = (a, masked = false) => {
+export function desktopLabel(a, masked = false) {
   const label = accountName(a, masked);
+  return generatedLabels.has(label) ? translate(label) : label;
+}
+
+export const desktopTitle = (a, masked = false) => {
+  const label = desktopLabel(a, masked);
   return a.number ? `#${String(a.number).padStart(2, "0")} ${label}` : label;
 };
 

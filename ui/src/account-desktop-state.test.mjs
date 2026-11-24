@@ -4,10 +4,12 @@ import {
   addDesktopBeside,
   desktopClipboardState,
   desktopMergeNoticeTarget,
+  desktopLabel,
   desktopTitle,
   mergedDefaultInstance,
   reconcileAccountDesktopPanes,
 } from "./account-desktop-state.mjs";
+import { setMessages } from "./message-catalog.mjs";
 
 const instanceA = { id: "a".repeat(24), number: 1, label: "工作账号", running: true };
 const instanceB = { id: "b".repeat(24), number: 2, label: "备用账号", running: true };
@@ -89,4 +91,16 @@ test("reconcileAccountDesktopPanes switches off retired default Desktop and emit
   // Merge notice fires only when default redirect changes to a new target.
   assert.deepEqual(desktopMergeNoticeTarget("", catalog), instanceA);
   assert.equal(desktopMergeNoticeTarget(instanceA.id, catalog), null);
+});
+
+test("instances nobody named are shown in the interface language, named ones as given", t => {
+  t.after(() => setMessages({}));
+  setMessages({ "默认 Desktop": "Default Desktop", "待登录 Desktop": "Desktop (not signed in)", "工作账号": "Work" });
+  assert.equal(desktopLabel(defaultDesktop), "Default Desktop");
+  assert.equal(desktopLabel({ id: "c".repeat(24), label: "待登录 Desktop" }), "Desktop (not signed in)");
+  assert.equal(desktopTitle({ ...instanceA, label: "待登录 Desktop" }), "#01 Desktop (not signed in)");
+  // A name the user gave is never translated, even when the catalog has it.
+  assert.equal(desktopLabel(instanceA), "工作账号");
+  setMessages({});
+  assert.equal(desktopLabel(defaultDesktop), "默认 Desktop");
 });

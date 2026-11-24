@@ -28,11 +28,12 @@ import { localizeBackendMessage } from "./backend-message.mjs";
 import {
   addDesktopBeside,
   desktopClipboardState,
+  desktopLabel,
   desktopMergeNoticeTarget,
   desktopTitle,
   reconcileAccountDesktopPanes,
 } from "./account-desktop-state.mjs";
-import { accountName, privacyMasked, usePrivacyMask } from "./privacy-mask.mjs";
+import { privacyMasked, usePrivacyMask } from "./privacy-mask.mjs";
 
 // Titles follow the privacy mask (#836); components that show them subscribe
 // with usePrivacyMask so they redraw when it changes.
@@ -46,7 +47,7 @@ function DesktopAccountLabel({ account }) {
     <Monitor size={20} strokeWidth={1.75} aria-hidden="true">
       {account.number > 0 && <AccountIconNumber number={account.number} y={10} />}
     </Monitor>
-    <span className="account-desktop-label">{accountName(account, masked)}</span>
+    <span className="account-desktop-label">{desktopLabel(account, masked)}</span>
   </>;
 }
 

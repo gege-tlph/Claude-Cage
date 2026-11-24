@@ -89,6 +89,9 @@ try {
   // Entry 2: the default row's split icon while an instance is shown.
   await defaultRow.getByRole("button", { name: t.beside, exact: true }).click();
   await assertSideBySide("default entry");
+  // The controller's Chinese name for the default instance follows the interface language.
+  const defaultName = defaultRow.locator(".account-desktop-label");
+  assert.equal((await defaultName.textContent()).trim(), en ? "Default Desktop" : "默认 Desktop");
 
   assert.deepEqual(errors, []);
   console.log(`desktop side by side (${lang}): both entries open default left and instance right, exit folds one pane, no restart`);
