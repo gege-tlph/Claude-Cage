@@ -61,3 +61,29 @@ func TestEnvironmentPreparedNeedsLimaFiles(t *testing.T) {
 		t.Fatal("an instance without the base marker reported prepared")
 	}
 }
+
+// #882: an environment prepared without the first-run screen (Agent CLI, or
+// an installation older than it) has no initialization record. It is still
+// prepared, and initialization.status must say so.
+func TestInitializationStateWithoutRecordReportsPrepared(t *testing.T) {
+	s := testServer(t)
+	state := filepath.Join(s.profile, "state")
+	for _, path := range []string{
+		filepath.Join(state, ".agent-vm-base-version"),
+		filepath.Join(state, "lima", cage.InstanceName(s.profile, s.environmentDir()), "lima.yaml"),
+	} {
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("1\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	view, err := s.initializationState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.Required || view.Tracked || !view.Prepared {
+		t.Fatalf("prepared environment without a record: %+v", view)
+	}
+}
