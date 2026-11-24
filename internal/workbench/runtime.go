@@ -858,3 +858,10 @@ func vmAlive(profile, workspace string) bool {
 func (s *Server) vmRunning() bool {
 	return vmAlive(s.profile, s.environmentDir())
 }
+
+// EnvironmentRunning reports whether the environment of the profile holding
+// configPath is up, from its running record, without asking the controller.
+func EnvironmentRunning(configPath string) bool {
+	profile := filepath.Dir(configPath)
+	return vmAlive(profile, environmentWorkspace(profile))
+}
