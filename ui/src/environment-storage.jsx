@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { FolderOpen } from "lucide-react";
 import { api, native, nativeAvailable } from "./api";
 import { SafetyMessage } from "./safety-message";
+import { localizeBackendMessage } from "./backend-message.mjs";
 import { translate, useTranslation } from "./interface-language.mjs";
 
 export function EnvironmentStorage({ status, onConfirm }) {
@@ -80,7 +81,7 @@ export function EnvironmentStorage({ status, onConfirm }) {
       </div>
       {recovery.repair_allowed && <p className="field-help storage-repair-help">{tr("修复系统助手需要 Windows 系统授权。完成后会继续恢复原环境。")}</p>}
     </> : <>
-    <div className="setting-summary-row"><span>{tr("当前环境目录")}</span><strong>{location?.directory || tr("正在读取…")}</strong></div>
+    <div className="setting-summary-row"><span>{tr("当前环境目录")}</span><strong>{location?.directory || (error ? tr("无法读取环境目录") : tr("正在读取…"))}</strong></div>
     {status.environment_identity_directory && status.environment_identity_directory !== status.environment_directory &&
       <p className="field-help">{tr("原工作目录中的文件保留在") + " "}<code>{status.environment_identity_directory}</code></p>}
     {location?.missing && location.error && <p role="alert" className="error-message"><SafetyMessage message={location.error} /></p>}
@@ -96,7 +97,7 @@ export function EnvironmentStorage({ status, onConfirm }) {
       </button>
     </div>
     </>}
-    {storageJob && job.running && <p role="status" className="field-help">{job.message}</p>}
+    {storageJob && job.running && <p role="status" className="field-help">{localizeBackendMessage(job.message, tr)}</p>}
     {error && error !== recovery?.error && <p role="alert" className="error-message"><SafetyMessage message={error} /></p>}
   </section>;
 }

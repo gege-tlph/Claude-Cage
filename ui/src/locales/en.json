@@ -3009,5 +3009,6 @@
   "默认配置（归属未核验）": "Default profile (owner unverified)",
   "来源不明（重复历史）": "Unknown source (duplicate history)",
   "已移除的账号配置": "Removed account profile",
-  "独立配置 {0}": "Separate profile {0}"
+  "独立配置 {0}": "Separate profile {0}",
+  "无法读取环境目录": "Can't read the environment folder"
 }
