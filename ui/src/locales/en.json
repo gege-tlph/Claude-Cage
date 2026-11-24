@@ -3018,5 +3018,8 @@
   "没有地址": "No address",
   "返回错误 · {0}": "Error · {0}",
   "更新 Claude Desktop": "Update Claude Desktop",
-  "官方软件源": "Official repository"
+  "官方软件源": "Official repository",
+  "IP 已隐藏": "IP hidden",
+  "隐藏 IP": "Hide IP",
+  "显示 IP": "Show IP"
 }

@@ -2397,6 +2397,9 @@ svg {
   width: 1px;
   background: var(--line);
 }
+.status-bar > .status-exit-toggle {
+  padding-inline: 4px;
+}
 .status-bar > button:last-child:hover:not(:disabled) {
   color: var(--danger);
   background: color-mix(in srgb, var(--danger) 10%, transparent);
@@ -2906,7 +2909,7 @@ svg {
     max-width: 180px;
   }
   .status-bar > .status-divider,
-  .status-bar > button:nth-of-type(3) {
+  .status-bar > .status-timezone {
     display: none;
   }
   .status-bar {
@@ -2936,7 +2939,8 @@ svg {
   .content-breadcrumb > button {
     max-width: 145px;
   }
-  .status-bar > button:nth-of-type(2),
+  .status-bar > .status-exit-toggle,
+  .status-bar > .status-exit,
   .status-feedback,
   .status-feedback:has(.safety-checklist-link) {
     display: none;
