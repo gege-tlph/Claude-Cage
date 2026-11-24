@@ -8,6 +8,10 @@ on:
         description: Publish after the signed build passes (off keeps the signed files as a workflow artifact)
         type: boolean
         default: true
+      reuse_run:
+        description: Publish the signed files of an earlier run of this workflow (its run ID) instead of building again
+        type: string
+        default: ''
 permissions:
   contents: read
 concurrency:
@@ -20,11 +24,15 @@ jobs:
     timeout-minutes: 10
     outputs:
       version: ${{ steps.version.outputs.version }}
+      # The commit the published files were built from.
+      sha: ${{ steps.version.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+          # A reused build must be an ancestor of this main commit.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -32,6 +40,7 @@ jobs:
         id: version
         env:
           GH_TOKEN: ${{ github.token }}
+          REUSE_RUN: ${{ inputs.reuse_run }}
         run: |
           node scripts/check-version.mjs
           node --test scripts/windows-publisher-trust.test.mjs
@@ -40,9 +49,25 @@ jobs:
           if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$version" >/dev/null 2>&1; then
             echo "::error::Tag v$version already exists; raise VERSION"; exit 1
           fi
+          sha=$GITHUB_SHA
+          if [ -n "$REUSE_RUN" ]; then
+            # Only a run of this workflow whose signed build passed, built from
+            # a commit with the same VERSION.
+            [[ $REUSE_RUN =~ ^[0-9]+$ ]] || { echo "::error::reuse_run must be a run ID"; exit 1; }
+            run=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$REUSE_RUN")
+            [ "$(jq -r .path <<<"$run")" = .github/workflows/cage-lite-release.yml ] || { echo "::error::Run $REUSE_RUN is not a Cage lite release run"; exit 1; }
+            built=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$REUSE_RUN/jobs" --jq '.jobs[] | select(.name == "windows") | .conclusion')
+            [ "$built" = success ] || { echo "::error::The signed build of run $REUSE_RUN did not pass"; exit 1; }
+            sha=$(jq -r .head_sha <<<"$run")
+            reused=$(gh api "repos/$GITHUB_REPOSITORY/contents/VERSION?ref=$sha" --jq .content | base64 -d | tr -d '[:space:]')
+            [ "$reused" = "$version" ] || { echo "::error::Run $REUSE_RUN built $reused, not $version"; exit 1; }
+            git merge-base --is-ancestor "$sha" "$GITHUB_SHA" || { echo "::error::$sha is not on main"; exit 1; }
+          fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
   windows:
     needs: check
+    if: inputs.reuse_run == ''
     runs-on: windows-2025
     environment: cage-release
     timeout-minutes: 120
@@ -108,11 +133,13 @@ jobs:
           retention-days: 14
   publish:
     needs: [check, windows]
-    if: inputs.publish
+    # The build ran and passed here, or is reused from a checked earlier run.
+    if: ${{ !cancelled() && inputs.publish && needs.check.result == 'success' && (needs.windows.result == 'success' || (needs.windows.result == 'skipped' && inputs.reuse_run != '')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -121,15 +148,19 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: cage-lite-release-windows
-          path: dist
+          path: ${{ runner.temp }}/release-artifact
+          run-id: ${{ inputs.reuse_run || github.run_id }}
+          github-token: ${{ github.token }}
       - name: Assemble and verify the release files
         env:
           VERSION: ${{ needs.check.outputs.version }}
         run: |
-          mkdir assets
-          find dist -type f -exec cp {} assets/ \;
-          cp packaging/windows/cage-lite-signing.cer assets/
-          cd assets
+          # Outside the checkout: the repository has its own assets/ folder.
+          files="$RUNNER_TEMP/release-files"
+          mkdir "$files"
+          find "$RUNNER_TEMP/release-artifact" -type f -exec cp {} "$files/" \;
+          cp packaging/windows/cage-lite-signing.cer "$files/"
+          cd "$files"
           test -f "Cage-$VERSION-windows-amd64-setup.exe"
           sha256sum -c SHA256SUMS
           sha256sum cage-lite-signing.cer >> SHA256SUMS
@@ -138,12 +169,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.check.outputs.version }}
+          BUILT_SHA: ${{ needs.check.outputs.sha }}
         run: |
           tag="v$VERSION"
-          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --draft \
-            --title "Cage lite $VERSION" --notes-file "docs/releases/$tag.md" assets/*
-          mkdir check
-          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir check
-          (cd check && sha256sum -c ../assets/SHA256SUMS)
+          files="$RUNNER_TEMP/release-files"
+          # The tag names the commit the files were built from.
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$BUILT_SHA" --draft \
+            --title "Cage lite $VERSION" --notes-file "docs/releases/$tag.md" "$files"/*
+          check="$RUNNER_TEMP/release-check"
+          mkdir "$check"
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir "$check"
+          (cd "$check" && sha256sum -c "$files/SHA256SUMS")
           gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false --latest
           echo "Published $tag" >> "$GITHUB_STEP_SUMMARY"
