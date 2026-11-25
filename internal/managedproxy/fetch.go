@@ -27,12 +27,18 @@ func BootstrapClientWith(servers []string) *http.Client {
 	if len(servers) == 0 {
 		servers = BootstrapDNSURLs()
 	}
-	return &http.Client{Transport: subscriptionHostTransport{hostproxy.NewTransport(), servers}, Timeout: 30 * time.Second, CheckRedirect: func(r *http.Request, via []*http.Request) error {
-		if len(via) >= 3 || r.URL.Scheme != "https" || r.URL.User != nil {
-			return errors.New("订阅重定向被拒绝")
-		}
-		return nil
-	}}
+	return &http.Client{Transport: subscriptionHostTransport{hostproxy.NewTransport(), servers}, Timeout: 30 * time.Second, CheckRedirect: SubscriptionRedirect}
+}
+
+// SubscriptionRedirect follows at most three HTTPS redirects without
+// credentials. A subscription URL often carries its token in the path or
+// query, so it is never sent on to the next server as the Referer.
+func SubscriptionRedirect(r *http.Request, via []*http.Request) error {
+	if len(via) >= 3 || r.URL.Scheme != "https" || r.URL.User != nil {
+		return errors.New("订阅重定向被拒绝")
+	}
+	r.Header.Del("Referer")
+	return nil
 }
 
 type subscriptionHostTransport struct {
