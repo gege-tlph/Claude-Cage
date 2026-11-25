@@ -12,6 +12,7 @@ import { Terminal } from "../.generated/xterm.mjs";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { claudeLoginLink, isClaudeLoginLink } from "./terminal-login-link.mjs";
 import { FitAddon } from "@xterm/addon-fit";
+import { Unicode11Addon } from "@xterm/addon-unicode11";
 import RFB from "../.generated/novnc/core/rfb.js";
 import { api, writeClipboard, nativeAvailable } from "./api";
 import { runtimeSocketURL } from "./client-context.mjs";
@@ -323,9 +324,16 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
       minimumContrastRatio: 4.5,
       scrollback: 6000,
       theme: terminalTheme(theme, variant),
+      // terminal.unicode, for the Unicode 11 widths below.
+      allowProposedApi: true,
     });
     const fitter = new FitAddon();
     terminal.loadAddon(fitter);
+    // Emoji such as 😀 and ✅ take two cells, as Claude Code and the shell
+    // count them; xterm's default (Unicode 6) gives them one, which shifts
+    // the cursor for the rest of their line.
+    terminal.loadAddon(new Unicode11Addon());
+    terminal.unicode.activeVersion = "11";
     terminal.loadAddon(new WebLinksAddon(activateLogin, { urlRegex: claudeLoginLink }));
     terminal.open(box.current);
     instance.current = terminal;
