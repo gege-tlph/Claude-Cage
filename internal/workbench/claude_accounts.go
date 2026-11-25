@@ -176,6 +176,12 @@ func (s *Server) loadClaudeAccounts() (claudeAccountList, error) {
 			return list, errors.New("Claude 账号文件含无效或重复的记录，请从备份恢复")
 		}
 		ids[a.ID] = true
+		// Desktop discovery records an identity without a Code login (#970).
+		// Older usage checks probed the empty Code directory and saved
+		// "changed", asking to sign in with the original account again.
+		if a.CodeUnlinked {
+			a.Status = "signed_out"
+		}
 		if a.Source == "managed" {
 			if profiles[a.guestID()] {
 				return list, errors.New("多个账号引用了同一个独立登录目录，请从备份恢复")

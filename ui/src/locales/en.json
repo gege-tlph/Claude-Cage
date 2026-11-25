@@ -3245,5 +3245,6 @@
   "局域网直连": "Direct LAN",
   "局域网网段": "LAN network",
   "局域网直连须填写私有 IPv4 网段，如 192.168.1.0/24": "Direct LAN needs a private IPv4 network, such as 192.168.1.0/24",
-  "局域网直连不能包含环境自身使用的 192.168.5.0/24 或 192.168.64.0/24": "Direct LAN can't include 192.168.5.0/24 or 192.168.64.0/24, which the environment uses"
+  "局域网直连不能包含环境自身使用的 192.168.5.0/24 或 192.168.64.0/24": "Direct LAN can't include 192.168.5.0/24 or 192.168.64.0/24, which the environment uses",
+  "Code 尚未授权，请先授权 Code 再查询额度": "Code isn’t authorized yet. Authorize Code, then check usage"
 }
