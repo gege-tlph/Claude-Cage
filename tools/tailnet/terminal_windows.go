@@ -13,7 +13,12 @@ import (
 func runTerminal(s ssh.Session, cmd *exec.Cmd) int {
 	p, wins, ok := s.Pty()
 	if !ok {
-		cmd.Stdin = s
+		input, closeInput, err := sessionInput(s)
+		if err != nil {
+			return 1
+		}
+		defer closeInput()
+		cmd.Stdin = input
 		cmd.Stdout = s
 		cmd.Stderr = s.Stderr()
 		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
