@@ -101,9 +101,17 @@ func TestOfficialRelayNeedsConfirmation(t *testing.T) {
 	}
 
 	// A paired phone keeps a room open on the relay: say which and its state.
+	firstDevice := func(reply map[string]any) map[string]any {
+		devices, _ := reply["devices"].([]any)
+		if len(devices) == 0 {
+			return nil
+		}
+		device, _ := devices[0].(map[string]any)
+		return device
+	}
 	for {
 		reply := status()
-		if reply["relay"] == host && reply["link"] == "已连接" {
+		if device := firstDevice(reply); device != nil && device["relay"] == host && device["link"] == "已连接" {
 			break
 		}
 		if ctx.Err() != nil {
@@ -119,7 +127,7 @@ func TestOfficialRelayNeedsConfirmation(t *testing.T) {
 	if w := manage("DELETE", "{}"); w.Code != 200 {
 		t.Fatalf("remove phone: HTTP %d", w.Code)
 	}
-	if reply := status(); reply["relay"] != nil || reply["link"] != nil {
+	if reply := status(); firstDevice(reply) != nil || reply["paired"] != false {
 		t.Fatalf("removed pairing still reports a relay link: %v", reply)
 	}
 	for {

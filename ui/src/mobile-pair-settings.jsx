@@ -4,20 +4,42 @@ import { QrCode } from "lucide-react";
 import { useTranslation } from "./interface-language.mjs";
 import { localizeBackendMessage } from "./backend-message.mjs";
 
+function normalizeDevices(state) {
+  if (Array.isArray(state?.devices)) return state.devices;
+  if (state?.paired) return [{ id: "", device: state.device ?? null }];
+  return [];
+}
+
+function deviceSignatureMap(list) {
+  return new Map(list.map((item) => [item.id, item.paired_at || ""]));
+}
+
+function hasNewPairing(baseline, list) {
+  if (!baseline) return false;
+  for (const item of list) {
+    if (!baseline.has(item.id) || baseline.get(item.id) !== (item.paired_at || "")) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
   const tr = useTranslation();
   const [custom, setCustom] = useState(Boolean(relay));
   const [token, setToken] = useState("");
   const [code, setCode] = useState(null);
-  const [paired, setPaired] = useState(false);
-  const [device, setDevice] = useState(null);
+  const [devices, setDevices] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [maxDevices, setMaxDevices] = useState(8);
   const [power, setPower] = useState(null);
-  const [link, setLink] = useState(null);
   const [officialRelay, setOfficialRelay] = useState("");
   const [mobileAccessBlocked, setMobileAccessBlocked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const statusRevision = useRef(0);
+  const pairBaseline = useRef(null);
+  const paired = devices.length > 0;
   useEffect(() => {
     let active = true;
     const check = async () => {
@@ -25,22 +47,33 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
       try {
         const state = await api("/mobile-pair");
         if (!active || revision !== statusRevision.current) return;
-        setPaired(state.paired);
-        setDevice(state.paired ? state.device ?? null : null);
-        setPower(state.paired ? state.keep_awake ?? null : null);
-        setLink(state.paired && state.relay ? { relay: state.relay, state: state.link || "" } : null);
+        const nextDevices = normalizeDevices(state);
+        setDevices(nextDevices);
+        setLoaded(true);
+        if (typeof state.max_devices === "number" && state.max_devices > 0) {
+          setMaxDevices(state.max_devices);
+        }
+        setPower(nextDevices.length > 0 ? state.keep_awake ?? null : null);
         setOfficialRelay(state.official_relay || "");
         setMobileAccessBlocked(Boolean(state.mobile_access_blocked));
-        if (state.paired) setCode(null);
-        else if (code && Date.now() >= Date.parse(code.expires)) {
+        if (code && hasNewPairing(pairBaseline.current, nextDevices)) {
+          pairBaseline.current = null;
+          setCode(null);
+          setNotice("新设备已配对。");
+        } else if (code && Date.now() >= Date.parse(code.expires)) {
+          pairBaseline.current = null;
           setCode(null);
           setNotice("二维码已过期，请重新生成。");
         } else if (code && state.status.includes("未完成")) {
+          pairBaseline.current = null;
           setCode(null);
           setNotice(state.status);
         }
       } catch (e) {
-        if (active && revision === statusRevision.current) setNotice(e.message);
+        if (active && revision === statusRevision.current) {
+          setLoaded(true);
+          setNotice(e.message);
+        }
       }
     };
     check();
@@ -52,7 +85,7 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
   }, [code]);
   async function generate() {
     // The official relay is reached over the host network. Name it and ask
-    // before Cage sends it anything (#740).
+    // before Cage lite sends it anything (#740).
     if (
       !custom &&
       !(await onConfirm({
@@ -65,26 +98,34 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
     setBusy(true);
     setNotice("");
     setCode(null);
+    pairBaseline.current = null;
     try {
-      setCode(
-        await api("/mobile-pair", {
-          relay: savedRelay,
-          admin: custom ? token : "",
-          confirm: custom ? "" : officialRelay,
-        }),
-      );
+      const invitation = await api("/mobile-pair", {
+        relay: savedRelay,
+        admin: custom ? token : "",
+        confirm: custom ? "" : officialRelay,
+      });
+      const authoritative = Array.isArray(invitation?.devices)
+        ? invitation.devices
+        : normalizeDevices(await api("/mobile-pair"));
+      statusRevision.current++;
+      setDevices(authoritative);
+      setLoaded(true);
+      pairBaseline.current = deviceSignatureMap(authoritative);
+      setCode(invitation);
     } catch (e) {
+      pairBaseline.current = null;
       setNotice(e.message);
     } finally {
       setBusy(false);
     }
   }
-  async function remove() {
+  async function remove(item) {
     if (
       !(await onConfirm({
         title: "移除配对手机？",
-        body: device?.model
-          ? tr("移除 {0} 后，这部手机需要重新扫码才能访问工作台。", device.model)
+        body: item?.device?.model
+          ? tr("移除 {0} 后，这部手机需要重新扫码才能访问工作台。", item.device.model)
           : "这部手机需要重新扫码才能访问工作台。",
         confirm: "移除手机",
       }))
@@ -92,12 +133,14 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
       return;
     setBusy(true);
     try {
-      await api("/mobile-pair", {}, "DELETE");
+      const res = await api("/mobile-pair", item?.id ? { id: item.id } : {}, "DELETE");
       statusRevision.current++;
-      setPaired(false);
-      setDevice(null);
-      setPower(null);
-      setLink(null);
+      const remaining = Array.isArray(res?.devices)
+        ? res.devices
+        : devices.filter((entry) => entry.id !== item?.id);
+      setDevices(remaining);
+      if (remaining.length === 0) setPower(null);
+      if (pairBaseline.current && item?.id) pairBaseline.current.delete(item.id);
       setNotice("");
     } catch (e) {
       setNotice(e.message);
@@ -112,37 +155,50 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
         <h3>{tr("远程连接")}</h3>
       </div>
       <section className="remote-pair-card" aria-label={tr("手机配对")}>
-        <h4>{paired ? tr("手机已配对") : tr("用手机连接 Cage lite")}</h4>
+        <h4>
+          {paired ? tr("已配对设备") : tr("用手机连接 Cage lite")}
+          {paired && (
+            <span className="remote-pair-count">
+              {devices.length}/{maxDevices}
+            </span>
+          )}
+        </h4>
         {paired && (
-          <p className="remote-pair-device" aria-label={tr("已配对手机")}>
-            {device?.model ? (
-              <>
-                <strong>{device.model}</strong>
-                <span>{device.platform === "ios" ? "iOS" : "Android"}</span>
-              </>
-            ) : mobileAccessBlocked ? (
-              <span>{tr("当前账户模式暂不支持手机访问，请在「设置 → 账户」设置密码或开启「记住登录」后重新连接。")}</span>
-            ) : (
-              <span>{tr("型号待获取，请更新手机端 Cage lite 后重新连接。")}</span>
-            )}
-          </p>
-        )}
-        {link && (
-          <p className="remote-pair-device remote-pair-relay" aria-label={tr("中继")}>
-            <span>{tr("中继")}</span>
-            <strong>{link.relay}</strong>
-            {link.state && <span>{tr(link.state)}</span>}
-          </p>
+          <ul className="remote-pair-list" aria-label={tr("已配对设备")}>
+            {devices.map((item, index) => (
+              <li key={item.id || index} className="remote-pair-item">
+                <div className="remote-pair-info">
+                <div className="remote-pair-device" aria-label={tr("已配对手机")}>
+                  {item.device?.model ? (
+                    <>
+                      <strong>{item.device.model}</strong>
+                      <span>{item.device.platform === "ios" ? "iOS" : "Android"}</span>
+                    </>
+                  ) : mobileAccessBlocked ? (
+                    <span>{tr("当前账户模式暂不支持手机访问，请在「设置 → 账户」设置密码或开启「记住登录」后重新连接。")}</span>
+                  ) : (
+                    <span>{tr("型号待获取，请更新手机端 Cage lite 后重新连接。")}</span>
+                  )}
+                </div>
+                {item.relay && (
+                  <div className="remote-pair-device remote-pair-relay" aria-label={tr("中继")}>
+                    <span>{tr("中继")}</span>
+                    <strong>{item.relay}</strong>
+                    {item.link && <span>{tr(item.link)}</span>}
+                  </div>
+                )}
+                </div>
+                <button type="button" disabled={busy} onClick={() => remove(item)}>
+                  {tr("移除")}
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
         {mobileAccessBlocked && (
           <p role="alert">
             {tr("当前电脑处于免密码本机工作区或未开启「记住登录」，手机连接后会无法访问。请在「设置 → 账户」设置账户密码或开启「记住登录」。")}
           </p>
-        )}
-        {paired ? (
-          null
-        ) : (
-          null
         )}
         {paired && power?.active && <p className="note">{tr("主机保持唤醒中")}</p>}
         {paired && power?.error && <p role="alert">{tr("主机防休眠未生效：")}{tr(power.error)}</p>}
@@ -161,40 +217,43 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
             <QrCode size={64} strokeWidth={1.25} />
           </div>
         )}
-        <div className="remote-pair-actions">
-          {paired ? (
-            <button type="button" disabled={busy} onClick={remove}>
-              {tr("移除配对手机")}
-            </button>
-          ) : (
+        {devices.length >= maxDevices ? (
+          <p className="remote-pair-privacy">
+            {tr("已达配对上限")}
+          </p>
+        ) : (
+          <div className="remote-pair-actions">
             <button
               type="button"
               className="primary"
-              disabled={busy || relay !== savedRelay || (custom && !relay) || (!custom && !officialRelay)}
+              disabled={!loaded || busy || relay !== savedRelay || (custom && !relay) || (!custom && !officialRelay)}
               onClick={generate}
             >
               <QrCode size={18} />
-              {busy ? tr("正在生成…") : code ? tr("刷新二维码") : tr("生成配对二维码")}
+              {busy
+                ? tr("正在生成…")
+                : code
+                  ? tr("刷新二维码")
+                  : paired
+                    ? tr("配对新设备")
+                    : tr("生成配对二维码")}
             </button>
-          )}
-          {code && (
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  await writeClipboard(code.manual);
-                  setNotice("一次性配对码已复制，可在手机上粘贴。");
-                } catch {
-                  setNotice("复制失败，请使用二维码。");
-                }
-              }}
-            >
-              {tr("复制配对码")}
-            </button>
-          )}
-        </div>
-        {!paired && (
-          null
+            {code && (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await writeClipboard(code.manual);
+                    setNotice("一次性配对码已复制，可在手机上粘贴。");
+                  } catch {
+                    setNotice("复制失败，请使用二维码。");
+                  }
+                }}
+              >
+                {tr("复制配对码")}
+              </button>
+            )}
+          </div>
         )}
         {notice && <p role="status">{localizeBackendMessage(notice, tr)}</p>}
       </section>
@@ -215,6 +274,7 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
                 setCustom(false);
                 setToken("");
                 onChange("");
+                pairBaseline.current = null;
                 setCode(null);
               }}
             >
@@ -239,6 +299,7 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
                 onChange={(e) => {
                   onChange(e.target.value);
                   setToken("");
+                  pairBaseline.current = null;
                   setCode(null);
                 }}
               />
@@ -253,9 +314,6 @@ export function MobilePairSettings({ relay, savedRelay, onChange, onConfirm }) {
               />
             </label>
           </>
-        )}
-        {relay !== savedRelay && (
-          null
         )}
       </section>
     </section>
