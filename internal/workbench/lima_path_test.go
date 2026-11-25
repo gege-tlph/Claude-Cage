@@ -10,8 +10,9 @@ import (
 // #913: a profile so deep that Lima could not create base-building is
 // refused before setup starts, with the reason the summary used to hide.
 func TestStartRefusesALimaHomeTooDeepForSockets(t *testing.T) {
-	// The path need not exist; t.TempDir() is itself too deep on Windows.
-	root := filepath.Join(os.TempDir(), "p")
+	// The path need not exist. Not under TEMP: t.TempDir() is itself too deep
+	// on Windows, and CI points TEMP at a long per-run directory.
+	root := filepath.Join(filepath.VolumeName(os.TempDir())+string(filepath.Separator), "p")
 	if err := (&Server{profile: filepath.Join(root, "profile")}).requireLimaPathFits(); err != nil {
 		t.Fatalf("short profile refused: %v", err)
 	}
