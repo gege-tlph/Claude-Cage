@@ -13,7 +13,7 @@ import (
 
 const windowsHardwareInterface = 1 << 0 // MIB_IF_ROW2.InterfaceAndOperStatusFlags.HardwareInterface
 
-var errNoWindowsInterface = errors.New("未找到可用的物理 IPv4 网卡。请连接以太网或 Wi-Fi；仅有虚拟网卡的 Windows 虚拟机和云主机暂不可用。Cage lite 外网保持关闭")
+var errNoWindowsInterface = errors.New("未找到可用的 IPv4 出口网卡。请连接以太网、Wi-Fi 或 PPPoE 宽带；仅有虚拟网卡的 Windows 虚拟机和云主机暂不可用。Cage lite 外网保持关闭")
 
 func windowsPhysicalInterface(ctx context.Context) (string, error) {
 	// IP Helper calls are synchronous. Check the deadline between calls and
@@ -75,6 +75,7 @@ func windowsPhysicalAdapters(ctx context.Context) (map[uint32]windowsPhysicalAda
 	}
 
 	var list []windowsAdapterInfo
+	var pppoeConnections map[string]bool
 	for adapter := first; adapter != nil; adapter = adapter.Next {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -102,6 +103,13 @@ func windowsPhysicalAdapters(ctx context.Context) (map[uint32]windowsPhysicalAda
 		}
 		if adapter.Description != nil {
 			info.description = windows.UTF16PtrToString(adapter.Description)
+		}
+		// VPNs use IF_TYPE_PPP too; RAS tells a PPPoE dial-up connection apart.
+		if row.Type == windows.IF_TYPE_PPP && info.ipv4 {
+			if pppoeConnections == nil {
+				pppoeConnections = windowsPPPoEConnections(ctx)
+			}
+			info.pppoe = pppoeConnections[info.name]
 		}
 		list = append(list, info)
 	}
@@ -133,7 +141,8 @@ func selectWindowsPhysicalInterface(adapters map[uint32]windowsPhysicalAdapter, 
 			continue
 		}
 		nextHop := (*windows.RawSockaddrInet4)(unsafe.Pointer(&route.NextHop))
-		if nextHop.Addr == [4]byte{} {
+		// A PPPoE default route is on-link: traffic goes to the peer directly.
+		if nextHop.Addr == [4]byte{} && !adapter.pppoe {
 			continue
 		}
 		metric := uint64(route.Metric) + uint64(adapter.metric)

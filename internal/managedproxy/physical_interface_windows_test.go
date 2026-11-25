@@ -82,6 +82,47 @@ func TestSelectWindowsPhysicalInterfaceHyperVSoftRouter(t *testing.T) {
 	}
 }
 
+func TestSelectWindowsPhysicalInterfaceAcceptsOnLinkPPPoE(t *testing.T) {
+	adapters := windowsUplinkAdapters([]windowsAdapterInfo{
+		{index: 10, name: "以太网", metric: 25, hardware: true, ipv4: true},
+		{index: 53, name: "宽带连接", metric: 25, pppoe: true, ipv4: true},
+		{index: 5, name: "PPP VPN", metric: 1, ipv4: true},
+		{index: 4, name: "PPPoE without IPv4", metric: 1, pppoe: true},
+	})
+	onLink := func(index, metric uint32) windows.MibIpForwardRow2 {
+		route := windows.MibIpForwardRow2{InterfaceIndex: index, Metric: metric}
+		route.DestinationPrefix.Prefix.Family = windows.AF_INET
+		route.NextHop.Family = windows.AF_INET
+		return route
+	}
+	ethernet := onLink(10, 0)
+	*(*windows.RawSockaddrInet4)(unsafe.Pointer(&ethernet.NextHop)) = windows.RawSockaddrInet4{
+		Family: windows.AF_INET,
+		Addr:   [4]byte{192, 168, 1, 1},
+	}
+	// Ethernet without a gateway and the PPP VPN are not uplinks.
+	if got := selectWindowsPhysicalInterface(adapters, []windows.MibIpForwardRow2{
+		onLink(4, 0), onLink(5, 0), onLink(10, 0), onLink(53, 1),
+	}); got != "宽带连接" {
+		t.Fatalf("selected %q, want PPPoE with an on-link default route", got)
+	}
+	if got := selectWindowsPhysicalInterface(adapters, []windows.MibIpForwardRow2{
+		ethernet, onLink(53, 1),
+	}); got != "以太网" {
+		t.Fatalf("selected %q, want Ethernet with lower combined metric", got)
+	}
+}
+
+// Without a PPPoE connection the RAS query finds nothing, and it never fails.
+func TestWindowsPPPoEConnectionsWithoutDialUp(t *testing.T) {
+	if size := unsafe.Sizeof(windowsRASConnection{}); size != 1388 {
+		t.Fatalf("RASCONNW size %d, want 1388", size)
+	}
+	for name, pppoe := range windowsPPPoEConnections(t.Context()) {
+		t.Logf("RAS connection %q pppoe=%t", name, pppoe)
+	}
+}
+
 func TestWindowsForwardTableLayout(t *testing.T) {
 	if size := unsafe.Sizeof(windows.MibIpForwardRow2{}); size != 104 {
 		t.Fatalf("unexpected MIB_IPFORWARD_ROW2 size: %d", size)

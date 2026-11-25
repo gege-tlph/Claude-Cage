@@ -8,6 +8,7 @@ import (
 type windowsPhysicalAdapter struct {
 	name   string
 	metric uint32
+	pppoe  bool
 }
 
 // windowsAdapterInfo is what the IP Helper reports for one Up adapter.
@@ -17,11 +18,13 @@ type windowsAdapterInfo struct {
 	description string
 	metric      uint32
 	hardware    bool   // MIB_IF_ROW2 HardwareInterface
+	pppoe       bool   // an active built-in Windows PPPoE connection (RAS)
 	ipv4        bool   // has a preferred, routable IPv4 address
 	mac         []byte // permanent or current link-layer address
 }
 
-// windowsUplinkAdapters keeps hardware adapters that carry IPv4. When a
+// windowsUplinkAdapters keeps hardware adapters and built-in PPPoE
+// connections (#745) that carry IPv4. When a
 // hardware adapter is bound to a Hyper-V external switch it has no IPv4 of its
 // own; the host's address sits on the management vEthernet adapter, which
 // reuses the hardware adapter's MAC. Only such an exact twin of an Up hardware
@@ -46,7 +49,7 @@ func windowsUplinkAdapters(list []windowsAdapterInfo) map[uint32]windowsPhysical
 		if a.index == 0 || a.name == "" || !a.ipv4 {
 			continue
 		}
-		accept := a.hardware
+		accept := a.hardware || a.pppoe
 		if !accept && validMAC(a.mac) {
 			matches := 0
 			for _, mac := range bridged {
@@ -57,7 +60,7 @@ func windowsUplinkAdapters(list []windowsAdapterInfo) map[uint32]windowsPhysical
 			accept = matches == 1
 		}
 		if accept {
-			out[a.index] = windowsPhysicalAdapter{name: a.name, metric: a.metric}
+			out[a.index] = windowsPhysicalAdapter{name: a.name, metric: a.metric, pppoe: a.pppoe}
 		}
 	}
 	if len(out) > 0 {

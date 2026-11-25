@@ -2784,7 +2784,7 @@
   "服务器地址无效，请填写 IP 地址或域名": "Invalid server address. Enter an IP address or domain",
   "服务器没有返回有效的加密连接响应": "The server returned no valid encrypted connection response",
   "服务器证书验证未通过": "Server certificate verification failed",
-  "未找到可用的物理 IPv4 网卡。请连接以太网或 Wi-Fi；仅有虚拟网卡的 Windows 虚拟机和云主机暂不可用。Cage lite 外网保持关闭": "No usable physical IPv4 network adapter found. Connect Ethernet or Wi-Fi; Windows VMs and cloud hosts with only virtual adapters aren't supported yet. Cage lite internet access stays closed",
+  "未找到可用的 IPv4 出口网卡。请连接以太网、Wi-Fi 或 PPPoE 宽带；仅有虚拟网卡的 Windows 虚拟机和云主机暂不可用。Cage lite 外网保持关闭": "No usable IPv4 uplink was found. Connect Ethernet, Wi-Fi or PPPoE broadband; Windows VMs and cloud hosts with only virtual adapters aren't supported yet. Cage lite keeps internet access off",
   "未找到可用的物理 IPv4 网卡；Cage lite 外网保持关闭，请连接网络后重试": "No usable physical IPv4 network adapter found; Cage lite internet access stays closed. Connect to a network and try again",
   "未找到带 IPv4 默认路由的物理或云主机网卡；Cage lite 外网保持关闭，请连接网络后重试": "No physical or cloud host adapter with an IPv4 default route found; Cage lite internet access stays closed. Connect to a network and try again",
   "未能取得可识别的错误原因": "No recognizable error reason",
