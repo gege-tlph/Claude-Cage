@@ -108,6 +108,7 @@ export function SettingsPanel({
     "auto_timezone",
     "auto_language",
     "exit_policy",
+    "direct_lan",
   ].some((k) =>
     k === "exit_policy"
       ? JSON.stringify(canonicalExitPolicy(draft[k])) !==
@@ -347,6 +348,25 @@ export function SettingsPanel({
                     probing={probing}
                   />
                 </section>
+                <details className="settings-disclosure-card">
+                  <summary>
+                    <SlidersHorizontal size={15} />
+                    <span>{tr("局域网直连")}</span>
+                    <small>{draft.direct_lan || tr("未开启")}</small>
+                    <ChevronDown size={15} className="settings-disclosure-chevron" />
+                  </summary>
+                  <div className="settings-disclosure-body">
+                    <label>
+                      {tr("局域网网段")}
+                      <input
+                        value={draft.direct_lan ?? ""}
+                        onChange={(e) => update("direct_lan", e.target.value)}
+                        spellCheck="false"
+                        placeholder="192.168.1.0/24"
+                      />
+                    </label>
+                  </div>
+                </details>
                 <details className="settings-disclosure-card">
                   <summary>
                     <SlidersHorizontal size={15} />

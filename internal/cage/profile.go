@@ -56,6 +56,9 @@ func (c Config) Fingerprint() string {
 		h.Write([]byte{'\n'})
 		h.Write(extra)
 	}
+	if c.DirectLAN.IsValid() {
+		h.Write([]byte("\ndirect_lan=" + c.DirectLAN.String()))
+	}
 	if c.TLSClientHelloSplit {
 		h.Write([]byte("\ntls_client_hello_split=1"))
 	}

@@ -795,7 +795,11 @@ func (s *Server) runSafetyCheck() (returned error) {
 			set("filesystem_boundary", cage.CheckFailed, "共享读写、私有目录探针或挂载范围未符合预期", "检查共享目录；不要共享主目录或 Cage lite 配置目录")
 		}
 		if after.PolicyVerified && networkLayout && after.Configuration == cfg.Fingerprint() && !boundary.PublicConnected && after.Counters.TCPDenied > state.Counters.TCPDenied {
-			set("egress_policy", cage.CheckPassed, "运行中策略检查符合预期；未配置额外网卡；检查期间的公网 TCP 请求被 环境外网络层拒绝", "")
+			evidence := "运行中策略检查符合预期；未配置额外网卡；检查期间的公网 TCP 请求被 环境外网络层拒绝"
+			if cfg.DirectLAN.IsValid() {
+				evidence += "；外网放行后可经 TCP 直连局域网 " + cfg.DirectLAN.String() + "，不含本机地址"
+			}
+			set("egress_policy", cage.CheckPassed, evidence, "")
 		}
 		hostReach, hostReachConfirmed := hostReachIssue(boundary, boundaryInput["proxy_port"] != nil)
 		if hostReach == "" && !boundary.ManagementConnected && after.Counters.PrivateDenied > state.Counters.PrivateDenied && s.managementRequiresSession(ctx) {

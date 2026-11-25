@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -34,6 +35,10 @@ type Config struct {
 	// TLSClientHelloSplit is loaded from workbench.json beside this file so
 	// older versions with DisallowUnknownFields on config.json stay compatible.
 	TLSClientHelloSplit bool `json:"-"`
+	// DirectLAN is a private IPv4 network the guest may reach over TCP while
+	// networking is open (direct_lan.go). Like TLSClientHelloSplit it lives in
+	// workbench.json, so older versions can still read config.json.
+	DirectLAN netip.Prefix `json:"-"`
 }
 
 func DefaultConfig() Config {
@@ -63,7 +68,7 @@ func Load(path string) (Config, error) {
 	if c.DNS, err = loadDNSOptions(filepath.Dir(path)); err != nil {
 		return c, err
 	}
-	c.TLSClientHelloSplit = loadTLSClientHelloSplit(filepath.Dir(path))
+	c.TLSClientHelloSplit, c.DirectLAN = loadWorkbenchNetwork(filepath.Dir(path))
 	c.GuestProfile, err = guestprofile.Load(filepath.Dir(path))
 	return c, err
 }
@@ -78,15 +83,21 @@ func (c Config) SameSettings(o Config) bool {
 	return c == o
 }
 
-func loadTLSClientHelloSplit(dir string) bool {
+func loadWorkbenchNetwork(dir string) (tlsSplit bool, lan netip.Prefix) {
 	var prefs struct {
-		TLSClientHelloSplit bool `json:"tls_client_hello_split"`
+		TLSClientHelloSplit bool   `json:"tls_client_hello_split"`
+		DirectLAN           string `json:"direct_lan"`
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "workbench.json"))
 	if err != nil || len(data) > 1<<20 || json.Unmarshal(data, &prefs) != nil {
-		return false
+		return false, netip.Prefix{}
 	}
-	return prefs.TLSClientHelloSplit
+	// An invalid saved network opens nothing.
+	lan, err = ParseDirectLAN(prefs.DirectLAN)
+	if err != nil {
+		lan = netip.Prefix{}
+	}
+	return prefs.TLSClientHelloSplit, lan
 }
 
 func (c Config) Validate() error {

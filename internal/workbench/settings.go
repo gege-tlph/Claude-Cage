@@ -57,6 +57,9 @@ type Preferences struct {
 	// full TLS 1.3 / post-quantum handshakes intact for proxy chains that drop
 	// large initial writes with EOF. Off by default.
 	TLSClientHelloSplit bool `json:"tls_client_hello_split,omitempty"`
+	// DirectLAN is the private IPv4 network the environment may reach
+	// directly while networking is open, such as "192.168.1.0/24".
+	DirectLAN string `json:"direct_lan,omitempty"`
 	// LocationIPInfoFallback lets ipinfo.io receive the measured exit IP
 	// after the five default location providers all fail. Off by default; its
 	// answer counts at country level only.
@@ -237,6 +240,14 @@ func proposedSettings(input Settings, old cage.Config, profile string) (cage.Con
 	c := cage.Config{ProxyURL: old.ProxyURL, ProxyRevision: old.ProxyRevision, DNSURL: input.DNSURL, DNS: cage.NewDNSOptions(input.DNSFallbackURLs, input.DNSBootstrapURLs, input.DNSPublicFallback), TLSClientHelloSplit: input.TLSClientHelloSplit, Timezone: input.Timezone, Locale: input.Locale, BrowserLanguage: input.BrowserLanguage, ExitPolicy: input.ExitPolicy.Normalized()}
 	if err := c.Validate(); err != nil {
 		return c, input.Preferences, err
+	}
+	lan, err := cage.ParseDirectLAN(input.DirectLAN)
+	if err != nil {
+		return c, input.Preferences, err
+	}
+	c.DirectLAN, input.DirectLAN = lan, ""
+	if lan.IsValid() {
+		input.DirectLAN = lan.String()
 	}
 	if input.Keyboard != "mac" && input.Keyboard != "native" {
 		return c, input.Preferences, errors.New("请选择 Mac 或原生 Linux 按键习惯")

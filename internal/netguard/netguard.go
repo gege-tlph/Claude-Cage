@@ -205,6 +205,10 @@ func (p *Policy) allows(network string, dst netip.AddrPort, interfaceAddrs func(
 	return ok && time.Now().Before(until)
 }
 
+// OffHost reports that a is not an address of this host. A direct grant uses
+// it so a LAN address of the host never exposes the host's own listeners.
+func OffHost(a netip.Addr) bool { return offHost(a.Unmap().WithZone(""), net.InterfaceAddrs) }
+
 // Each new flow needs a current interface list. A public address can become
 // local between connections, and a failed lookup cannot establish isolation.
 func offHost(a netip.Addr, interfaceAddrs func() ([]net.Addr, error)) bool {

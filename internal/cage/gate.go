@@ -323,6 +323,7 @@ func (g *EgressGate) Allows(network string, dst netip.AddrPort) bool {
 	// holds up the gate or the reads and writes of open connections.
 	diagnostic := network == "tcp" && dst.String() == DiagnosticAddress
 	public := g.raw.Allows(network, dst)
+	lan := !public && directLAN(g.config.DirectLAN, network, dst, directLANOffHost)
 	// What a refusal counts as private. Only TCP can be public, and then the
 	// same policy has just answered it.
 	private := !public && !g.raw.public.Allows("tcp", dst)
@@ -332,7 +333,7 @@ func (g *EgressGate) Allows(network string, dst netip.AddrPort) bool {
 	if active && g.state.Mode == GateChecking && diagnostic {
 		return true
 	}
-	if active && g.state.Mode == GateOpen && public {
+	if active && g.state.Mode == GateOpen && (public || lan) {
 		return true
 	}
 	switch network {
@@ -384,9 +385,27 @@ func (g *EgressGate) DialContext(ctx context.Context, network, addr string) (net
 		return g.dialDiagnostic(ctx)
 	}
 	if !g.raw.Allows("tcp", dst) {
+		if directLAN(g.config.DirectLAN, "tcp", dst, directLANOffHost) {
+			return g.dialLAN(ctx, dst)
+		}
 		return nil, ErrGateClosed
 	}
 	return g.dialDNS(ctx, network, addr)
+}
+
+// dialLAN connects to the configured LAN directly, not through the proxy.
+// Like proxied connections it needs open networking and ends with it.
+func (g *EgressGate) dialLAN(ctx context.Context, dst netip.AddrPort) (net.Conn, error) {
+	ctx, done, epoch, err := g.operation(ctx, false)
+	if err != nil {
+		return nil, err
+	}
+	defer done()
+	c, err := directLANDial(ctx, "tcp4", dst.String())
+	if err != nil {
+		return nil, err
+	}
+	return g.track(c, epoch)
 }
 
 // Shared guarded dial; the resolver is the only caller allowed to supply names.

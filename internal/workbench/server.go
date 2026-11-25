@@ -868,6 +868,7 @@ func (s *Server) proposedWithOptions(w http.ResponseWriter, r *http.Request) (sa
 	input.BrowserHomeURL = browserHomeURL(s.preferences)
 	input.InstallTLS12Compat = s.preferences.InstallTLS12Compat
 	input.TLSClientHelloSplit = s.preferences.TLSClientHelloSplit
+	input.DirectLAN = s.preferences.DirectLAN
 	input.LocationIPInfoFallback = s.preferences.LocationIPInfoFallback
 	s.mu.Unlock()
 	// Clients predating the DNS options keep the saved ones.
@@ -987,6 +988,7 @@ func (s *Server) restore(w http.ResponseWriter, r *http.Request) {
 	// saved with it do. Without it a restored switch is written back while
 	// the environment keeps running with the other setting.
 	v.Config.TLSClientHelloSplit = v.Preferences.TLSClientHelloSplit
+	v.Config.DirectLAN, _ = cage.ParseDirectLAN(v.Preferences.DirectLAN)
 	s.launchRequest(w, r, "restore", func() error {
 		if err := s.apply(v, false); err != nil {
 			return err

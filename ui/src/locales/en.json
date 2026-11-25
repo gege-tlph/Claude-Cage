@@ -3241,5 +3241,9 @@
   "无法为候选代理探测分配本机端口：{0}": "Can't allocate a local port to test the candidate proxy: {0}",
   "候选代理核心启动失败：{0}": "The candidate proxy core failed to start: {0}",
   "但重启内置代理核心失败：{0}": "but restarting the built-in proxy core failed: {0}",
-  "宿主代理已退出但环境处于异常状态（{0}），无法确认安全停止；请查看 hostagent 日志": "The host agent exited while the environment is {0}, so a safe stop can't be confirmed. Check the hostagent log"
+  "宿主代理已退出但环境处于异常状态（{0}），无法确认安全停止；请查看 hostagent 日志": "The host agent exited while the environment is {0}, so a safe stop can't be confirmed. Check the hostagent log",
+  "局域网直连": "Direct LAN",
+  "局域网网段": "LAN network",
+  "局域网直连须填写私有 IPv4 网段，如 192.168.1.0/24": "Direct LAN needs a private IPv4 network, such as 192.168.1.0/24",
+  "局域网直连不能包含环境自身使用的 192.168.5.0/24 或 192.168.64.0/24": "Direct LAN can't include 192.168.5.0/24 or 192.168.64.0/24, which the environment uses"
 }
