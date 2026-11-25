@@ -152,6 +152,7 @@ type Server struct {
 	proxyInterfaceLost      bool
 	proxyInterfaceError     string
 	proxyBindingCheck       proxyBindingCheck
+	coreRestart             proxyCoreRestart
 	checkCancel             context.CancelFunc
 	lifeContext             context.Context
 	lifeCancel              context.CancelFunc

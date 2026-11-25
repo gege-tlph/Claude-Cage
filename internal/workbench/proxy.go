@@ -292,6 +292,9 @@ func (s *Server) changeProxy(action string, in proxyInput, resumeVersion *uint64
 		if err = s.closeProxyGate("内置代理已停止，外网保持关闭"); err != nil {
 			return err
 		}
+		s.mu.Lock()
+		s.coreRestart.stopped, s.coreRestart.armed = true, false
+		s.mu.Unlock()
 		return managedproxy.Stop(s.profile)
 	}
 	if action == "select" || action == "restart" || action == "route" {
@@ -593,6 +596,9 @@ func (s *Server) applyProxy(p managedproxy.Store, old cage.Config, resumeVersion
 		return err
 	}
 	committed = true
+	s.mu.Lock()
+	s.coreRestart.stopped, s.coreRestart.armed = false, false
+	s.mu.Unlock()
 	s.jobs.execution().settingsSaved()
 	if resumeVersion != nil {
 		if err := s.resumeNetworkIntentAt(*resumeVersion); err != nil {
@@ -914,6 +920,7 @@ func (s *Server) checkProxyHealthWith(runningStage func(context.Context, string,
 	} else if s.proxyStore.Applied(s.profile, cfg.ProxyURL, cfg.ProxyRevision) != nil {
 		stage = "store.unapplied"
 	} else if stage = runningStage(ctx, s.profile, p); stage == "" {
+		s.proxyCoreAnswered()
 		s.scheduleProxyHealthRecovery(ctx, cfg.Fingerprint())
 		return
 	}
@@ -930,6 +937,9 @@ func (s *Server) checkProxyHealthWith(runningStage func(context.Context, string,
 	s.mu.Unlock()
 	if previouslyOpen || previousError != reason {
 		diagnostics.Log("warn", "proxy", "proxy health check failed; egress gate closed (stage="+stage+")")
+	}
+	if strings.HasPrefix(stage, "readiness.") {
+		s.restartUnresponsiveProxyCore(stage)
 	}
 }
 
