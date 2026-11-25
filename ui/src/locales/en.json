@@ -988,6 +988,7 @@
   "暂无读数": "No reading",
   "暂无额度信息": "No quota info",
   "暂时无法安装": "Can't install right now",
+  "暂时无法更新": "Can't update right now",
   "暂时无法查询额度": "Can't check quota right now",
   "暂时无法检查系统钥匙串，授权记录已保留。请稍后重新检查。": "Can't check the system keychain right now; the authorization record is kept. Check again later.",
   "暂时无法检查系统钥匙串，请先用密码解锁。快捷登录授权记录已保留。": "Can't check the system keychain right now. Unlock with your password first; the quick sign-in record is kept.",
