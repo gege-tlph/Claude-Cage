@@ -1,12 +1,12 @@
 # Windows 安装、更新与发布
 
-Cage 的 Windows 版本面向 Windows 10 22H2（内部版本 19045）和 Windows 11 的 x64 电脑，家庭版同样可用。安装后从开始菜单打开 Cage，导入自己的代理，再进入工作台。环境是一台 Debian 13 虚拟机，见[Debian 环境](guide/guest-systems.md)。
+Cage 的 Windows 版本面向 Windows 10 22H2（内部版本 19045）、Windows 10 企业版 LTSC 2021 与 IoT 企业版 LTSC 2021（内部版本 19044）和 Windows 11 的 x64 电脑，家庭版同样可用。安装后从开始菜单打开 Cage，导入自己的代理，再进入工作台。环境是一台 Debian 13 虚拟机，见[Debian 环境](guide/guest-systems.md)。
 
 ## 安装前准备
 
 | 项目 | 要求 |
 |---|---|
-| 系统 | x64 Windows 10 22H2 或 Windows 11；不包含 Windows ARM64 与 32 位系统 |
+| 系统 | x64 Windows 10 22H2、Windows 10 LTSC 2021 或 Windows 11；普通版 21H2 已停止支持，不包含在内；不包含 Windows ARM64 与 32 位系统 |
 | 虚拟化 | BIOS/UEFI 已启用处理器虚拟化，Windows 已启用“Windows 虚拟机监控程序平台” |
 | 存储 | 使用本地磁盘，保留安装包、Linux 镜像、虚拟磁盘和更新备份所需空间；初始虚拟磁盘上限为 24 GiB |
 | 代理 | 自己的 Clash/Mihomo YAML 来源或 HTTP/SOCKS5 节点；Cage 不提供代理服务 |

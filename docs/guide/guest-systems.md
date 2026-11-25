@@ -13,7 +13,7 @@ Cage 在电脑上运行一台轻量化的 Debian 13 虚拟机，官方 Claude Co
 | --- | --- | --- |
 | Apple Silicon Mac，macOS 14+ | Debian 13 ARM64 | 系统自带，无需额外设置 |
 | Intel Mac，macOS 14+ | Debian 13 x86_64 | 系统硬件虚拟化可用（终端运行 `sysctl kern.hv_support` 显示 1）；使用随附的 QEMU 与 Hypervisor.framework |
-| Windows 10 22H2 / 11 x64 | Debian 13 x86_64 | BIOS/UEFI 虚拟化与“Windows 虚拟机监控程序平台” |
+| Windows 10 22H2 / Windows 10 LTSC 2021 / 11 x64 | Debian 13 x86_64 | BIOS/UEFI 虚拟化与“Windows 虚拟机监控程序平台” |
 | Debian 12、Ubuntu 22.04 / 24.04 x86_64 | Debian 13 x86_64 | KVM，以及当前用户对 `/dev/kvm` 的读写权限 |
 
 Windows ARM64 和 Linux ARM64 暂不支持。Windows 家庭版同样可用：在“启用或关闭 Windows 功能”中勾选“Windows 虚拟机监控程序平台”并重启即可；“虚拟机平台”“适用于 Linux 的 Windows 子系统”和 Hyper-V 都不是 Cage 的要求。各平台的安装步骤见[安装与首次启动](installation.md)。

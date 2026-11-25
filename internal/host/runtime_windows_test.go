@@ -42,3 +42,9 @@ func TestHiddenCommandChild(t *testing.T) {
 	fmt.Printf("console=%d\n", window)
 	fmt.Fprintln(os.Stderr, "stderr-captured")
 }
+
+func TestWindowsEditionReadsRegistry(t *testing.T) {
+	if WindowsEdition() == "" {
+		t.Fatal("EditionID not read")
+	}
+}

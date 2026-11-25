@@ -6,23 +6,21 @@ import (
 	"strings"
 )
 
-// Windows 10 22H2 is the oldest release whose Hypervisor Platform runs the
-// bundled QEMU. Windows 10 and 11 have the same Debian workbench conditions.
-const windowsMinimumBuild = 19045
-
 // windowsInspection reports the Debian workbench prerequisites of a Windows
 // host. check runs the host preflight and writes its reason when it fails.
 // It has no build constraint so the decision is testable on every platform.
-func windowsInspection(goarch string, build uint32, check func(io.Writer) bool) Inspection {
+// Windows 10 and 11 have the same Debian workbench conditions; supported is
+// host.WindowsBuildSupported for the running build.
+func windowsInspection(goarch string, supported bool, check func(io.Writer) bool) Inspection {
 	r := Inspection{Guest: Debian13, WorkbenchSupport: "supported"}
 	if goarch != "amd64" {
 		r.WorkbenchSupport = "unsupported-host"
 		r.Detail = "Windows 发行包面向 x64 处理器，暂不支持 Windows on ARM。"
 		return r
 	}
-	if build < windowsMinimumBuild {
+	if !supported {
 		r.WorkbenchSupport = "unsupported-host"
-		r.Detail = "Debian 工作台需要 64 位 Windows 10 22H2（19045）或 Windows 11。"
+		r.Detail = "Debian 工作台需要 64 位 Windows 10 22H2（19045）、Windows 10 LTSC 2021 或 Windows 11。"
 		return r
 	}
 	var details bytes.Buffer

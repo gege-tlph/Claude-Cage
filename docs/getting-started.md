@@ -10,7 +10,7 @@
 
 | 需要准备 | 说明 |
 |---|---|
-| 支持的平台与虚拟化 | Apple Silicon Mac 与 Intel Mac 需要 macOS 14+，Intel Mac 还需支持 VT-x 硬件虚拟化；Windows 10 22H2 / 11 x64 需要 Windows 虚拟机监控程序平台；Debian 12 / Ubuntu 22.04 / 24.04 x86_64 主机需要 KVM。Windows ARM64 和 Linux ARM64 暂不支持。 |
+| 支持的平台与虚拟化 | Apple Silicon Mac 与 Intel Mac 需要 macOS 14+，Intel Mac 还需支持 VT-x 硬件虚拟化；Windows 10 22H2 / Windows 10 LTSC 2021 / 11 x64 需要 Windows 虚拟机监控程序平台；Debian 12 / Ubuntu 22.04 / 24.04 x86_64 主机需要 KVM。Windows ARM64 和 Linux ARM64 暂不支持。 |
 | 可用的代理 | Clash/Mihomo 配置、v2rayN 具体节点的分享链接，或远程 HTTP/SOCKS5 节点。Cage 随附代理核心，不提供代理服务。 |
 | 自己的 Claude 使用资格 | 需要使用 Claude Code 时，在 Cage 内完成自己的授权。主机已有登录不会自动导入。 |
 

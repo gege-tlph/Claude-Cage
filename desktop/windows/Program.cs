@@ -29,9 +29,9 @@ internal static class Program
         TaskScheduler.UnobservedTaskException += (_, e) => _ = Backend.Report(e.Exception.ToString());
         ApplicationConfiguration.Initialize();
         InterfaceLanguage.Refresh().GetAwaiter().GetResult();
-        if (RuntimeInformation.OSArchitecture != Architecture.X64 || Environment.OSVersion.Version.Build < 19045)
+        if (RuntimeInformation.OSArchitecture != Architecture.X64 || !SupportedWindowsBuild())
         {
-            MessageBox.Show(InterfaceLanguage.Text("Cage lite 需要 Windows 10 22H2（19045）或 Windows 11，x64（Intel/AMD）系统。"), "Cage lite");
+            MessageBox.Show(InterfaceLanguage.Text("Cage lite 需要 Windows 10 22H2（19045）、Windows 10 LTSC 2021 或 Windows 11，x64（Intel/AMD）系统。"), "Cage lite");
             return 1;
         }
         var sid = WindowsIdentity.GetCurrent().User?.Value ?? Environment.UserName;
@@ -76,5 +76,16 @@ internal static class Program
             return report.RootElement.TryGetProperty("success", out var success) && success.ValueKind == JsonValueKind.True ? 0 : 1;
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException) { return 1; }
+    }
+
+    // Keep in step with host.WindowsBuildSupported: Windows 10 22H2 (19045)
+    // or later, or build 19044 for Enterprise and IoT Enterprise LTSC 2021.
+    private static bool SupportedWindowsBuild()
+    {
+        var build = Environment.OSVersion.Version.Build;
+        if (build >= 19045) return true;
+        if (build != 19044) return false;
+        using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
+        return key?.GetValue("EditionID") is "EnterpriseS" or "EnterpriseSN" or "IoTEnterpriseS";
     }
 }

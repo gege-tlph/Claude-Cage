@@ -2,7 +2,7 @@
   "en": {
     "Cage lite 已在运行，但窗口暂时无法唤起。请从任务栏打开 Cage lite。": "Cage lite is already running, but its window can't be brought up. Open Cage lite from the taskbar.",
     "Cage lite 正在启动，请稍候。": "Cage lite is starting. Please wait.",
-    "Cage lite 需要 Windows 10 22H2（19045）或 Windows 11，x64（Intel/AMD）系统。": "Cage lite needs Windows 10 22H2 (19045) or Windows 11 on x64 (Intel/AMD).",
+    "Cage lite 需要 Windows 10 22H2（19045）、Windows 10 LTSC 2021 或 Windows 11，x64（Intel/AMD）系统。": "Cage lite needs Windows 10 22H2 (19045), Windows 10 LTSC 2021 or Windows 11 on x64 (Intel/AMD).",
     "Cage lite（更新待完成）": "Cage lite (update pending)",
     "保存后停止环境并完成更新": "Stop the environment after saving and finish the update",
     "保存并停止环境后安装重启": "Save, stop the environment, then install and restart",

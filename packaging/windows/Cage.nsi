@@ -356,7 +356,20 @@ Function .onInit
     Quit
   ${EndIf}
   ReadRegStr $0 HKLM "SOFTWARE\Microsoft\Windows NT\CurrentVersion" "CurrentBuildNumber"
-  ${If} $0 < 19045
+  ReadRegStr $1 HKLM "SOFTWARE\Microsoft\Windows NT\CurrentVersion" "EditionID"
+  ; Keep in step with host.WindowsBuildSupported: build 19044 only for the
+  ; still-serviced Enterprise and IoT Enterprise LTSC 2021.
+  StrCpy $2 ""
+  ${If} $0 >= 19045
+    StrCpy $2 "supported"
+  ${ElseIf} $0 == 19044
+    ${If} $1 == "EnterpriseS"
+    ${OrIf} $1 == "EnterpriseSN"
+    ${OrIf} $1 == "IoTEnterpriseS"
+      StrCpy $2 "supported"
+    ${EndIf}
+  ${EndIf}
+  ${If} $2 != "supported"
     MessageBox MB_ICONSTOP "$(CageSetupWindows)"
     SetErrorLevel 1633
     Quit

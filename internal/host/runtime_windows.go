@@ -12,6 +12,7 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
+	"golang.org/x/sys/windows/registry"
 )
 
 // HideCommandWindow prevents a background console child from opening a terminal.
@@ -23,6 +24,21 @@ func HideCommandWindow(cmd *exec.Cmd) {
 	cmd.SysProcAttr.CreationFlags |= windows.CREATE_NO_WINDOW
 }
 
+// WindowsEdition is the EditionID of the running Windows, such as
+// "Professional" or "EnterpriseS" (LTSC); empty when it cannot be read.
+func WindowsEdition() string {
+	key, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Windows NT\CurrentVersion`, registry.QUERY_VALUE)
+	if err != nil {
+		return ""
+	}
+	defer key.Close()
+	edition, _, err := key.GetStringValue("EditionID")
+	if err != nil {
+		return ""
+	}
+	return edition
+}
+
 // ConfigureWindowsRuntime uses only the runtime shipped next to cage.exe.
 // The install does not modify the user's system PATH or SSH configuration.
 func ConfigureWindowsRuntime() error {
@@ -32,8 +48,8 @@ func ConfigureWindowsRuntime() error {
 		os.Unsetenv(name)
 	}
 	version := windows.RtlGetVersion()
-	if runtime.GOARCH != "amd64" || version.MajorVersion < 10 || version.BuildNumber < 19045 {
-		return fmt.Errorf("Cage lite 需要 64 位 Windows 10 22H2（19045）或 Windows 11")
+	if runtime.GOARCH != "amd64" || version.MajorVersion < 10 || !WindowsBuildSupported(version.BuildNumber, WindowsEdition()) {
+		return fmt.Errorf("Cage lite 需要 64 位 Windows 10 22H2（19045）、Windows 10 LTSC 2021 或 Windows 11")
 	}
 	var processMachine, nativeMachine uint16
 	if err := windows.IsWow64Process2(windows.CurrentProcess(), &processMachine, &nativeMachine); err != nil || nativeMachine != 0x8664 {

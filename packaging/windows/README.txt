@@ -9,7 +9,8 @@ installation folder. You can choose another location in the installer.
 No Go, Node.js, .NET SDK, QEMU, OpenSSH or Clash installation is required.
 The installer includes the Microsoft WebView2 offline runtime installer.
 
-Requirements: Windows 10 22H2 (build 19045) or Windows 11, Intel/AMD 64-bit
+Requirements: Windows 10 22H2 (build 19045), Windows 10 Enterprise or IoT
+Enterprise LTSC 2021 (build 19044) or Windows 11, Intel/AMD 64-bit
 processor with hardware virtualization enabled, and Windows Hypervisor Platform.
 Enable Windows Hypervisor Platform in "Turn Windows features on or off", then
 restart Windows if Cage reports that the hypervisor is unavailable.
