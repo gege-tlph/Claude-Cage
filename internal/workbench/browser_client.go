@@ -155,7 +155,7 @@ func (c *browserClient) request(ctx context.Context, token, method, path string,
 		}
 		if reason := known[result.Error]; reason != "" {
 			diagnostics.Log("warn", "browser", fmt.Sprintf("operation=%s http=%d reason=%s", path, response.StatusCode, result.Error))
-			return nil, errors.New(browserOperation(path) + "失败：" + reason)
+			return nil, browserRejection{errors.New(browserOperation(path) + "失败：" + reason)}
 		}
 		diagnostics.Log("warn", "browser", fmt.Sprintf("operation=%s http=%d", path, response.StatusCode))
 		return nil, serviceHTTPFailure(browserOperation(path), response.StatusCode)

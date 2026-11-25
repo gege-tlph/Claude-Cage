@@ -31,17 +31,7 @@ func (s *Server) browser(w http.ResponseWriter, r *http.Request) {
 	}
 	data, err := s.browserAction(r.Context(), action, input)
 	if err != nil {
-		status := http.StatusBadGateway
-		var inputError browserInputError
-		switch {
-		case errors.Is(err, errJobsClosed):
-			status = http.StatusServiceUnavailable
-		case errors.Is(err, errBrowserNotReady), errors.Is(err, errBrowserBusy):
-			status = http.StatusConflict
-		case errors.As(err, &inputError):
-			status = http.StatusBadRequest
-		}
-		http.Error(w, err.Error(), status)
+		http.Error(w, err.Error(), browserFailureStatus(err))
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -57,19 +47,27 @@ func (s *Server) remoteInput(w http.ResponseWriter, r *http.Request) {
 	}
 	data, err := s.browserAction(r.Context(), "ime", &input)
 	if err != nil {
-		status := http.StatusBadGateway
-		var inputError browserInputError
-		if errors.As(err, &inputError) {
-			status = http.StatusBadRequest
-		}
-		if errors.Is(err, errBrowserNotReady) {
-			status = http.StatusConflict
-		}
-		http.Error(w, err.Error(), status)
+		http.Error(w, err.Error(), browserFailureStatus(err))
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(data)
+}
+
+// browserFailureStatus is 502 only when the guest browser could not be
+// reached or did not answer properly.
+func browserFailureStatus(err error) int {
+	var inputError browserInputError
+	var rejection browserRejection
+	switch {
+	case errors.Is(err, errJobsClosed):
+		return http.StatusServiceUnavailable
+	case errors.Is(err, errBrowserNotReady), errors.Is(err, errBrowserBusy), errors.As(err, &rejection):
+		return http.StatusConflict
+	case errors.As(err, &inputError):
+		return http.StatusBadRequest
+	}
+	return http.StatusBadGateway
 }
 
 func (s *Server) browserEvents(w http.ResponseWriter, r *http.Request) {

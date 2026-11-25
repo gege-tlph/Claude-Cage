@@ -32,6 +32,15 @@ func TestBrowserFailureExplainsOperationAndKnownCause(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), tc.want) || strings.Contains(err.Error(), "do-not-display") {
 				t.Fatalf("wrong user failure: %v", err)
 			}
+			// A known refusal is a conflict; anything else means the browser
+			// could not be used and stays a gateway failure (#948).
+			want := http.StatusBadGateway
+			if tc.status == 400 {
+				want = http.StatusConflict
+			}
+			if got := browserFailureStatus(err); got != want {
+				t.Fatalf("status %d for %v, want %d", got, err, want)
+			}
 		})
 	}
 }

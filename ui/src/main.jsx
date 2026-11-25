@@ -539,7 +539,9 @@ function App() {
           if (focusContent) remote.current?.focus();
         }
       } catch (e) {
-        setBrowserError(e.message);
+        // 409: the browser answered, e.g. the tab closed meanwhile. Only a
+        // failure to reach it means the browser view is disconnected (#948).
+        if (e.status !== 409) setBrowserError(e.message);
         notify(e.message);
       }
     }

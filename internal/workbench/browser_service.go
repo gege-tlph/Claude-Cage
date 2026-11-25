@@ -22,6 +22,12 @@ var (
 
 type browserInputError struct{ error }
 
+// browserRejection is an operation the guest browser understood and refused
+// for a known reason, such as a tab that closed meanwhile. The connection is
+// fine, so it is reported as a conflict, not as a failed gateway: the UI
+// would otherwise show the browser as disconnected (#948).
+type browserRejection struct{ error }
+
 // browserCookieInput is one cookie to add or edit. Value is sensitive: it is
 // forwarded to the guest only and never logged or echoed in errors.
 type browserCookieInput struct {
