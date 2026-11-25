@@ -253,7 +253,7 @@ func TestScanWindowsFlClashFollowClashDirectory(t *testing.T) {
 			continue
 		}
 		switch e.Name {
-		case "config.yaml":
+		case "当前生效配置":
 			runtime = &entries[i]
 		case "123.yaml":
 			profile = &entries[i]
@@ -265,6 +265,45 @@ func TestScanWindowsFlClashFollowClashDirectory(t *testing.T) {
 		}
 		if e.Nodes != 1 || e.Error != "" {
 			t.Fatalf("FlClash config not importable: %+v", *e)
+		}
+	}
+}
+
+func TestScanFlClashSkipsAppStateAndMarksSelectedProfile(t *testing.T) {
+	for _, platform := range []string{"windows", "linux", "darwin"} {
+		for _, loc := range Locations(platform, "/home/person", "", "") {
+			if loc.Client == "FlClash" && (loc.Layout != FlClash || filepath.Base(loc.Directory) == "profiles") {
+				t.Fatalf("%s: FlClash location not using its layout: %+v", platform, loc)
+			}
+		}
+	}
+	root := t.TempDir()
+	writeConfig(t, root, "config.yaml", testNode)
+	writeConfig(t, root, "shared_preferences.json", `{"flutter.config":"{\"currentProfileId\":1732012345678,\"themeMode\":\"dark\"}"}`)
+	writeConfig(t, root, "libCachedImageData.json", `[{"key":"x"}]`)
+	writeConfig(t, root, "profiles/1732012345678.yaml", testNode)
+	writeConfig(t, root, "profiles/1732012399999.yaml", testNode)
+	writeConfig(t, root, "profiles/1732012400000.yaml", "")
+	entries := Scan([]Location{{"FlClash", root, FlClash, ""}}, []byte("key"))
+	names := map[string]Config{}
+	for _, e := range entries {
+		if e.Error != "" {
+			t.Fatalf("FlClash app state or empty profile reported as a config: %s", mustJSON(t, entries))
+		}
+		names[e.Name] = e
+	}
+	if len(entries) != 3 {
+		t.Fatalf("expected runtime config and two profiles, got %s", mustJSON(t, entries))
+	}
+	if !names["当前生效配置"].Current || !names["1732012345678.yaml"].Current || names["1732012399999.yaml"].Current {
+		t.Fatalf("selected profile not marked: %s", mustJSON(t, entries))
+	}
+
+	// Without readable preferences nothing in profiles/ is marked.
+	writeConfig(t, root, "shared_preferences.json", `not json`)
+	for _, e := range Scan([]Location{{"FlClash", root, FlClash, ""}}, []byte("key")) {
+		if e.Current && e.Name != "当前生效配置" {
+			t.Fatalf("profile marked without a selection: %+v", e)
 		}
 	}
 }

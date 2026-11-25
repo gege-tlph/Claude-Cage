@@ -63,6 +63,10 @@ const (
 	// SakuraCat (Windows, sing-box core) keeps its configuration in a private
 	// encoding with no portable nodes (#892).
 	SakuraCat
+	// FlClash keeps the running config.yaml at its root and subscriptions in
+	// profiles/<id>.yaml. The root also holds Flutter state such as
+	// shared_preferences.json, which are not proxy configs (#943).
+	FlClash
 )
 
 const privateConfigError = "私有格式，无法导入；请改用服务商提供的 Clash/Mihomo 订阅"
@@ -106,8 +110,7 @@ func Locations(platform, home, dataHome, configHome string) []Location {
 		nyanpasuHome = filepath.Join(dataHome, "Clash Nyanpasu", "config")
 	}
 	out := []Location{
-		{"FlClash", filepath.Join(dataHome, "com.follow.clash"), Plain, ""},
-		{"FlClash", filepath.Join(dataHome, "com.follow.clash", "profiles"), Plain, ""},
+		{"FlClash", filepath.Join(dataHome, "com.follow.clash"), FlClash, ""},
 		{"FlClash for oixCloud", filepath.Join(dataHome, "com.oixcloud.clash"), OixCloud, ""},
 		{"Clash Verge Rev", filepath.Join(dataHome, "io.github.clash-verge-rev.clash-verge-rev"), Verge, ""},
 		// Clash Neo is a Verge fork and keeps the same profile layout.
@@ -135,10 +138,8 @@ func Locations(platform, home, dataHome, configHome string) []Location {
 	}
 	if platform == "windows" {
 		out = append(out,
-			Location{"FlClash", filepath.Join(dataHome, "com.follow", "FlClash"), Plain, ""},
-			Location{"FlClash", filepath.Join(dataHome, "com.follow", "FlClash", "profiles"), Plain, ""},
-			Location{"FlClash", filepath.Join(dataHome, "com.follow", "clash"), Plain, ""},
-			Location{"FlClash", filepath.Join(dataHome, "com.follow", "clash", "profiles"), Plain, ""},
+			Location{"FlClash", filepath.Join(dataHome, "com.follow", "FlClash"), FlClash, ""},
+			Location{"FlClash", filepath.Join(dataHome, "com.follow", "clash"), FlClash, ""},
 			Location{"FlClash for oixCloud", filepath.Join(dataHome, "com.oixcloud", "FlClash"), OixCloud, ""},
 			Location{"FlClash for oixCloud", filepath.Join(dataHome, "com.follow", "FlClash for oixCloud"), OixCloud, ""},
 			Location{"Clash / Mihomo", filepath.Join(home, ".config", "clash"), Plain, ""},
@@ -421,6 +422,45 @@ func Scan(locations []Location, key []byte) []Config {
 			for _, p := range nyanpasuProfiles(data) {
 				add(filepath.Join("profiles", p.file), "", p.name, p.url, p.current)
 			}
+		case FlClash:
+			// Only YAML is read: every JSON file FlClash writes is app state.
+			if files, err := os.ReadDir(root); err == nil {
+				count := 0
+				for _, file := range files {
+					ext := strings.ToLower(filepath.Ext(file.Name()))
+					if file.IsDir() || (ext != ".yaml" && ext != ".yml") || emptyFile(file) {
+						continue
+					}
+					if count >= 32 {
+						break
+					}
+					count++
+					if file.Name() == "config.yaml" {
+						add(file.Name(), "", "当前生效配置", "", true)
+					} else {
+						add(file.Name(), "", file.Name(), "", false)
+					}
+				}
+			}
+			selected := flClashCurrentProfile(root)
+			files, err := listWithin(root, "profiles")
+			if err != nil {
+				continue
+			}
+			count := 0
+			for _, file := range files {
+				ext := strings.ToLower(filepath.Ext(file.Name()))
+				// A failed download leaves an empty profile behind (#954).
+				if file.IsDir() || (ext != ".yaml" && ext != ".yml") || emptyFile(file) {
+					continue
+				}
+				if count >= 32 {
+					break
+				}
+				count++
+				id := strings.TrimSuffix(file.Name(), filepath.Ext(file.Name()))
+				add(filepath.Join("profiles", file.Name()), "", file.Name(), "", selected != "" && id == selected)
+			}
 		case Surge:
 			files, err := os.ReadDir(root)
 			if err != nil {
@@ -463,6 +503,41 @@ func Scan(locations []Location, key []byte) []Config {
 		return out[i].Current && !out[j].Current
 	})
 	return out
+}
+
+func emptyFile(file os.DirEntry) bool {
+	info, err := file.Info()
+	return err == nil && info.Mode().IsRegular() && info.Size() == 0
+}
+
+// flClashCurrentProfile reads the selected profile ID that FlClash keeps in
+// shared_preferences.json as the JSON string "flutter.config". Any other
+// shape reports no selection.
+func flClashCurrentProfile(root string) string {
+	data, err := readWithin(root, "shared_preferences.json")
+	if err != nil {
+		return ""
+	}
+	var prefs map[string]json.RawMessage
+	var raw string
+	if json.Unmarshal(data, &prefs) != nil || json.Unmarshal(prefs["flutter.config"], &raw) != nil {
+		return ""
+	}
+	decoder := json.NewDecoder(strings.NewReader(raw))
+	decoder.UseNumber()
+	var config struct {
+		CurrentProfileID any `json:"currentProfileId"`
+	}
+	if decoder.Decode(&config) != nil {
+		return ""
+	}
+	switch id := config.CurrentProfileID.(type) {
+	case json.Number:
+		return id.String()
+	case string:
+		return id
+	}
+	return ""
 }
 
 type nyanpasuProfile struct {
