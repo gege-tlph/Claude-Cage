@@ -399,6 +399,7 @@ export function DesktopList({ model, disabled, selected, defaultRunning = false,
 
 function DesktopPane({
   account,
+  claudeDesktop = false,
   ready = true,
   visible,
   windowVisible = true,
@@ -536,6 +537,7 @@ function DesktopPane({
             },
             container,
             {
+              claudeDesktop,
               systemClipboard: () => current.current.systemClipboard,
               clipboardActive: () => clipboardReady.current,
               syncClipboard: async () => {
@@ -614,7 +616,7 @@ function DesktopPane({
       rfb.current = null;
       client?.disconnect();
     };
-  }, [account.id, account.generation, screenVisible, attempt]);
+  }, [account.id, account.generation, screenVisible, attempt, claudeDesktop]);
   return (
     <section
       className="account-desktop-pane"
@@ -756,6 +758,7 @@ export const DesktopPanes = forwardRef(function DesktopPanes(
         <DesktopPane
           key={a.id}
           account={a}
+          claudeDesktop
           ready={ready}
           visible={visible}
           windowVisible={windowVisible}
