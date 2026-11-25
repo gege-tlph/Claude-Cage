@@ -123,8 +123,8 @@ func TestInitializationPersistsBeforeDiskCreationAndDoesNotResetExisting(t *test
 	if err := os.WriteFile(filepath.Join(base, "lima.yaml"), []byte("{}"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if read().Required {
-		t.Fatal("existing Linux installation forced to reinstall")
+	if existing := read(); existing.Required || existing.Tracked || !existing.Prepared {
+		t.Fatalf("existing Linux installation forced to reinstall or reported unprepared: %+v", existing)
 	}
 }
 
