@@ -900,14 +900,18 @@ func (s *Server) probe(w http.ResponseWriter, r *http.Request) {
 		requestError(w, err)
 		return
 	}
-	if err := s.ensureProxyInterfaceBeforeUse(r.Context()); err != nil {
-		requestError(w, err)
-		return
-	}
 	old, err := loadConfig(s.configPath)
 	if err != nil {
 		requestError(w, err)
 		return
+	}
+	// A candidate bootstrap DNS is tested on an isolated preflight core, so the
+	// active core is only rebound when the probe will actually use it.
+	if p, loadErr := s.proxyStore.Load(s.profile); loadErr != nil || !needsBootstrapPreflight(old, v.Config, p) {
+		if err := s.ensureProxyInterfaceBeforeUse(r.Context()); err != nil {
+			requestError(w, err)
+			return
+		}
 	}
 	loc, usedPreflight, err := s.probeCandidateLocation(r.Context(), old, v.Config, v.Preferences)
 	if !usedPreflight {
