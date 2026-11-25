@@ -164,7 +164,7 @@ function Initialize-VerifiedDeletion {
     }
 }
 
-function Remove-MatchingFile([string]$Root, [string]$Relative, [string]$Hash) {
+function Remove-MatchingFile([string]$Root, [string]$Relative, [string]$Hash, $Deleted) {
     $Path = Join-Path $Root $Relative
     if (!(Test-Path -LiteralPath $Path -PathType Leaf)) { return }
     if ((Get-Item -LiteralPath $Path -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { return }
@@ -174,6 +174,7 @@ function Remove-MatchingFile([string]$Root, [string]$Relative, [string]$Hash) {
     try {
         if ((Stream-Hash $stream) -eq $Hash) {
             if ($windows) { [CageVerifiedFile]::Delete($stream) } else { [IO.File]::Delete($Path) }
+            if ($null -ne $Deleted) { $null = $Deleted.Add([IO.Path]::GetFullPath($Path)) }
         }
     }
     finally { $stream.Dispose() }
@@ -267,7 +268,10 @@ function Test-HasExistingContent([string]$Path) {
 # A running process maps the replaced version's program images, so cleanup can
 # neither delete them nor move their folder. Bytes that still match the receipt
 # hold no user data and need no recovery; only then may that folder remain.
-function Test-OnlyProgramFiles([string]$Root, $Files) {
+# Another process may hold a verified and deleted file open with delete
+# sharing: it stays listed and blocks the move, but opening it is denied while
+# its deletion is pending. Any other file that cannot be read keeps the receipt.
+function Test-OnlyProgramFiles([string]$Root, $Files, $PendingDeletions) {
     $owned = @{}
     foreach ($entry in $Files) { $owned[$entry.path] = $entry.sha256 }
     $found = $false
@@ -276,7 +280,12 @@ function Test-OnlyProgramFiles([string]$Root, $Files) {
         if ($item.PSIsContainer) { continue }
         $relative = Relative-Path $Root $item.FullName
         if (!$owned.ContainsKey($relative)) { return $false }
-        try { $stream = Open-ReadLocked $item.FullName } catch { return $false }
+        try { $stream = Open-ReadLocked $item.FullName }
+        catch [UnauthorizedAccessException] {
+            if (!$PendingDeletions.Contains([IO.Path]::GetFullPath($item.FullName))) { return $false }
+            $found = $true
+            continue
+        } catch { return $false }
         try { if ((Stream-Hash $stream) -ne $owned[$relative]) { return $false } } finally { $stream.Dispose() }
         $found = $true
     }
@@ -445,6 +454,7 @@ if ($Operation -eq 'prepare') {
 } elseif ($Operation -eq 'cleanup') {
     $diagnosticStep = 'verifying_previous_file_ownership'
     $transfer = Get-Content -LiteralPath $Receipt -Raw -Encoding UTF8 | ConvertFrom-Json
+    $deleted = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     # A reused folder can hold no old program file; @($null) would name one.
     $ownedPaths = [string[]]@(foreach ($entry in @($transfer.files)) { if ($entry.path) { $entry.path } })
     $actual = @(Read-Tree $Source $ownedPaths | Where-Object { !($_.Attributes -band [IO.FileAttributes]::ReparsePoint) } | ForEach-Object { Relative-Path $Source $_.FullName })
@@ -455,7 +465,7 @@ if ($Operation -eq 'prepare') {
                 $copy = Open-ReadLocked (Join-Path $Target $entry.destination)
                 try { if ((Stream-Hash $copy) -ne $entry.sha256) { continue } } finally { $copy.Dispose() }
             }
-            Remove-MatchingFile $Source $entry.path $entry.sha256
+            Remove-MatchingFile $Source $entry.path $entry.sha256 $deleted
         } catch { Write-Output '安装期间变化或被占用的文件已保留在旧目录。' }
     }
     Remove-EmptyDirectories $Source $transfer.directories
@@ -469,8 +479,9 @@ if ($Operation -eq 'prepare') {
             [IO.Directory]::Move($Source, $recovery)
             Write-Output ('安装期间变化的文件已保留在 ' + $recovery)
         } catch {
-            if (!(Test-OnlyProgramFiles $Source $transfer.files)) { throw }
+            $failure = $_
             if ($createdPreserved) { [IO.Directory]::Delete($preserved) }
+            if (!(Test-OnlyProgramFiles $Source $transfer.files $deleted)) { throw $failure }
             $retainedBackup = $Source
             Write-Output ('被替换的程序文件仍被占用，已留在 ' + $Source + '，退出相关程序后可删除。')
         }
