@@ -35,11 +35,26 @@ func BootstrapClientWith(servers []string) *http.Client {
 // query, so it is never sent on to the next server as the Referer.
 func SubscriptionRedirect(r *http.Request, via []*http.Request) error {
 	if len(via) >= 3 || r.URL.Scheme != "https" || r.URL.User != nil {
-		return errors.New("订阅重定向被拒绝")
+		return errSubscriptionRedirect
 	}
 	r.Header.Del("Referer")
 	return nil
 }
+
+var (
+	errSubscriptionRedirect = errors.New("订阅重定向被拒绝")
+	errPrivateSubscription  = errors.New("订阅服务器必须使用公网地址")
+	errInfrastructureName   = errors.New("代理基础设施域名无效")
+	errInfrastructureDNS    = errors.New("代理基础设施 DNS 均不可用或未返回公网 IPv4；请检查主机网络后重试，未使用系统 DNS 回退")
+)
+
+// infrastructureDNSTimeout is errInfrastructureDNS when no resolver answered
+// in time. Fetch does not retry it: another attempt would wait just as long.
+type infrastructureDNSTimeout struct{}
+
+func (infrastructureDNSTimeout) Error() string        { return errInfrastructureDNS.Error() }
+func (infrastructureDNSTimeout) Is(target error) bool { return target == errInfrastructureDNS }
+func (infrastructureDNSTimeout) Timeout() bool        { return true }
 
 type subscriptionHostTransport struct {
 	host      *http.Transport
@@ -68,7 +83,7 @@ func (t subscriptionHostTransport) RoundTrip(req *http.Request) (*http.Response,
 		}
 	}
 	if !publicIP(ip) {
-		return nil, errors.New("订阅服务器必须使用公网地址")
+		return nil, errPrivateSubscription
 	}
 
 	// CONNECT (or SOCKS) must address the validated IP, while HTTP Host and
@@ -123,13 +138,14 @@ func BootstrapDNSURLs() []string {
 }
 
 func resolveInfrastructureWith(ctx context.Context, host string, client *http.Client, servers []string) (netip.Addr, error) {
-	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	parent := ctx
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	q := new(dns.Msg)
 	q.SetQuestion(dns.Fqdn(host), dns.TypeA)
 	wire, err := q.Pack()
 	if err != nil {
-		return netip.Addr{}, errors.New("代理基础设施域名无效")
+		return netip.Addr{}, errInfrastructureName
 	}
 	type result struct {
 		ip  netip.Addr
@@ -147,14 +163,17 @@ func resolveInfrastructureWith(ctx context.Context, host string, client *http.Cl
 	for range servers {
 		select {
 		case <-ctx.Done():
-			return netip.Addr{}, ctx.Err()
+			if err := parent.Err(); err != nil {
+				return netip.Addr{}, err
+			}
+			return netip.Addr{}, infrastructureDNSTimeout{}
 		case result := <-results:
 			if result.err == nil {
 				return result.ip, nil
 			}
 		}
 	}
-	return netip.Addr{}, errors.New("代理基础设施 DNS 均不可用或未返回公网 IPv4；请检查主机网络后重试，未使用系统 DNS 回退")
+	return netip.Addr{}, errInfrastructureDNS
 }
 
 func queryInfrastructureDNS(ctx context.Context, client *http.Client, server string, q *dns.Msg, wire []byte) (netip.Addr, error) {
@@ -194,26 +213,65 @@ func Fetch(ctx context.Context, client *http.Client, rawURL string) ([]byte, str
 	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.Fragment != "" {
 		return nil, "", errors.New("订阅需要完整的 HTTPS 网址，不支持地址内用户名和密码")
 	}
-	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
+	for attempt := 0; ; attempt++ {
+		data, usage, retry, err := fetchSubscription(ctx, client, u.String())
+		if err == nil || !retry || attempt == len(subscriptionRetryDelays) {
+			return data, usage, err
+		}
+		timer := time.NewTimer(subscriptionRetryDelays[attempt])
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, "", err
+		case <-timer.C:
+		}
+	}
+}
+
+// subscriptionRetryDelays: subscription servers behind busy CDNs sometimes
+// answer 5xx, 408 or 429, or drop the connection. Two quick retries ride
+// that out.
+var subscriptionRetryDelays = []time.Duration{300 * time.Millisecond, 800 * time.Millisecond}
+
+// fetchSubscription makes one download attempt. retry reports a failure that
+// another attempt soon after may not repeat; refusals and timeouts are final.
+func fetchSubscription(ctx context.Context, client *http.Client, target string) (data []byte, usage string, retry bool, err error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", target, nil)
 	if err != nil {
-		return nil, "", errors.New("订阅网址无效")
+		return nil, "", false, errors.New("订阅网址无效")
 	}
 	req.Header.Set("User-Agent", subscriptionUserAgent)
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, "", errors.New("订阅下载失败，请检查下载路径和服务地址")
+		retry = transient(ctx, err)
+		for _, final := range []error{errSubscriptionRedirect, errPrivateSubscription, errInfrastructureName} {
+			if errors.Is(err, final) {
+				return nil, "", false, final
+			}
+		}
+		if errors.Is(err, errInfrastructureDNS) {
+			return nil, "", retry, errInfrastructureDNS
+		}
+		return nil, "", retry, errors.New("订阅下载失败，请检查下载路径和服务地址")
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
-		return nil, "", errors.New("订阅服务器返回 HTTP " + strconv.Itoa(res.StatusCode))
+		_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, 4096))
+		code := res.StatusCode
+		return nil, "", code == http.StatusRequestTimeout || code == http.StatusTooManyRequests || code >= 500, errors.New("订阅服务器返回 HTTP " + strconv.Itoa(code))
 	}
 	b, err := io.ReadAll(io.LimitReader(res.Body, MaxImport+1))
 	if err != nil || len(b) > MaxImport {
-		return nil, "", errors.New("订阅下载中断或超过 8 MiB")
+		return nil, "", len(b) <= MaxImport && transient(ctx, err), errors.New("订阅下载中断或超过 8 MiB")
 	}
-	usage := "" // Keep only known numeric metadata; never echo arbitrary headers.
 	if raw := res.Header.Get("Subscription-Userinfo"); len(raw) < 300 {
+		// Keep only known numeric metadata; never echo arbitrary headers.
 		usage = usageSummary(raw)
 	}
-	return b, usage, nil
+	return b, usage, false, nil
+}
+
+func transient(ctx context.Context, err error) bool {
+	var timeout interface{ Timeout() bool }
+	return ctx.Err() == nil && !(errors.As(err, &timeout) && timeout.Timeout())
 }

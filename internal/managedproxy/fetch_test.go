@@ -272,3 +272,81 @@ func TestSubscriptionRedirectKeepsOriginalURLPrivate(t *testing.T) {
 		t.Fatalf("subscription redirect failed: %q, %v", data, err)
 	}
 }
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestFetchRetriesOnlyTransientFailures(t *testing.T) {
+	old := subscriptionRetryDelays
+	subscriptionRetryDelays = []time.Duration{time.Millisecond, time.Millisecond}
+	t.Cleanup(func() { subscriptionRetryDelays = old })
+	statuses := func(codes ...int) (*httptest.Server, *atomic.Int32) {
+		var calls atomic.Int32
+		server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if n := int(calls.Add(1)); n <= len(codes) {
+				w.WriteHeader(codes[n-1])
+				return
+			}
+			io.WriteString(w, "proxies: []")
+		}))
+		t.Cleanup(server.Close)
+		return server, &calls
+	}
+	for _, tc := range []struct {
+		name  string
+		codes []int
+		calls int32
+		err   string
+	}{
+		{"503 then success", []int{503, 503}, 3, ""},
+		{"429 then success", []int{429}, 2, ""},
+		{"404 is final", []int{404}, 1, "HTTP 404"},
+		{"three 502", []int{502, 502, 502}, 3, "HTTP 502"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server, calls := statuses(tc.codes...)
+			data, _, err := Fetch(t.Context(), server.Client(), server.URL+"/sub")
+			if calls.Load() != tc.calls || (tc.err == "") != (err == nil) || (err != nil && !strings.Contains(err.Error(), tc.err)) || (err == nil && string(data) != "proxies: []") {
+				t.Fatalf("calls=%d data=%q err=%v", calls.Load(), data, err)
+			}
+		})
+	}
+
+	transport := func(fail error) (*http.Client, *atomic.Int32) {
+		var calls atomic.Int32
+		return &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+			calls.Add(1)
+			return nil, fail
+		})}, &calls
+	}
+	for _, tc := range []struct {
+		name  string
+		fail  error
+		calls int32
+		want  string
+	}{
+		{"connection reset", errors.New("connection reset by peer"), 3, "订阅下载失败，请检查下载路径和服务地址"},
+		{"resolvers failed", errInfrastructureDNS, 3, errInfrastructureDNS.Error()},
+		{"resolvers timed out", infrastructureDNSTimeout{}, 1, errInfrastructureDNS.Error()},
+		{"private address", errPrivateSubscription, 1, errPrivateSubscription.Error()},
+		{"timeout", context.DeadlineExceeded, 1, "订阅下载失败，请检查下载路径和服务地址"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			client, calls := transport(tc.fail)
+			_, _, err := Fetch(t.Context(), client, "https://example.com/sub")
+			if calls.Load() != tc.calls || err == nil || err.Error() != tc.want {
+				t.Fatalf("calls=%d err=%v", calls.Load(), err)
+			}
+		})
+	}
+
+	refused := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "http://example.com/plain", http.StatusFound)
+	}))
+	defer refused.Close()
+	client := &http.Client{Transport: refused.Client().Transport, CheckRedirect: SubscriptionRedirect}
+	if _, _, err := Fetch(t.Context(), client, refused.URL+"/sub"); err == nil || err.Error() != errSubscriptionRedirect.Error() {
+		t.Fatalf("refused redirect: %v", err)
+	}
+}
