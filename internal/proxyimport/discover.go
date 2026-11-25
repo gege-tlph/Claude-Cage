@@ -52,7 +52,8 @@ const (
 	// app settings, while mihomo runs from work/ with work/config.yaml.
 	Party
 	// OixCloud is FlClash for oixCloud. Its root config.yaml holds app settings
-	// without nodes and profiles/*.yaml may be age-encrypted ciphertext.
+	// without nodes and profiles/*.yaml may be age-encrypted ciphertext or, in
+	// the com.follow builds, a private container starting with "FLEN" (#957).
 	OixCloud
 	// Surge reads the INI-style .conf profiles of Surge for Mac.
 	Surge
@@ -139,6 +140,7 @@ func Locations(platform, home, dataHome, configHome string) []Location {
 			Location{"FlClash", filepath.Join(dataHome, "com.follow", "clash"), Plain, ""},
 			Location{"FlClash", filepath.Join(dataHome, "com.follow", "clash", "profiles"), Plain, ""},
 			Location{"FlClash for oixCloud", filepath.Join(dataHome, "com.oixcloud", "FlClash"), OixCloud, ""},
+			Location{"FlClash for oixCloud", filepath.Join(dataHome, "com.follow", "FlClash for oixCloud"), OixCloud, ""},
 			Location{"Clash / Mihomo", filepath.Join(home, ".config", "clash"), Plain, ""},
 			Location{"Clash Verge", filepath.Join(home, ".config", "clash-verge"), Verge, ""},
 			Location{"ShadowsocksR", filepath.Join(dataHome, "ShadowsocksR"), Plain, ""},
@@ -191,6 +193,9 @@ func Scan(locations []Location, key []byte) []Config {
 			} else if isAgeEncrypted(data) {
 				encrypted = true
 				c.Error = encryptedConfigError
+			} else if loc.Layout == OixCloud && isFlenContainer(data) {
+				encrypted = true
+				c.Error = privateConfigError
 			} else {
 				c.Data, c.Warning, err = nodeData(root, providers, data)
 				if err != nil {
@@ -243,7 +248,7 @@ func Scan(locations []Location, key []byte) []Config {
 			signConfig(&notice, root, key, "config.json", "offline_cache.json")
 			out = append(out, notice)
 		case OixCloud:
-			var encryptedFiles []string
+			var encryptedFiles, privateFiles []string
 			var fallbackErrors []Config
 			foundImportable := false
 			for _, subdir := range []string{"", "profiles"} {
@@ -273,7 +278,11 @@ func Scan(locations []Location, key []byte) []Config {
 						continue
 					}
 					if encrypted {
-						encryptedFiles = append(encryptedFiles, rel)
+						if c.Error == privateConfigError {
+							privateFiles = append(privateFiles, rel)
+						} else {
+							encryptedFiles = append(encryptedFiles, rel)
+						}
 						continue
 					}
 					if ext == ".age" {
@@ -296,7 +305,14 @@ func Scan(locations []Location, key []byte) []Config {
 				}
 				signConfig(&notice, filepath.Join(root, "profiles"), key, encryptedFiles...)
 				out = append(out, notice)
-			} else if !foundImportable {
+			}
+			if len(privateFiles) > 0 {
+				sort.Strings(privateFiles)
+				notice := Config{Client: loc.Client, Name: "私有配置", Error: privateConfigError}
+				signConfig(&notice, root, key, privateFiles...)
+				out = append(out, notice)
+			}
+			if len(encryptedFiles) == 0 && len(privateFiles) == 0 && !foundImportable {
 				out = append(out, fallbackErrors...)
 			}
 		case Party:
@@ -554,6 +570,12 @@ func isAgeEncrypted(data []byte) bool {
 	trimmed = bytes.TrimLeft(trimmed, " \t\r\n")
 	return bytes.HasPrefix(trimmed, []byte("-----BEGIN AGE ENCRYPTED FILE-----\n")) ||
 		bytes.HasPrefix(trimmed, []byte("-----BEGIN AGE ENCRYPTED FILE-----\r\n"))
+}
+
+// isFlenContainer only matches the four-byte "FLEN" marker; the container's
+// cipher is undocumented and is never decoded.
+func isFlenContainer(data []byte) bool {
+	return bytes.HasPrefix(data, []byte("FLEN"))
 }
 
 func listWithin(root, subdir string) ([]os.DirEntry, error) {
