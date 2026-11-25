@@ -2042,6 +2042,7 @@ function App() {
                         onLoginTab={result => showBrowserResult({
                           id: result.id, kind: "web", login: true, incognito: result.incognito !== false, title: "账号授权",
                         })}
+                        onOpenPage={url => openBrowserPage(url, false)}
                         onControls={(control) =>
                           control
                             ? terminalControls.current.set(tab.id, control)

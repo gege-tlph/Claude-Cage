@@ -283,7 +283,7 @@ export const RemoteView = forwardRef(function RemoteView(
   );
 });
 
-export function TerminalView({ session, visible, focused = true, onStatus, onControls, onAccountChanged, onLoginTab }) {
+export function TerminalView({ session, visible, focused = true, onStatus, onControls, onAccountChanged, onLoginTab, onOpenPage }) {
   const tr = useTranslation();
   const { appearance, theme, variant } = useAppearance();
   const box = useRef(),
@@ -298,6 +298,8 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
   visibleRef.current = visible;
   const focusedRef = useRef(focused);
   focusedRef.current = focused;
+  const openPageRef = useRef(onOpenPage);
+  openPageRef.current = onOpenPage;
   useEffect(() => {
     let disposed = false, emittingPaste = false, inputChain = Promise.resolve();
     const enqueue = (action) => {
@@ -317,8 +319,10 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
     const terminal = new Terminal({
       linkHandler: { activate(event, uri) {
         if (isClaudeLoginLink(uri)) return void activateLogin(event, uri);
-        // Keep xterm's user confirmation for other explicit HTTP(S) links.
-        if (window.confirm(translate("打开此终端链接？\n{0}", uri))) window.open(uri, "_blank", "noopener,noreferrer");
+        // Other explicit HTTP(S) links come from the guest: after the user
+        // confirms, they open in the environment's browser, never on the host.
+        // (The desktop shell blocks window.open, so this did nothing before.)
+        if (window.confirm(translate("打开此终端链接？\n{0}", uri))) void openPageRef.current?.(uri);
       } },
       fontFamily: theme.fonts.code || systemCodeFont,
       fontSize: appearance.codeFontSize,
