@@ -110,6 +110,7 @@ export function WorkspaceTabs({
   };
   const finishDrag = (commit, event) => {
     const current = pointer.current;
+    if (event && current?.pointerId !== event.pointerId) return;
     pointer.current = null;
     setDrag(null);
     splitDrag.clear();
@@ -155,15 +156,15 @@ export function WorkspaceTabs({
     const group = horizontal || vertical ? items.filter(item =>
       Boolean(saved[item.id]?.pinned) === Boolean(saved[tab.id]?.pinned)) : items;
     pointer.current = {
-      id: tab.id, startX: event.clientX, startY: event.clientY,
+      id: tab.id, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY,
       items, group, order: items.map(item => item.id), moved: false,
     };
     (event.target.closest("button") || event.currentTarget).setPointerCapture(event.pointerId);
   };
   const moveDrag = (event) => {
     const current = pointer.current;
-    if (!current) return;
-    if (!event.buttons) return finishDrag(false);
+    // Captured WebKit drags may report buttons=0 before pointerup.
+    if (current?.pointerId !== event.pointerId) return;
     let dx = event.clientX - current.startX;
     if (!current.moved && Math.hypot(dx, event.clientY - current.startY) < 5) return;
     current.moved = true;
@@ -339,10 +340,8 @@ export function WorkspaceTabs({
               onPointerDown={(event) => startDrag(event, tab)}
               onPointerMove={moveDrag}
               onPointerUp={(event) => finishDrag(true, event)}
-              onPointerCancel={() => finishDrag(false)}
-              onLostPointerCapture={() => {
-                if (pointer.current) finishDrag(false);
-              }}
+              onPointerCancel={event => finishDrag(false, event)}
+              onLostPointerCapture={event => finishDrag(false, event)}
               onClickCapture={(event) => {
                 if (event.detail && suppressClick.current) {
                   event.preventDefault();
