@@ -87,7 +87,6 @@ function ProjectActionMenu({
         : Math.max(8, box.top - height - 4);
     }
     setPosition({ left, top, ready: true });
-    element.querySelector("button:not(:disabled)")?.focus();
     const dismiss = (restoreFocus = false) => {
       if (restoreFocus && anchor.isConnected) anchor.focus();
       closeRef.current();
@@ -108,6 +107,7 @@ function ProjectActionMenu({
         const index = items.indexOf(document.activeElement);
         const next = event.key === "Home" ? 0
           : event.key === "End" ? items.length - 1
+          : event.key === "ArrowUp" && index < 0 ? items.length - 1
           : (index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
         items[next]?.focus();
       }
@@ -129,6 +129,11 @@ function ProjectActionMenu({
       window.removeEventListener("resize", closeCommand);
     };
   }, [menu]);
+
+  // A hidden menu cannot take focus, so wait until the position is applied.
+  useEffect(() => {
+    if (position.ready) node.current?.querySelector("button:not(:disabled)")?.focus();
+  }, [position.ready, menu]);
 
   const act = (handler) => {
     onClose();
