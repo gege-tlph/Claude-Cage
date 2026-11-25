@@ -18,7 +18,14 @@ type networkRecovery struct {
 	Next                 time.Time
 	Attempts             int
 	pressureLogged       bool
+	// pressureSince is when host memory pressure first postponed this attempt.
+	pressureSince time.Time
 }
+
+// hostPressureMaxWait bounds how long host memory pressure alone postpones an
+// automatic recheck. A Windows host running a large guest can stay below 10%
+// free memory for hours while a full check still passes (#955).
+const hostPressureMaxWait = 2 * time.Minute
 
 // Called with s.mu held. Reuse the ordinary network status text on every
 // platform; no independent timer or cached permission is introduced.
@@ -97,16 +104,26 @@ func (s *Server) recoverNetwork() {
 	// Only a recent pressure measurement should postpone the full gate check.
 	resources, err := cage.ReadResourceStatus(s.instanceDir())
 	guestPressure := resources.Pressure && time.Since(resources.ObservedAt) <= 10*time.Second
-	if err == nil && (guestPressure || resources.HostPressure) {
+	hostPressure := resources.HostPressure && time.Since(resources.UpdatedAt) <= 10*time.Second
+	if err == nil && hostPressure && !guestPressure && !r.pressureSince.IsZero() && time.Since(r.pressureSince) >= hostPressureMaxWait {
+		// The guest, where the check runs, has room; staying offline longer
+		// protects nothing.
+		hostPressure = false
+		diagnostics.Log("info", "network", "automatic recheck no longer waiting for host memory pressure after "+hostPressureMaxWait.String())
+	}
+	if err == nil && (guestPressure || hostPressure) {
 		timing.result = "memory_pressure"
 		s.mu.Lock()
 		logWait := s.recovery == r && !r.pressureLogged
 		if logWait {
 			s.recovery.pressureLogged = true
 		}
+		if s.recovery == r && r.pressureSince.IsZero() {
+			s.recovery.pressureSince = time.Now()
+		}
 		s.mu.Unlock()
 		if logWait {
-			diagnostics.Log("info", "network", fmt.Sprintf("automatic recheck waiting for memory pressure to subside (guest=%t, host=%t)", guestPressure, resources.HostPressure))
+			diagnostics.Log("info", "network", fmt.Sprintf("automatic recheck waiting for memory pressure to subside (guest=%t, host=%t)", guestPressure, hostPressure))
 		}
 		return
 	}
@@ -187,6 +204,7 @@ func (s *Server) finishNetworkRecovery(expected networkRecovery, err error) erro
 	delay := time.Duration(min(300, 15<<min(s.recovery.Attempts, 5))) * time.Second
 	s.recovery.Next = time.Now().Add(delay)
 	s.recovery.pressureLogged = false
+	s.recovery.pressureSince = time.Time{}
 	// Show the latest full-check failure rather than the initial monitoring
 	// error, which may describe a different missing sample by this point.
 	s.safety.monitorError = diagnostics.Redact(usererror.Display("自动完整重检", err, "等待下一次重检；仍失败时导出诊断包。").Error())

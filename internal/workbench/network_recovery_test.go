@@ -140,16 +140,27 @@ func TestNetworkRecoveryAdmissionRequiresObservedPressureToDefer(t *testing.T) {
 		name    string
 		status  cage.ResourceStatus
 		wantJob bool
+		// since, when set, is how long host pressure has already postponed it.
+		since time.Duration
 	}{
-		{"memory target could not be applied", cage.ResourceStatus{ObservedAt: now, Error: "内存目标未能应用，保持当前配置"}, true},
-		{"failed sample retains stale guest pressure", cage.ResourceStatus{ObservedAt: now.Add(-time.Minute), Error: "资源采样暂时不可用，已暂停内存回收", Pressure: true}, true},
-		{"current guest pressure", cage.ResourceStatus{ObservedAt: now, Pressure: true}, false},
-		{"current host pressure", cage.ResourceStatus{HostPressure: true}, false},
+		{"memory target could not be applied", cage.ResourceStatus{ObservedAt: now, Error: "内存目标未能应用，保持当前配置"}, true, 0},
+		{"failed sample retains stale guest pressure", cage.ResourceStatus{ObservedAt: now.Add(-time.Minute), Error: "资源采样暂时不可用，已暂停内存回收", Pressure: true}, true, 0},
+		{"current guest pressure", cage.ResourceStatus{ObservedAt: now, Pressure: true}, false, 0},
+		{"current host pressure", cage.ResourceStatus{HostPressure: true}, false, 0},
+		{"stale host pressure", cage.ResourceStatus{HostPressure: true, UpdatedAt: now.Add(-time.Minute)}, true, 0},
+		{"host pressure past the wait limit", cage.ResourceStatus{HostPressure: true}, true, hostPressureMaxWait},
+		{"guest pressure past the host wait limit", cage.ResourceStatus{ObservedAt: now, Pressure: true, HostPressure: true}, false, hostPressureMaxWait},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s, gate := failedMonitoringServer(t)
 			s.recovery.Next = time.Now().Add(-time.Second)
-			tc.status.Version, tc.status.UpdatedAt = 1, time.Now()
+			if tc.since > 0 {
+				s.recovery.pressureSince = time.Now().Add(-tc.since)
+			}
+			tc.status.Version = 1
+			if tc.status.UpdatedAt.IsZero() {
+				tc.status.UpdatedAt = time.Now()
+			}
 			if err := writePrivate(filepath.Join(s.instanceDir(), "cage-resources.json"), tc.status); err != nil {
 				t.Fatal(err)
 			}
