@@ -39,11 +39,12 @@ type terminalSession struct {
 	cmd                   *exec.Cmd
 	file                  terminalPTY
 	history               []byte
+	written               uint64 // output bytes read so far; history holds the last of them
 	loginNotice           string
 	dismissed             bool
 	exitOK                bool
 	closed                bool
-	clients               map[chan []byte]bool
+	clients               map[*terminalViewer]bool
 	done                  chan struct{}
 	inputs                chan string
 	stopping              chan struct{}
@@ -86,7 +87,7 @@ func (t *terminalSession) ownsConversation() bool {
 }
 
 func newTerminalSession(file terminalPTY) *terminalSession {
-	return &terminalSession{file: file, clients: map[chan []byte]bool{}, done: make(chan struct{}), inputs: make(chan string, 8), stopping: make(chan struct{})}
+	return &terminalSession{file: file, clients: map[*terminalViewer]bool{}, done: make(chan struct{}), inputs: make(chan string, 8), stopping: make(chan struct{})}
 }
 
 func (t *terminalSession) summary() map[string]any {
@@ -241,42 +242,154 @@ func (t *terminalSession) writeInput() {
 	}
 }
 
-type terminalSubscription struct {
-	History     []byte
-	Output      <-chan []byte
-	CLIStartup  <-chan struct{}
-	CLIStarting bool
-	session     *terminalSession
-	channel     chan []byte
+// terminalHistoryLimit is the output a session keeps for viewers that
+// connect or resume later.
+const terminalHistoryLimit = 512 << 10
+
+// terminalViewerBudget bounds the live output queued for one viewer that is
+// not keeping up, such as a slow WebView2 page during a long build log. Past
+// it the queue is dropped and the viewer is caught up from the kept history,
+// instead of being disconnected as it was with a fixed 64-chunk channel.
+var terminalViewerBudget = 4 << 20
+
+// terminalViewer is the live output queued for one attached stream. The PTY
+// reader only appends under the session lock and never waits for a viewer.
+type terminalViewer struct {
+	pending  []byte        // queued output, contiguous from offset
+	offset   uint64        // absolute output offset of pending[0]
+	lagged   bool          // the queue overflowed; catch up from history
+	closed   bool          // the session ended; nothing more is queued
+	detached bool          // the viewer left
+	wake     chan struct{} // signalled after every change
 }
 
-// subscribe captures history and registers live output under the same lock.
-// Every byte belongs to exactly one side of this history/live boundary.
-func (t *terminalSession) subscribe() *terminalSubscription {
+func (v *terminalViewer) signal() {
+	select {
+	case v.wake <- struct{}{}:
+	default:
+	}
+}
+
+// push queues live output. Caller holds the session lock.
+func (v *terminalViewer) push(chunk []byte) {
+	if v.lagged {
+		return
+	}
+	if len(v.pending)+len(chunk) > terminalViewerBudget {
+		v.lagged, v.pending = true, nil
+	} else {
+		v.pending = append(v.pending, chunk...)
+	}
+	v.signal()
+}
+
+type terminalSubscription struct {
+	// History is sent before live output. HistoryOffset is the absolute
+	// offset of its first byte; HistoryReset reports that it does not continue
+	// from the offset the viewer asked to resume after.
+	History       []byte
+	HistoryOffset uint64
+	HistoryReset  bool
+	CLIStartup    <-chan struct{}
+	CLIStarting   bool
+	session       *terminalSession
+	viewer        *terminalViewer
+}
+
+// terminalBatch is the next output for one viewer.
+type terminalBatch struct {
+	Data   []byte
+	Offset uint64 // absolute offset of Data[0]
+	Resync bool   // the viewer fell behind; Data restarts it from history
+	Reset  bool   // Data does not continue from the output sent before
+	Done   bool   // nothing more will arrive
+	Ended  bool   // the session ended
+}
+
+// subscribe attaches a viewer that receives all kept history first.
+func (t *terminalSession) subscribe() *terminalSubscription { return t.subscribeFrom(nil) }
+
+// subscribeFrom captures history and registers live output under the same
+// lock. Every byte belongs to exactly one side of this history/live boundary.
+// With after, history starts at that absolute offset while it is still kept;
+// otherwise it is everything kept, marked as a reset.
+func (t *terminalSession) subscribeFrom(after *uint64) *terminalSubscription {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	channel := make(chan []byte, 64)
+	viewer := &terminalViewer{offset: t.written, wake: make(chan struct{}, 1)}
 	if t.closed {
-		close(channel)
+		viewer.closed = true
 	} else {
-		t.clients[channel] = true
+		t.clients[viewer] = true
 	}
-	history := append([]byte(nil), t.history...)
-	if t.kind == "claude-login" {
-		history = []byte("请在浏览器的临时登录页完成授权。若页面提供验证码，可返回此终端输入。\r\n")
+	subscription := &terminalSubscription{CLIStartup: t.cliStartupDone, CLIStarting: t.cliStartupPendingLocked(), session: t, viewer: viewer}
+	switch {
+	case t.kind == "claude-login":
+		subscription.History, subscription.HistoryReset = []byte("请在浏览器的临时登录页完成授权。若页面提供验证码，可返回此终端输入。\r\n"), true
+	case after != nil:
+		subscription.History, subscription.HistoryOffset, subscription.HistoryReset = t.historyAfterLocked(*after)
+	default:
+		subscription.History, subscription.HistoryOffset, subscription.HistoryReset = append([]byte(nil), t.history...), t.oldestLocked(), true
 	}
-	return &terminalSubscription{History: history, Output: channel, CLIStartup: t.cliStartupDone,
-		CLIStarting: t.cliStartupPendingLocked(), session: t, channel: channel}
+	return subscription
 }
+
+// oldestLocked is the absolute offset of the first kept byte.
+func (t *terminalSession) oldestLocked() uint64 {
+	if t.written < uint64(len(t.history)) {
+		return 0
+	}
+	return t.written - uint64(len(t.history))
+}
+
+// historyAfterLocked is the kept output after an absolute offset, or all kept
+// output marked as a reset when that offset is no longer (or not yet) kept.
+func (t *terminalSession) historyAfterLocked(after uint64) (data []byte, offset uint64, reset bool) {
+	oldest := t.oldestLocked()
+	if after < oldest || after > t.written {
+		after, reset = oldest, true
+	}
+	return append([]byte(nil), t.history[after-oldest:]...), after, reset
+}
+
+// next takes the viewer's next output, at most limit bytes, without waiting.
+// A viewer whose queue overflowed restarts from the kept history at the first
+// byte it has not received, or from the oldest kept byte when that is gone.
+func (s *terminalSubscription) next(limit int) terminalBatch {
+	t, viewer := s.session, s.viewer
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if viewer.lagged {
+		if t.kind == "claude-login" {
+			// Login output is never kept, so it cannot be sent again.
+			return terminalBatch{Done: true}
+		}
+		data, offset, reset := t.historyAfterLocked(viewer.offset)
+		viewer.lagged, viewer.pending, viewer.offset = false, nil, t.written
+		return terminalBatch{Data: data, Offset: offset, Resync: true, Reset: reset}
+	}
+	if len(viewer.pending) > 0 {
+		n := min(len(viewer.pending), limit)
+		batch := terminalBatch{Data: viewer.pending[:n:n], Offset: viewer.offset}
+		viewer.offset += uint64(n)
+		if viewer.pending = viewer.pending[n:]; len(viewer.pending) == 0 {
+			viewer.pending = nil
+		}
+		return batch
+	}
+	return terminalBatch{Done: viewer.closed || viewer.detached, Ended: viewer.closed}
+}
+
+// Wake is signalled whenever next may return something new.
+func (s *terminalSubscription) Wake() <-chan struct{} { return s.viewer.wake }
 
 // Close detaches the viewer; the PTY and its process continue running.
 func (s *terminalSubscription) Close() {
 	s.session.mu.Lock()
 	defer s.session.mu.Unlock()
-	if s.session.clients[s.channel] {
-		delete(s.session.clients, s.channel)
-		close(s.channel)
-	}
+	delete(s.session.clients, s.viewer)
+	s.viewer.detached = true
+	s.viewer.signal()
 }
 
 func (t *terminalSession) run() {
@@ -295,9 +408,10 @@ func (t *terminalSession) run() {
 	}
 	t.mu.Lock()
 	t.exitOK = waitErr == nil
-	for channel := range t.clients {
-		close(channel)
-		delete(t.clients, channel)
+	for viewer := range t.clients {
+		viewer.closed = true
+		viewer.signal()
+		delete(t.clients, viewer)
 	}
 	t.mu.Unlock()
 	close(t.done)
@@ -312,17 +426,13 @@ func (t *terminalSession) read() {
 			t.mu.Lock()
 			if t.kind != "claude-login" {
 				t.history = append(t.history, chunk...)
-				if len(t.history) > 512<<10 {
-					t.history = t.history[len(t.history)-(512<<10):]
+				t.written += uint64(len(chunk))
+				if len(t.history) > terminalHistoryLimit {
+					t.history = t.history[len(t.history)-terminalHistoryLimit:]
 				}
 			}
-			for channel := range t.clients {
-				select {
-				case channel <- chunk:
-				default:
-					close(channel)
-					delete(t.clients, channel)
-				}
+			for viewer := range t.clients {
+				viewer.push(chunk)
 			}
 			t.mu.Unlock()
 		}

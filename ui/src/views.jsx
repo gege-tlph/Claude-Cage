@@ -18,6 +18,10 @@ import { api, writeClipboard, nativeAvailable } from "./api";
 import { runtimeSocketURL } from "./client-context.mjs";
 import { readClipboardContent, transferFiles, hasFiles, imagePayload, prepareClipboardPaste, sendImage } from "./image-transfer";
 import { terminalClipboardText } from "./terminal-clipboard.mjs";
+import {
+  terminalConnectTimeoutMs, terminalHistoryPlan, terminalLiveness, terminalNoticeDelayMs,
+  terminalPingMessage, terminalReconnectPlan, terminalStreamPath, terminalWatchdogMs,
+} from "./terminal-reconnect.mjs";
 import { sendFiles, shellFilePaths } from "./file-transfer";
 import { installRemoteInput } from "./remote-input";
 import { useWindowVisibility } from "./window-visibility";
@@ -287,9 +291,9 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
     fit = useRef(),
     socket = useRef();
   const [connected, setConnected] = useState(false),
-    [attempt, setAttempt] = useState(0),
     [preparing, setPreparing] = useState(Boolean(session.cli_session_id && !session.closed));
   const revealStartup = useRef();
+  const reconnectNow = useRef();
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
   const focusedRef = useRef(focused);
@@ -338,11 +342,11 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
     terminal.open(box.current);
     instance.current = terminal;
     fit.current = fitter;
-    const ws = new WebSocket(
-      runtimeSocketURL(`/terminals/${session.id}/stream`),
-    );
-    ws.binaryType = "arraybuffer";
-    socket.current = ws;
+    // The stream is replaced on every reconnect; the terminal and its screen
+    // stay. offset is the absolute position of the next byte expected.
+    let ws = null, offset = null, historyRemaining = 0, historyFrame = false, exited = false;
+    let failures = 0, opened = 0, attemptStarted = 0, lastReceived = 0, probe = 0;
+    let reconnectTimer = null, noticeTimer = null;
     let startupPending = Boolean(session.cli_session_id && !session.closed);
     let startupVisible = !startupPending;
     setPreparing(startupPending);
@@ -372,7 +376,7 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
       if (!visibleRef.current) return;
       try {
         fitter.fit();
-        if (ws.readyState === WebSocket.OPEN)
+        if (ws?.readyState === WebSocket.OPEN)
           ws.send(
             JSON.stringify({
               type: "resize",
@@ -382,12 +386,7 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
           );
       } catch {}
     };
-    ws.onopen = () => {
-      setConnected(true);
-      resize();
-      if (startupVisible && visibleRef.current && focusedRef.current) terminal.focus();
-    };
-    let historyFrame = false, replayingHistory = false;
+    let replayingHistory = false;
     const clipboardHandler = terminal.parser.registerOscHandler(52, async (data) => {
       if (disposed || replayingHistory || !visibleRef.current || !focusedRef.current || !box.current?.contains(document.activeElement)) return true;
       const text = terminalClipboardText(data);
@@ -398,7 +397,9 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
       } catch { if (!disposed) onStatus("无法写入本机剪贴板"); }
       return true;
     });
-    ws.onmessage = (event) => {
+    const receive = (event) => {
+      lastReceived = Date.now();
+      probe = 0;
       if (typeof event.data === "string") {
         let state;
         try { state = JSON.parse(event.data); } catch { return; }
@@ -406,10 +407,21 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
           startupPending = state.pending;
           terminal.refresh(0, terminal.rows - 1);
         }
-        if (state.type === "history") historyFrame = true;
+        if (state.type === "exit") exited = true;
+        if (state.type === "history") {
+          const plan = terminalHistoryPlan(offset, state);
+          // The replay does not continue this screen: start it over.
+          if (plan.reset && offset !== null) terminal.reset();
+          offset = plan.offset;
+          historyRemaining = plan.size ?? 0;
+          historyFrame = plan.size === null;
+        }
         return;
       }
-      if (historyFrame) {
+      const bytes = new Uint8Array(event.data);
+      if (offset !== null) offset += bytes.length;
+      if (historyFrame || historyRemaining > 0) {
+        historyRemaining = historyFrame ? 0 : historyRemaining - bytes.length;
         historyFrame = false;
         replayingHistory = true;
         // History includes old device/color queries. Answering them again can
@@ -417,16 +429,81 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
         // Keep input disabled until xterm has finished parsing the replay;
         // subsequent live output must still receive normal terminal replies.
         terminal.options.disableStdin = true;
-        terminal.write(new Uint8Array(event.data), () => {
+        terminal.write(bytes, historyRemaining > 0 ? undefined : () => {
           replayingHistory = false;
           if (!disposed) terminal.options.disableStdin = false;
         });
-      } else terminal.write(new Uint8Array(event.data));
+      } else terminal.write(bytes);
     };
-    ws.onclose = () => { if (!disposed) { setConnected(false); reveal(); } };
+    // A stream that dropped reconnects on its own; a short gap is not shown.
+    const dropped = (current) => {
+      if (disposed || current !== ws) return;
+      ws = null;
+      socket.current = null;
+      try { current.close(); } catch {}
+      reveal();
+      clearTimeout(noticeTimer);
+      if (exited) { setConnected(false); return; }
+      const plan = terminalReconnectPlan(failures, opened ? Date.now() - opened : 0);
+      failures = plan.failures;
+      if (!plan.delay) { setConnected(false); return; }
+      noticeTimer = setTimeout(() => { if (!disposed && !ws?.readyState) setConnected(false); }, terminalNoticeDelayMs);
+      reconnectTimer = setTimeout(connect, plan.delay);
+    };
+    const connect = () => {
+      if (disposed || exited) return;
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+      if (ws) return;
+      const current = new WebSocket(runtimeSocketURL(terminalStreamPath(session.id, offset)));
+      current.binaryType = "arraybuffer";
+      ws = current;
+      socket.current = current;
+      opened = 0;
+      attemptStarted = Date.now();
+      current.onopen = () => {
+        if (disposed || current !== ws) return;
+        opened = lastReceived = Date.now();
+        probe = 0;
+        clearTimeout(noticeTimer);
+        setConnected(true);
+        resize();
+        if (startupVisible && visibleRef.current && focusedRef.current) terminal.focus();
+      };
+      current.onmessage = (event) => { if (!disposed && current === ws) receive(event); };
+      current.onclose = () => dropped(current);
+    };
+    reconnectNow.current = () => {
+      failures = 0;
+      if (!ws) connect();
+    };
+    // Come back at once when the page shows again or the network returns.
+    const resume = () => {
+      if (!disposed && !ws && !exited && document.visibilityState === "visible") {
+        failures = 0;
+        connect();
+      }
+    };
+    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("online", resume);
+    const watchdog = setInterval(() => {
+      const current = ws, now = Date.now();
+      if (!current) return;
+      if (current.readyState === WebSocket.CONNECTING) {
+        if (now - attemptStarted >= terminalConnectTimeoutMs) dropped(current);
+        return;
+      }
+      if (current.readyState !== WebSocket.OPEN) return;
+      const verdict = terminalLiveness({ now, lastReceived, probe });
+      if (verdict === "probe") {
+        probe = now;
+        try { current.send(terminalPingMessage); } catch {}
+      } else if (verdict === "dead") dropped(current);
+    }, terminalWatchdogMs);
+    connect();
     let inputTimer = null, pendingInput = [];
     const send = (data) => {
-      if (disposed || ws.readyState !== WebSocket.OPEN) throw new Error("终端已断开，请重新连接后重试");
+      if (disposed || ws?.readyState !== WebSocket.OPEN) throw new Error("终端已断开，请重新连接后重试");
       // A redraw can produce several synchronous device replies. Preserve
       // byte order but send each event-loop batch as one PTY input message.
       pendingInput.push(data);
@@ -434,7 +511,7 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
         inputTimer = null;
         const data = pendingInput.join("");
         pendingInput = [];
-        if (!disposed && ws.readyState === WebSocket.OPEN)
+        if (!disposed && ws?.readyState === WebSocket.OPEN)
           ws.send(JSON.stringify({ type: "input", data }));
       }, 0);
     };
@@ -445,21 +522,21 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
       if (emittingPaste) send(data);
       else void enqueue(() => send(data)).catch(() => {});
     });
-    const receive = (content) => {
+    const receiveClipboard = (content) => {
       // Attach rejection immediately, even while another image is in flight.
       const ready = Promise.resolve(content).then(value => ({ value }), error => ({ error }));
       onStatus("正在传递剪贴板内容…");
       void enqueue(async () => {
         const { value, error } = await ready;
         if (error) throw error;
-        if (disposed || !visibleRef.current || !focusedRef.current || ws.readyState !== WebSocket.OPEN) throw new Error("终端已切换或断开，请重新粘贴");
+        if (disposed || !visibleRef.current || !focusedRef.current || ws?.readyState !== WebSocket.OPEN) throw new Error("终端已切换或断开，请重新粘贴");
         let text = value.text || "";
         if (value.files || value.fileSelection) {
-          const result = await sendFiles(value, "terminal", session.id, { valid: () => !disposed && visibleRef.current && focusedRef.current && ws.readyState === WebSocket.OPEN });
+          const result = await sendFiles(value, "terminal", session.id, { valid: () => !disposed && visibleRef.current && focusedRef.current && ws?.readyState === WebSocket.OPEN });
           text = shellFilePaths(result.paths);
         }
         if (value.png) {
-          const result = await sendImage(value, "terminal", session.id, { valid: () => !disposed && visibleRef.current && focusedRef.current && ws.readyState === WebSocket.OPEN });
+          const result = await sendImage(value, "terminal", session.id, { valid: () => !disposed && visibleRef.current && focusedRef.current && ws?.readyState === WebSocket.OPEN });
           text = shellFilePaths([result.path]);
         }
         if (disposed || !visibleRef.current || !focusedRef.current) throw new Error("终端已切换，请回到原终端重新粘贴");
@@ -474,9 +551,9 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
       if (!visibleRef.current || !focusedRef.current) return;
       event.preventDefault(); event.stopImmediatePropagation();
       const files = transferFiles(event.clipboardData);
-      if (files.length === 1 && files[0].type.startsWith("image/")) receive(imagePayload(files[0]));
-      else if (files.length) receive({ files });
-      else if (event.clipboardData?.types.includes("text/plain")) receive({ text: event.clipboardData.getData("text/plain") });
+      if (files.length === 1 && files[0].type.startsWith("image/")) receiveClipboard(imagePayload(files[0]));
+      else if (files.length) receiveClipboard({ files });
+      else if (event.clipboardData?.types.includes("text/plain")) receiveClipboard({ text: event.clipboardData.getData("text/plain") });
     };
     const onDragOver = (event) => {
       if (!visibleRef.current || !hasFiles(event.dataTransfer)) return;
@@ -485,7 +562,7 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
     const onDrop = (event) => {
       if (!visibleRef.current || !hasFiles(event.dataTransfer)) return;
       event.preventDefault(); event.stopPropagation();
-      receive({ files: transferFiles(event.dataTransfer), kind: "drop" });
+      receiveClipboard({ files: transferFiles(event.dataTransfer), kind: "drop" });
       terminal.focus();
     };
     host.addEventListener("paste", onPaste, true);
@@ -523,7 +600,7 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
           return true;
         }
         if (action === "paste") {
-          receive(readClipboardContent());
+          receiveClipboard(readClipboardContent());
           return true;
         }
         if (action === "selectAll") {
@@ -550,7 +627,7 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
         event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "v";
       if (claudeImagePaste && nativeAvailable()) {
         event.preventDefault();
-        receive(readClipboardContent());
+        receiveClipboard(readClipboardContent());
         return false;
       }
       if (!terminalModifier(event)) return true;
@@ -563,7 +640,7 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
       if (key === "v") {
         if (!nativeAvailable()) return true;
         event.preventDefault();
-        receive(readClipboardContent());
+        receiveClipboard(readClipboardContent());
         return false;
       }
       if (key === "a") {
@@ -599,11 +676,20 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
       host.removeEventListener("drop", onDrop);
       onControls?.(null);
       observer.disconnect();
-      ws.close();
+      clearTimeout(reconnectTimer);
+      clearTimeout(noticeTimer);
+      clearInterval(watchdog);
+      document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("online", resume);
+      reconnectNow.current = null;
+      const current = ws;
+      ws = null;
+      socket.current = null;
+      current?.close();
       terminal.dispose();
       instance.current = null;
     };
-  }, [session.id, session.cli_session_id, attempt]);
+  }, [session.id, session.cli_session_id]);
   useEffect(() => {
     if (visible) {
       fit.current?.fit();
@@ -639,7 +725,7 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
             ? session.login_notice || tr("终端会话已结束。可点击项目右侧的终端图标新建终端。")
             : tr("正在连接终端…")}
           {!session.closed && (
-            <button onClick={() => setAttempt((v) => v + 1)}>
+            <button onClick={() => reconnectNow.current?.()}>
               <RefreshCw size={13} />
               {tr("重新连接")}
             </button>

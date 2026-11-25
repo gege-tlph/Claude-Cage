@@ -68,17 +68,30 @@ func readTerminalUntil(t *testing.T, sub *terminalSubscription, needle string) s
 	sub.History = nil
 	deadline := time.After(10 * time.Second)
 	for !strings.Contains(text, needle) {
+		batch := sub.next(1 << 20)
+		if len(batch.Data) > 0 {
+			text += string(batch.Data)
+			continue
+		}
+		if batch.Done {
+			t.Fatalf("terminal ended before %q: %q", needle, text)
+		}
 		select {
-		case chunk, ok := <-sub.Output:
-			if !ok {
-				t.Fatalf("terminal ended before %q: %q", needle, text)
-			}
-			text += string(chunk)
+		case <-sub.Wake():
 		case <-deadline:
 			t.Fatalf("terminal did not produce %q: %q", needle, text)
 		}
 	}
 	return text
+}
+
+// drainTerminal takes all queued output and the state after it.
+func drainTerminal(sub *terminalSubscription) terminalBatch {
+	for {
+		if batch := sub.next(1 << 20); len(batch.Data) == 0 {
+			return batch
+		}
+	}
 }
 
 func TestTerminalServiceReconnectKeepsRealProcess(t *testing.T) {
@@ -426,30 +439,38 @@ func TestTerminalEOFReapsProcessBeforeSessionCompletes(t *testing.T) {
 	if !session.ended() || manager.hasLive() {
 		t.Fatal("reaped terminal remained live")
 	}
-	if _, ok := <-sub.Output; ok {
-		t.Fatal("session completion did not close subscription")
+	if batch := drainTerminal(sub); !batch.Done || !batch.Ended {
+		t.Fatal("session completion did not end subscription")
 	}
 }
 
+// A viewer that falls behind no longer loses its connection: past its
+// budget it is caught up from the kept history, without a gap.
 func TestTerminalSlowSubscriberDoesNotBlockOutput(t *testing.T) {
+	budget := terminalViewerBudget
+	terminalViewerBudget = 256
+	t.Cleanup(func() { terminalViewerBudget = budget })
 	session, file := newControlledSession()
 	t.Cleanup(func() { close(file.waitRelease); session.close() })
 	slow := session.subscribe()
+	defer slow.Close()
 	fast := session.subscribe()
 	defer fast.Close()
+	var want strings.Builder
 	for i := 0; i < 66; i++ {
 		chunk := fmt.Sprintf("output-%02d\n", i)
+		want.WriteString(chunk)
 		if _, err := io.WriteString(file.writer, chunk); err != nil {
 			t.Fatal(err)
 		}
 		readTerminalUntil(t, fast, chunk)
 	}
-	count := 0
-	for range slow.Output {
-		count++
+	batch := slow.next(1 << 20)
+	if !batch.Resync || batch.Reset || batch.Offset != 0 || string(batch.Data) != want.String() {
+		t.Fatalf("slow subscriber was not caught up from history: %+v", batch)
 	}
-	if count != 64 {
-		t.Fatalf("slow subscriber retained %d chunks", count)
+	if after := drainTerminal(slow); after.Done {
+		t.Fatal("slow subscriber was disconnected")
 	}
 	fast.Close()
 	if session.summary()["closed"].(bool) {

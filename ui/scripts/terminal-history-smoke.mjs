@@ -88,8 +88,16 @@ try {
     assert.equal(inputs.join(""), "input-check-" + cycle, "typing works after replay");
     inputs.length = 0;
     if (cycle < 10) {
+      // A dropped stream reconnects on its own, backing off while it keeps
+      // dropping quickly; past the limit the view offers the button.
       socket.close();
-      await page.getByRole("button", { name: "重新连接", exact: true }).click();
+      const retry = page.getByRole("button", { name: "重新连接", exact: true });
+      const deadline = Date.now() + 20000;
+      while (connections === cycle && Date.now() < deadline) {
+        if (await retry.count()) await retry.click();
+        await page.waitForTimeout(50);
+      }
+      assert.equal(connections, cycle + 1, "terminal did not reconnect");
     }
   }
   assert.deepEqual(fixture.errors, []);
