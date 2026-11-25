@@ -31,7 +31,7 @@ type hostPluginView struct {
 	// Categories are the plugin's market sections this application knows.
 	Categories []string `json:"categories,omitempty"`
 	// Kind is host or guest: where the plugin's programs run.
-	Kind        string               `json:"kind,omitempty"`
+	Kind          string               `json:"kind,omitempty"`
 	Contributes   *hostContributesView `json:"contributes,omitempty"`
 	BuiltIn       bool                 `json:"built_in,omitempty"`
 	Default       bool                 `json:"default,omitempty"`
@@ -121,10 +121,10 @@ func hostPluginUnavailable(reason string) string {
 
 type hostToolsView struct {
 	// Available is false where the tools cannot run at all.
-	Available bool `json:"available"`
-	Enabled   bool `json:"enabled"`
-	Running   bool `json:"running"`
-	Headless  bool `json:"headless,omitempty"`
+	Available bool   `json:"available"`
+	Enabled   bool   `json:"enabled"`
+	Running   bool   `json:"running"`
+	Headless  bool   `json:"headless,omitempty"`
 	Platform  string `json:"platform,omitempty"`
 	// Directory is where the user puts plugin folders.
 	Directory    string                 `json:"directory"`
@@ -383,8 +383,8 @@ func (s *Server) getHostTools(w http.ResponseWriter, r *http.Request) {
 // Only this computer's own window may: the tools act on this computer.
 func (s *Server) setHostTools(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Enabled *bool  `json:"enabled"`
-		Reload  bool   `json:"reload"`
+		Enabled        *bool  `json:"enabled"`
+		Reload         bool   `json:"reload"`
 		Install        string `json:"install"`
 		RestoreDefault string `json:"restore_default"`
 		Remove         string `json:"remove"`
@@ -548,9 +548,9 @@ type hostMarketEntryView struct {
 	Author      *hostbridge.MarketAuthor            `json:"author,omitempty"`
 	I18n        map[string]hostbridge.LocalizedText `json:"i18n,omitempty"`
 	Permissions []string                            `json:"permissions"`
-	Categories  []string                 `json:"categories,omitempty"`
-	Kind        string                   `json:"kind,omitempty"`
-	Contributes *hostContributesView     `json:"contributes,omitempty"`
+	Categories  []string                            `json:"categories,omitempty"`
+	Kind        string                              `json:"kind,omitempty"`
+	Contributes *hostContributesView                `json:"contributes,omitempty"`
 	// Problem is why the plugin cannot be used with this application.
 	Problem   string `json:"problem,omitempty"`
 	Supported bool   `json:"supported"`

@@ -204,6 +204,7 @@ func queryInfrastructureDNS(ctx context.Context, client *http.Client, server str
 	}
 	return netip.Addr{}, errors.New("代理基础设施域名没有可用公网 IPv4")
 }
+
 // subscriptionUserAgent matches the bundled Mihomo core version without
 // exposing any product-specific identifier to subscription providers.
 const subscriptionUserAgent = "clash.meta/v1.19.33"

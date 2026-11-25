@@ -112,17 +112,17 @@ printf 'fstype=%s\nrootdev=%s\nparent=%s\npartnum=%s\npart_start=%s\npart_size=%
 `
 
 type DiskShrinkInspection struct {
-	FSType       string
-	RootDev      string
-	ParentDisk   string
-	PartNum      int
-	PartStart    int64
-	PartSectors  int64
-	DiskSectors  int64
-	OtherMaxEnd  int64
-	UsedBytes    int64
-	FSBlockSize  int64
-	FSMinBlocks  int64
+	FSType      string
+	RootDev     string
+	ParentDisk  string
+	PartNum     int
+	PartStart   int64
+	PartSectors int64
+	DiskSectors int64
+	OtherMaxEnd int64
+	UsedBytes   int64
+	FSBlockSize int64
+	FSMinBlocks int64
 }
 
 type DiskShrinkPlan struct {

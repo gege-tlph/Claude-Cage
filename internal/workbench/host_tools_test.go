@@ -268,7 +268,7 @@ func TestMarketViewKeepsListingAttribution(t *testing.T) {
 	s.getHostMarket(recorder, httptest.NewRequest(http.MethodGet, "/api/host-tools/market", nil))
 	var view struct {
 		Entries []struct {
-			Author *hostbridge.MarketAuthor             `json:"author"`
+			Author *hostbridge.MarketAuthor            `json:"author"`
 			I18n   map[string]hostbridge.LocalizedText `json:"i18n"`
 		} `json:"entries"`
 	}

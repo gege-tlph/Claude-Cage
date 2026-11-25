@@ -17,16 +17,16 @@ const (
 )
 
 type gptHeader struct {
-	raw             []byte
-	headerSize      uint32
-	currentLBA      uint64
-	backupLBA       uint64
-	firstUsableLBA  uint64
-	lastUsableLBA   uint64
-	partEntryLBA    uint64
-	numPartEntries  uint32
-	partEntrySize   uint32
-	partEntriesCRC  uint32
+	raw            []byte
+	headerSize     uint32
+	currentLBA     uint64
+	backupLBA      uint64
+	firstUsableLBA uint64
+	lastUsableLBA  uint64
+	partEntryLBA   uint64
+	numPartEntries uint32
+	partEntrySize  uint32
+	partEntriesCRC uint32
 }
 
 func readPrimaryGPT(r io.ReaderAt) (*gptHeader, []byte, error) {

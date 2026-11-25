@@ -48,8 +48,8 @@ type MarketEntry struct {
 	Author      *MarketAuthor            `json:"author,omitempty"`
 	I18n        map[string]LocalizedText `json:"i18n,omitempty"`
 	Platforms   []string                 `json:"platforms,omitempty"`
-	Permissions []string      `json:"permissions"`
-	Categories  []string      `json:"categories,omitempty"`
+	Permissions []string                 `json:"permissions"`
+	Categories  []string                 `json:"categories,omitempty"`
 	// Kind, Engines and Contributes repeat the plugin's manifest. Kind is
 	// host when the list leaves it out.
 	Kind        string       `json:"kind,omitempty"`

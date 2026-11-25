@@ -21,10 +21,10 @@ func TestContainerArchiveIgnoreAndValidation(t *testing.T) {
 		profile:  profile,
 		identity: "abc123def456",
 		config: Config{
-			Engine:     "podman",
-			Executable: script,
-			Image:      "example/cage@sha256:" + strings.Repeat("a", 64),
-			CPUs:       2,
+			Engine:      "podman",
+			Executable:  script,
+			Image:       "example/cage@sha256:" + strings.Repeat("a", 64),
+			CPUs:        2,
 			MemoryBytes: 2 << 30,
 		},
 	}

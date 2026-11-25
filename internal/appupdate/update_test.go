@@ -35,6 +35,7 @@ func TestReleaseSelectionPreservesChannelsAndNumericPrereleases(t *testing.T) {
 		t.Fatalf("downgrade: %#v %v", c, err)
 	}
 }
+
 // An Intel Mac takes only the amd64 package; a release that published no
 // Intel package is skipped rather than offering the Apple Silicon one.
 func TestIntelMacSelectsOnlyItsOwnPackage(t *testing.T) {
