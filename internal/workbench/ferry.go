@@ -3,10 +3,6 @@ package workbench
 import (
 	"bytes"
 	"context"
-	"crypto/hpke"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,11 +12,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
+	"github.com/sylvinus/agent-vm/internal/cage"
 	"github.com/sylvinus/agent-vm/internal/diagnostics"
 	"github.com/sylvinus/agent-vm/internal/managedproxy"
 )
@@ -31,28 +28,18 @@ import (
 // the host network cannot reach still works:
 //
 //	POST <server>/cage/v1/login  {"username","password"}
-//	  -> {"user","token","sub_url","exits":[{"name","region"}],"escrow_key"}
-//	POST <server>/cage/v1/escrow (Bearer token) {"ciphertext","username","device"}
-//
-// The account's recovery key is sealed with HPKE to the organisation's escrow
-// key (escrow_key "hpke:<KEM id>:<base64 public key>"); Ferry keeps only the
-// ciphertext and cannot open it.
+//	  -> {"user","sub_url","exits":[{"name","region"}]}
 const (
-	ferryEscrowInfo = "cage-lite recovery escrow v1"
-	ferryMaxReply   = 1 << 20
-	ferryMaxExits   = 300
+	ferryMaxReply = 1 << 20
+	ferryMaxExits = 300
 )
-
-// The escrow KEMs Cage seals to: DHKEM(X25519, HKDF-SHA256) and the hybrid
-// ML-KEM-768 + X25519.
-var ferryEscrowKEMs = map[uint16]bool{0x0020: true, 0x647a: true}
 
 var ferryRegionCode = regexp.MustCompile(`^[A-Z]{2}$`)
 
-// ferryClientFor gives the client Ferry requests use: the route applied by
-// the first-run steps, never the host network. Tests replace it.
+// ferryClientFor gives the client Ferry requests use: the relay hop of the
+// applied route (see ferryHopClient), never the host network. Tests replace it.
 var ferryClientFor = func(s *Server) (*http.Client, error) {
-	client, err := s.subscriptionClient(false)
+	client, err := s.ferryHopClient()
 	if err != nil {
 		return nil, err
 	}
@@ -198,15 +185,13 @@ func flagRegion(name string) string {
 }
 
 // ferryState is what the profile keeps of Ferry (ferry.json): the address and
-// user last signed in with, their exits, the source the exits were imported
-// as, and which recovery key Ferry holds, as the fingerprint of the account's
-// recovery record when it was handed over.
+// user last signed in with, their exits, and the source the exits were
+// imported as.
 type ferryState struct {
-	Server   string      `json:"server,omitempty"`
-	User     string      `json:"user,omitempty"`
-	Exits    []ferryExit `json:"exits,omitempty"`
-	Source   string      `json:"source,omitempty"`
-	Recovery string      `json:"recovery,omitempty"`
+	Server string      `json:"server,omitempty"`
+	User   string      `json:"user,omitempty"`
+	Exits  []ferryExit `json:"exits,omitempty"`
+	Source string      `json:"source,omitempty"`
 }
 
 func loadFerryState(profile string) ferryState {
@@ -227,31 +212,15 @@ func saveFerryState(profile string, state ferryState) error {
 	return writePrivate(filepath.Join(profile, "ferry.json"), state)
 }
 
-// recoveryFingerprint names the account's current recovery key without
-// revealing it; it changes whenever a new key is made.
-func (a *localAccount) recoveryFingerprint() string {
-	if a == nil {
-		return ""
-	}
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if a.record == nil || a.record.Recovery == nil {
-		return ""
-	}
-	sum := sha256.Sum256(append(append([]byte(nil), a.record.Recovery.Nonce...), a.record.Recovery.SealedKey...))
-	return hex.EncodeToString(sum[:16])
-}
-
-// ferryStatus is GET /api/ferry: the address and user to prefill, and whether
-// Ferry holds the account's current recovery key.
+// ferryStatus is GET /api/ferry: the address and user to prefill, the exits
+// of the last sign-in and the source they were imported as.
 func (s *Server) ferryStatus(w http.ResponseWriter, r *http.Request) {
 	state := loadFerryState(s.profile)
-	current := s.account.recoveryFingerprint()
 	exits := state.Exits
 	if exits == nil {
 		exits = []ferryExit{}
 	}
-	jsonReply(w, map[string]any{"server": state.Server, "user": state.User, "exits": exits, "source": state.Source, "escrowed": current != "" && state.Recovery == current})
+	jsonReply(w, map[string]any{"server": state.Server, "user": state.User, "exits": exits, "source": state.Source})
 }
 
 type ferryExit struct {
@@ -260,11 +229,9 @@ type ferryExit struct {
 }
 
 type ferryLoginReply struct {
-	User      string      `json:"user"`
-	Token     string      `json:"token"`
-	SubURL    string      `json:"sub_url"`
-	Exits     []ferryExit `json:"exits"`
-	EscrowKey string      `json:"escrow_key"`
+	User   string      `json:"user"`
+	SubURL string      `json:"sub_url"`
+	Exits  []ferryExit `json:"exits"`
 }
 
 // ferryError is a Ferry answer shown to the user as it is; status is what
@@ -287,15 +254,14 @@ func ferryEndpoint(server, path string) (string, error) {
 
 func (s *Server) ferryLogin(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Server      string `json:"server"`
-		Username    string `json:"username"`
-		Password    string `json:"password"`
-		RecoveryKey string `json:"recovery_key"`
+		Server   string `json:"server"`
+		Username string `json:"username"`
+		Password string `json:"password"`
 	}
 	if !readJSON(w, r, &in, 64<<10) {
 		return
 	}
-	session, err := s.ferrySignIn(r.Context(), in.Server, in.Username, in.Password, in.RecoveryKey)
+	reply, err := s.ferrySignIn(r.Context(), in.Server, in.Username, in.Password)
 	if err != nil {
 		var fe *ferryError
 		if errors.As(err, &fe) {
@@ -308,7 +274,7 @@ func (s *Server) ferryLogin(w http.ResponseWriter, r *http.Request) {
 	// The subscription link is a credential: like every saved source it stays
 	// in the backend (proxy status shows only its host). The exits are
 	// imported here as a source of their own, through the applied route.
-	input := proxyInput{Name: ferrySourceName, URL: session.reply.SubURL, Interval: ferryRefreshHours}
+	input := proxyInput{Name: ferrySourceName, URL: reply.SubURL, Interval: ferryRefreshHours}
 	if err := checkProxyInput("import", input); err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
@@ -332,11 +298,7 @@ func (s *Server) ferryLogin(w http.ResponseWriter, r *http.Request) {
 		requestError(w, err)
 		return
 	}
-	out := map[string]any{"job": job, "user": session.reply.User, "source": ferrySourceName, "exits": session.reply.Exits, "escrow": session.escrow}
-	if session.escrowErr != nil {
-		out["escrow_error"] = session.escrowErr.Error()
-	}
-	jsonReply(w, out)
+	jsonReply(w, map[string]any{"job": job, "user": reply.User, "source": ferrySourceName, "exits": reply.Exits})
 }
 
 // The source the exits are imported as, and how often it is refreshed
@@ -346,70 +308,37 @@ const (
 	ferryRefreshHours = 12
 )
 
-// ferrySession is a sign-in and what became of the recovery key: "stored",
-// "failed" (escrowErr says why) or "none" (no key given, or the organisation
-// has no escrow key). A failed escrow does not fail the sign-in.
-type ferrySession struct {
-	reply     ferryLoginReply
-	escrow    string
-	escrowErr error
-}
-
-// ferrySignIn signs in and, when the organisation has an escrow key, leaves
-// the account's recovery key sealed with Ferry: the key given (a new
-// account's), or, when Ferry does not hold the current one (an earlier run
-// stopped before handing it over, or a key was made since), a new key made
-// with the password. All of it is silent: the employee never sees the key,
-// and a Cage password other than the Ferry one leaves the key as it is.
-func (s *Server) ferrySignIn(ctx context.Context, server, username, password, recoveryKey string) (ferrySession, error) {
+// ferrySignIn signs in and remembers the address, the user and their exits.
+func (s *Server) ferrySignIn(ctx context.Context, server, username, password string) (ferryLoginReply, error) {
 	login, err := ferryEndpoint(server, "cage/v1/login")
 	if err != nil {
-		return ferrySession{}, err
+		return ferryLoginReply{}, err
 	}
-	escrowURL, _ := ferryEndpoint(server, "cage/v1/escrow")
 	username = strings.TrimSpace(username)
 	if username == "" || password == "" {
-		return ferrySession{}, &ferryError{http.StatusBadRequest, "请填写 Ferry 用户名和密码"}
+		return ferryLoginReply{}, &ferryError{http.StatusBadRequest, "请填写 Ferry 用户名和密码"}
 	}
 	client, err := ferryClientFor(s)
 	if err != nil {
-		return ferrySession{}, &ferryError{http.StatusConflict, err.Error()}
+		return ferryLoginReply{}, &ferryError{http.StatusConflict, err.Error()}
 	}
 	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 	reply, err := ferryPostLogin(ctx, client, login, username, password)
 	if err != nil {
-		return ferrySession{}, err
+		return ferryLoginReply{}, err
 	}
-	session := ferrySession{reply: reply, escrow: "none"}
 	state := loadFerryState(s.profile)
 	state.Server, state.User, state.Exits = strings.TrimSpace(server), username, reply.Exits
-	if reply.EscrowKey != "" {
-		current := s.account.recoveryFingerprint()
-		if recoveryKey == "" && s.account != nil && current != state.Recovery {
-			if key, err := s.account.generateRecovery(password); err == nil {
-				recoveryKey, current = key, s.account.recoveryFingerprint()
-			}
-		}
-		if recoveryKey != "" {
-			session.escrow = "stored"
-			if session.escrowErr = ferryEscrow(ctx, client, escrowURL, reply.Token, reply.EscrowKey, username, recoveryKey); session.escrowErr != nil {
-				session.escrow = "failed"
-				diagnostics.Log("warn", "ferry", "恢复密钥未能交给 Ferry："+session.escrowErr.Error())
-			} else {
-				state.Recovery = current
-			}
-		}
-	}
 	if err := saveFerryState(s.profile, state); err != nil {
 		diagnostics.Log("warn", "ferry", "Ferry 状态未能保存："+err.Error())
 	}
-	return session, nil
+	return reply, nil
 }
 
 func ferryPostLogin(ctx context.Context, client *http.Client, endpoint, username, password string) (ferryLoginReply, error) {
 	body, _ := json.Marshal(map[string]string{"username": username, "password": password})
-	status, raw, err := ferryPost(ctx, client, endpoint, "", body)
+	status, raw, err := ferryPost(ctx, client, endpoint, body)
 	if err != nil {
 		return ferryLoginReply{}, err
 	}
@@ -441,9 +370,6 @@ func (r ferryLoginReply) check() error {
 			return errors.New("Ferry 返回的出口无效")
 		}
 	}
-	if r.EscrowKey != "" && (r.Token == "" || len(r.Token) > 4096) {
-		return errors.New("Ferry 返回的会话无效")
-	}
 	return nil
 }
 
@@ -466,74 +392,12 @@ func ferryStatusError(status int, raw []byte) error {
 	return fmt.Errorf("Ferry 返回 HTTP %d", status)
 }
 
-// ferryEscrowRetry is the pause before each further escrow attempt after the
-// connection failed. Tests shorten it.
-var ferryEscrowRetry = []time.Duration{time.Second, 2 * time.Second}
-
-func ferryEscrow(ctx context.Context, client *http.Client, endpoint, token, escrowKey, username, recoveryKey string) error {
-	sealed, err := ferrySealRecovery(escrowKey, recoveryKey)
-	if err != nil {
-		return err
-	}
-	device, _ := os.Hostname()
-	body, _ := json.Marshal(map[string]string{"ciphertext": base64.StdEncoding.EncodeToString(sealed), "username": username, "device": device})
-	for attempt := 0; ; attempt++ {
-		status, raw, err := ferryPost(ctx, client, endpoint, token, body)
-		if err == nil {
-			if status != http.StatusOK {
-				return ferryStatusError(status, raw)
-			}
-			return nil
-		}
-		// Only a lost connection is tried again; an answer from Ferry stands.
-		if attempt >= len(ferryEscrowRetry) || ctx.Err() != nil {
-			return err
-		}
-		select {
-		case <-ctx.Done():
-			return err
-		case <-time.After(ferryEscrowRetry[attempt]):
-		}
-	}
-}
-
-// ferrySealRecovery seals the recovery key to "hpke:<KEM id>:<base64 key>"
-// with HKDF-SHA256 and AES-256-GCM; the result is enc || ciphertext.
-func ferrySealRecovery(escrowKey, recoveryKey string) ([]byte, error) {
-	invalid := errors.New("Ferry 的保管公钥无效")
-	rest, ok := strings.CutPrefix(escrowKey, "hpke:")
-	if !ok {
-		return nil, invalid
-	}
-	idText, keyText, ok := strings.Cut(rest, ":")
-	id, err := strconv.ParseUint(idText, 10, 16)
-	if !ok || err != nil || !ferryEscrowKEMs[uint16(id)] {
-		return nil, invalid
-	}
-	kem, err := hpke.NewKEM(uint16(id))
-	if err != nil {
-		return nil, invalid
-	}
-	raw, err := base64.StdEncoding.DecodeString(keyText)
-	if err != nil {
-		return nil, invalid
-	}
-	public, err := kem.NewPublicKey(raw)
-	if err != nil {
-		return nil, invalid
-	}
-	return hpke.Seal(public, hpke.HKDFSHA256(), hpke.AES256GCM(), []byte(ferryEscrowInfo), []byte(recoveryKey))
-}
-
-func ferryPost(ctx context.Context, client *http.Client, endpoint, token string, body []byte) (int, []byte, error) {
+func ferryPost(ctx context.Context, client *http.Client, endpoint string, body []byte) (int, []byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return 0, nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
 	res, err := client.Do(req)
 	if err != nil {
 		if ctx.Err() != nil {
@@ -547,4 +411,165 @@ func ferryPost(ctx context.Context, client *http.Client, endpoint, token string,
 		return 0, nil, errors.New("Ferry 的回答中断或过大")
 	}
 	return res.StatusCode, raw, nil
+}
+
+func sourceHasNode(src managedproxy.Source, id string) bool {
+	for _, n := range src.Nodes {
+		if n.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+// ferrySourceIndex is where the Ferry source is in p, or -1.
+func ferrySourceIndex(p managedproxy.Store, state ferryState) int {
+	if state.Source == "" {
+		return -1
+	}
+	for i, src := range p.Sources {
+		if src.ID == state.Source {
+			return i
+		}
+	}
+	return -1
+}
+
+// Everything Cage says to Ferry — the sign-in and the exits' subscription —
+// goes through the relay hop alone: the applied route without
+// its exit, the way the first run reached Ferry. An exit that stopped working
+// (Ferry withdrew it, or the user's own exit) then cannot cut Cage off from
+// Ferry and the replacement it offers. A route of one node is used as it is.
+func (s *Server) ferryHopClient() (*http.Client, error) {
+	cfg, err := loadConfig(s.configPath)
+	if err != nil {
+		return nil, err
+	}
+	p, err := managedproxy.Applied(s.profile, cfg.ProxyURL, cfg.ProxyRevision)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.ProxyURL, err = ferryHopEndpoint(p, cfg.ProxyURL); err != nil {
+		return nil, err
+	}
+	e, err := cage.NewEgress(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &http.Client{Transport: &http.Transport{Proxy: nil, DialContext: e.DialContext}, Timeout: 30 * time.Second, CheckRedirect: managedproxy.SubscriptionRedirect}, nil
+}
+
+// ferryHopEndpoint is the core endpoint of the route without its exit: the
+// credentials of the hop before the exit, or the route's own for one node.
+func ferryHopEndpoint(p managedproxy.Store, route string) (string, error) {
+	if len(p.Chain) < 2 {
+		return route, nil
+	}
+	return p.NodeEndpoint(p.Chain[len(p.Chain)-2])
+}
+
+// ferrySourceClient is the client for an update of the Ferry source.
+func (s *Server) ferrySourceClient(action string, p managedproxy.Store, index int, host bool) (*http.Client, bool) {
+	if action != "refresh" || host || index < 0 || ferrySourceIndex(p, loadFerryState(s.profile)) != index {
+		return nil, false
+	}
+	client, err := s.ferryHopClient()
+	if err != nil {
+		return nil, false
+	}
+	return client, true
+}
+
+// The Ferry exit in use is probed through its whole route every few minutes.
+// After two failed probes in a row the Ferry source is updated at once
+// (through the relay, see ferrySourceClient), so an exit Ferry withdrew — the
+// user moved to another department, the node disabled — is replaced within
+// minutes instead of at the next 12-hour update. Tests replace these.
+var (
+	ferryWatchEvery = 5 * time.Minute
+	ferryWatchRetry = 30 * time.Second
+	ferryProbe      = func(ctx context.Context, profile, nodeID string) error {
+		_, err := measureProxyDelay(ctx, profile, nodeID)
+		return err
+	}
+	ferryCoreReady = func(ctx context.Context, s *Server, p managedproxy.Store) bool {
+		cfg, err := loadConfig(s.configPath)
+		if err != nil {
+			return false
+		}
+		if _, err := managedproxy.Applied(s.profile, cfg.ProxyURL, cfg.ProxyRevision); err != nil {
+			return false
+		}
+		return managedproxy.Running(ctx, s.profile, p)
+	}
+	ferryUpdateNow = func(s *Server, sourceID string) bool {
+		_, err := s.submitJob("proxy-update", func() error { return s.changeProxy("refresh", proxyInput{ID: sourceID}, nil) })
+		return err == nil
+	}
+)
+
+type ferryWatchState struct {
+	mu       sync.Mutex
+	next     time.Time
+	failures int
+	running  bool
+}
+
+// ferryWatchExit starts a probe when one is due. The network monitor calls
+// it every round; the probe runs on its own so the round is not held up.
+func (s *Server) ferryWatchExit() {
+	w := &s.ferryWatch
+	w.mu.Lock()
+	if w.running || time.Now().Before(w.next) {
+		w.mu.Unlock()
+		return
+	}
+	w.running = true
+	w.mu.Unlock()
+	go func() {
+		wait := s.ferryWatchOnce()
+		w.mu.Lock()
+		w.running, w.next = false, time.Now().Add(wait)
+		w.mu.Unlock()
+	}()
+}
+
+// ferryWatchOnce probes the Ferry exit once and says when to probe again.
+func (s *Server) ferryWatchOnce() time.Duration {
+	w := &s.ferryWatch
+	failed := func(n int) {
+		w.mu.Lock()
+		w.failures = n
+		w.mu.Unlock()
+	}
+	p, err := managedproxy.Load(s.profile)
+	if err != nil {
+		return ferryWatchEvery
+	}
+	index := ferrySourceIndex(p, loadFerryState(s.profile))
+	if index < 0 || !sourceHasNode(p.Sources[index], p.Selected) {
+		failed(0)
+		return ferryWatchEvery
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if !ferryCoreReady(ctx, s, p) {
+		// Look again soon: the core may be about to start.
+		failed(0)
+		return ferryWatchRetry
+	}
+	if ferryProbe(ctx, s.profile, p.Selected) == nil {
+		failed(0)
+		return ferryWatchEvery
+	}
+	w.mu.Lock()
+	w.failures++
+	failures := w.failures
+	w.mu.Unlock()
+	if failures < 2 || s.busy() || !ferryUpdateNow(s, p.Sources[index].ID) {
+		return ferryWatchRetry
+	}
+	failed(0)
+	diagnostics.Log("warn", "ferry", "Ferry 出口连不上，已提前更新 Ferry 订阅")
+	return ferryWatchEvery
 }

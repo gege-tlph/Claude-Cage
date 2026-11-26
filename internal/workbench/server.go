@@ -46,6 +46,7 @@ type controlFile struct {
 	Controller ControllerIdentity `json:"controller"`
 }
 type Server struct {
+	ferryWatch                                       ferryWatchState
 	shellLoginWatch                                  shellLoginWatchState
 	desktopCatalogRevision                           atomic.Uint64
 	desktopLoginWatch                                desktopWatchState

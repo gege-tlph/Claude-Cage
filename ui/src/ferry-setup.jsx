@@ -75,7 +75,7 @@ const newSource = (before, after) => after.sources.find((s) => !before.sources.s
 // With an account already there (inline, the 「从 Ferry 导入」 card of the proxy
 // settings), the same steps run without creating the account: a relay
 // subscription imported before is used again unless replaced, and the Ferry
-// source is updated in place. The recovery key is the backend's business.
+// source is updated in place.
 export function FerrySetup({ account, act, rememberLogin, onBack, onManual, onDone, inline = false, known = {}, relaySource = null }) {
   const tr = useTranslation();
   const [page, setPage] = useState(inline && relaySource ? "login" : "relay");
@@ -114,8 +114,7 @@ export function FerrySetup({ account, act, rememberLogin, onBack, onManual, onDo
   const steps = {
     account: async (ctx) => {
       if (account?.exists) return;
-      const value = await act("create", { username: form.username.trim(), password: form.password, confirm_password: form.password });
-      ctx.recoveryKey = value.recovery_key || "";
+      await act("create", { username: form.username.trim(), password: form.password, confirm_password: form.password });
       ctx.username = form.username.trim();
       ctx.password = form.password;
       await rememberLogin(remember, form.password);
@@ -161,13 +160,12 @@ export function FerrySetup({ account, act, rememberLogin, onBack, onManual, onDo
       const before = await api("/proxy");
       let answer;
       try {
-        answer = await api("/ferry/login", { server: form.server.trim(), username, password: form.password, recovery_key: ctx.recoveryKey || "" });
+        answer = await api("/ferry/login", { server: form.server.trim(), username, password: form.password });
       } catch (e) {
         setLoginFailed(e.status === 422);
         throw e;
       }
       setLoginFailed(false);
-      ctx.recoveryKey = "";
       ctx.exits = answer.exits || [];
       ctx.ferryJob = answer.job;
       ctx.ferryBefore = before;

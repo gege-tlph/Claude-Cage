@@ -2,13 +2,11 @@ package workbench
 
 import (
 	"context"
-	"crypto/ecdh"
-	"crypto/hpke"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,72 +18,38 @@ import (
 
 const ferryTestSub = "https://ferry.example.com/sub/private-token?f=cage"
 
-// fakeFerry answers /base/cage/v1/login and /escrow like the panel does, and
-// keeps the last sealed recovery key it was given.
+// fakeFerry answers /base/cage/v1/login like the panel does.
 type fakeFerry struct {
 	*httptest.Server
-	mu      sync.Mutex
-	sealed  []byte
-	device  string
-	logins  int
-	escrows int
-	// drop is how many escrow requests to cut off without an answer.
-	drop int
+	mu     sync.Mutex
+	logins int
 }
 
-func newFakeFerry(t *testing.T, escrowKey string, exits []ferryExit) *fakeFerry {
+func newFakeFerry(t *testing.T, exits []ferryExit) *fakeFerry {
 	t.Helper()
 	f := &fakeFerry{}
 	f.Server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
-		switch r.URL.Path {
-		case "/base/cage/v1/login":
-			f.logins++
-			var in struct{ Username, Password string }
-			_ = json.NewDecoder(r.Body).Decode(&in)
-			if in.Username != "张三" || in.Password != "correct horse" {
-				w.WriteHeader(http.StatusUnauthorized)
-				_, _ = w.Write([]byte(`{"error":"bad_login"}`))
-				return
-			}
-			_ = json.NewEncoder(w).Encode(map[string]any{"user": "张三", "token": "session-token", "sub_url": ferryTestSub, "exits": exits, "escrow_key": escrowKey})
-		case "/base/cage/v1/escrow":
-			f.escrows++
-			if f.drop > 0 {
-				f.drop--
-				if conn, _, err := w.(http.Hijacker).Hijack(); err == nil {
-					conn.Close()
-				}
-				return
-			}
-			if r.Header.Get("Authorization") != "Bearer session-token" {
-				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-			var in struct{ Ciphertext, Username, Device string }
-			_ = json.NewDecoder(r.Body).Decode(&in)
-			f.sealed, _ = base64.StdEncoding.DecodeString(in.Ciphertext)
-			f.device = in.Device
-			_, _ = w.Write([]byte(`{}`))
-		default:
+		if r.URL.Path != "/base/cage/v1/login" {
 			http.NotFound(w, r)
+			return
 		}
+		f.logins++
+		var in struct{ Username, Password string }
+		_ = json.NewDecoder(r.Body).Decode(&in)
+		if in.Username != "张三" || in.Password != "correct horse" {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"error":"bad_login"}`))
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"user": "张三", "sub_url": ferryTestSub, "exits": exits})
 	}))
 	t.Cleanup(f.Close)
 	old := ferryClientFor
 	t.Cleanup(func() { ferryClientFor = old })
 	ferryClientFor = func(*Server) (*http.Client, error) { return f.Client(), nil }
 	return f
-}
-
-func ferryEscrowKeyPair(t *testing.T, kem hpke.KEM) (hpke.PrivateKey, string) {
-	t.Helper()
-	private, err := kem.GenerateKey()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return private, "hpke:" + strconv.Itoa(int(kem.ID())) + ":" + base64.StdEncoding.EncodeToString(private.PublicKey().Bytes())
 }
 
 var ferryTestExits = []ferryExit{{Name: "🇦🇺 悉尼住宅", Region: "AU"}}
@@ -102,62 +66,34 @@ func TestFerryEndpointNeedsAFullHTTPSAddress(t *testing.T) {
 	}
 }
 
-func TestFerrySignInSealsTheRecoveryKeyForTheOrganisationOnly(t *testing.T) {
-	for _, kem := range []hpke.KEM{hpke.MLKEM768X25519(), hpke.DHKEM(ecdh.X25519())} {
-		private, public := ferryEscrowKeyPair(t, kem)
-		f := newFakeFerry(t, public, ferryTestExits)
-		session, err := (&Server{}).ferrySignIn(context.Background(), f.URL+"/base", " 张三 ", "correct horse", "RECOVERY-KEY-1")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if session.escrow != "stored" || session.escrowErr != nil || session.reply.SubURL != ferryTestSub || len(session.reply.Exits) != 1 || session.reply.Exits[0].Region != "AU" {
-			t.Fatalf("%+v", session)
-		}
-		if strings.Contains(string(f.sealed), "RECOVERY-KEY-1") {
-			t.Fatal("recovery key reached Ferry in the clear")
-		}
-		opened, err := hpke.Open(private, hpke.HKDFSHA256(), hpke.AES256GCM(), []byte(ferryEscrowInfo), f.sealed)
-		if err != nil || string(opened) != "RECOVERY-KEY-1" {
-			t.Fatalf("organisation key cannot open the escrow: %q %v", opened, err)
-		}
-		if _, err := hpke.Open(private, hpke.HKDFSHA256(), hpke.AES256GCM(), []byte("other use"), f.sealed); err == nil {
-			t.Fatal("escrow is not bound to its purpose")
-		}
+// A sign-in returns the subscription and exits and remembers the address,
+// the user and the exits for 「从 Ferry 导入」.
+func TestFerrySignInRemembersTheUserAndExits(t *testing.T) {
+	f := newFakeFerry(t, ferryTestExits)
+	s := &Server{profile: t.TempDir()}
+	reply, err := s.ferrySignIn(context.Background(), f.URL+"/base", " 张三 ", "correct horse")
+	if err != nil || reply.SubURL != ferryTestSub || len(reply.Exits) != 1 || reply.Exits[0].Region != "AU" {
+		t.Fatalf("%+v %v", reply, err)
 	}
-}
-
-func TestFerrySignInWithoutEscrowKeyOrRecoveryKeyLeavesNothing(t *testing.T) {
-	f := newFakeFerry(t, "", ferryTestExits)
-	session, err := (&Server{}).ferrySignIn(context.Background(), f.URL+"/base", "张三", "correct horse", "RECOVERY-KEY-1")
-	if err != nil || session.escrow != "none" || f.escrows != 0 {
-		t.Fatal(session, err, f.escrows)
+	rec := httptest.NewRecorder()
+	s.ferryStatus(rec, httptest.NewRequest(http.MethodGet, "/api/ferry", nil))
+	var status struct {
+		Server, User string
+		Exits        []ferryExit
 	}
-	_, public := ferryEscrowKeyPair(t, hpke.MLKEM768X25519())
-	f = newFakeFerry(t, public, ferryTestExits)
-	session, err = (&Server{}).ferrySignIn(context.Background(), f.URL+"/base", "张三", "correct horse", "")
-	if err != nil || session.escrow != "none" || f.escrows != 0 {
-		t.Fatal(session, err, f.escrows)
-	}
-}
-
-func TestFerryEscrowFailureKeepsTheSignIn(t *testing.T) {
-	for _, key := range []string{"hpke:16:" + base64.StdEncoding.EncodeToString(make([]byte, 65)), "hpke:25722:not-base64", "pem:abc", "hpke:32:" + base64.StdEncoding.EncodeToString([]byte("short"))} {
-		f := newFakeFerry(t, key, ferryTestExits)
-		session, err := (&Server{}).ferrySignIn(context.Background(), f.URL+"/base", "张三", "correct horse", "RECOVERY-KEY-1")
-		if err != nil || session.escrow != "failed" || session.escrowErr == nil || f.escrows != 0 {
-			t.Fatal(key, session, err, f.escrows)
-		}
+	if err := json.Unmarshal(rec.Body.Bytes(), &status); err != nil || status.Server != f.URL+"/base" || status.User != "张三" || len(status.Exits) != 1 || strings.Contains(rec.Body.String(), "private-token") {
+		t.Fatal(rec.Body.String(), err)
 	}
 }
 
 func TestFerryLoginAnswersInWords(t *testing.T) {
-	f := newFakeFerry(t, "", ferryTestExits)
-	_, err := (&Server{}).ferrySignIn(context.Background(), f.URL+"/base", "张三", "wrong", "")
+	f := newFakeFerry(t, ferryTestExits)
+	_, err := (&Server{}).ferrySignIn(context.Background(), f.URL+"/base", "张三", "wrong")
 	var fe *ferryError
 	if !errors.As(err, &fe) || fe.status != http.StatusUnprocessableEntity || fe.message != "Ferry 用户名或密码错误" {
 		t.Fatal(err)
 	}
-	if _, err := (&Server{}).ferrySignIn(context.Background(), f.URL+"/base", "", "x", ""); err == nil || f.logins != 1 {
+	if _, err := (&Server{}).ferrySignIn(context.Background(), f.URL+"/base", "", "x"); err == nil || f.logins != 1 {
 		t.Fatal("empty user name was sent", err)
 	}
 	for status, want := range map[int]string{http.StatusTooManyRequests: "Ferry 登录尝试过多，请稍后再试", http.StatusInternalServerError: "Ferry 返回 HTTP 500"} {
@@ -173,7 +109,7 @@ func TestFerryLoginAnswersInWords(t *testing.T) {
 }
 
 func TestFerryReplyIsChecked(t *testing.T) {
-	good := ferryLoginReply{Token: "t", SubURL: ferryTestSub, Exits: ferryTestExits, EscrowKey: "hpke:1:a"}
+	good := ferryLoginReply{SubURL: ferryTestSub, Exits: ferryTestExits}
 	if err := good.check(); err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +118,6 @@ func TestFerryReplyIsChecked(t *testing.T) {
 		"no exits":        func(r *ferryLoginReply) { r.Exits = nil },
 		"empty exit name": func(r *ferryLoginReply) { r.Exits = []ferryExit{{Name: " "}} },
 		"bad region":      func(r *ferryLoginReply) { r.Exits = []ferryExit{{Name: "x", Region: "au"}} },
-		"escrow no token": func(r *ferryLoginReply) { r.Token = "" },
 	} {
 		reply := good
 		change(&reply)
@@ -194,28 +129,26 @@ func TestFerryReplyIsChecked(t *testing.T) {
 
 func TestFerryLoginAPIImportsTheExitsWithoutShowingTheLink(t *testing.T) {
 	s := testServer(t)
-	_, public := ferryEscrowKeyPair(t, hpke.MLKEM768X25519())
-	f := newFakeFerry(t, public, ferryTestExits)
+	f := newFakeFerry(t, ferryTestExits)
 	oldImport, oldCore := ferryImport, proxyCorePath
 	t.Cleanup(func() { ferryImport, proxyCorePath = oldImport, oldCore })
 	proxyCorePath = func() (string, error) { return "mihomo", nil }
 	var imported proxyInput
 	ferryImport = func(_ *Server, input proxyInput, _ *uint64) error { imported = input; return nil }
-	body, _ := json.Marshal(map[string]string{"server": f.URL + "/base", "username": "张三", "password": "correct horse", "recovery_key": "RECOVERY-KEY-1"})
+	body, _ := json.Marshal(map[string]string{"server": f.URL + "/base", "username": "张三", "password": "correct horse"})
 	w := request(s, "POST", "/api/ferry/login", s.origin, string(body), true)
 	if w.Code != http.StatusOK {
 		t.Fatal(w.Code, w.Body.String())
 	}
-	if strings.Contains(w.Body.String(), "private-token") || strings.Contains(w.Body.String(), "RECOVERY-KEY") {
-		t.Fatal("subscription link or recovery key returned to the page:", w.Body.String())
+	if strings.Contains(w.Body.String(), "private-token") {
+		t.Fatal("subscription link returned to the page:", w.Body.String())
 	}
 	var out struct {
 		Job    Job         `json:"job"`
 		Source string      `json:"source"`
 		Exits  []ferryExit `json:"exits"`
-		Escrow string      `json:"escrow"`
 	}
-	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil || out.Job.ID == "" || out.Source != "Ferry" || out.Escrow != "stored" || len(out.Exits) != 1 {
+	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil || out.Job.ID == "" || out.Source != "Ferry" || len(out.Exits) != 1 {
 		t.Fatal(w.Body.String(), err)
 	}
 	deadline := time.Now().Add(3 * time.Second)
@@ -228,107 +161,6 @@ func TestFerryLoginAPIImportsTheExitsWithoutShowingTheLink(t *testing.T) {
 	w = request(s, "POST", "/api/ferry/login", s.origin, `{"server":"`+f.URL+`/base","username":"张三","password":"wrong"}`, true)
 	if w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(), "Ferry 用户名或密码错误") {
 		t.Fatal(w.Code, w.Body.String())
-	}
-}
-
-// Ferry is to hold the account's current recovery key. When it does not (the
-// run that made the account stopped before Ferry, or a key was made since),
-// the next sign-in makes a new key with the password and hands it over; the
-// employee never sees it.
-func TestFerrySignInHandsOverANewRecoveryKeyWhenFerryLacksTheCurrentOne(t *testing.T) {
-	private, public := ferryEscrowKeyPair(t, hpke.MLKEM768X25519())
-	f := newFakeFerry(t, public, ferryTestExits)
-	profile := t.TempDir()
-	account, err := loadLocalAccount(profile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	lost, err := account.createAccount("张三", "correct horse", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(account.lock)
-	s := &Server{profile: profile, account: account}
-	signIn := func() ferrySession {
-		t.Helper()
-		session, err := s.ferrySignIn(context.Background(), f.URL+"/base", "张三", "correct horse", "")
-		if err != nil {
-			t.Fatal(err)
-		}
-		return session
-	}
-	held := func() string {
-		t.Helper()
-		opened, err := hpke.Open(private, hpke.HKDFSHA256(), hpke.AES256GCM(), []byte(ferryEscrowInfo), f.sealed)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return string(opened)
-	}
-	status := func() map[string]any {
-		t.Helper()
-		rec := httptest.NewRecorder()
-		s.ferryStatus(rec, httptest.NewRequest(http.MethodGet, "/api/ferry", nil))
-		var out map[string]any
-		_ = json.Unmarshal(rec.Body.Bytes(), &out)
-		return out
-	}
-	if got := status(); got["escrowed"] != false || got["user"] != "" {
-		t.Fatal(got)
-	}
-
-	if session := signIn(); session.escrow != "stored" || f.escrows != 1 {
-		t.Fatalf("%+v escrows=%d", session, f.escrows)
-	}
-	first := held()
-	if first == "" || first == lost {
-		t.Fatal("the key lost with the stopped run was not replaced")
-	}
-	if got := status(); got["escrowed"] != true || got["user"] != "张三" || got["server"] != f.URL+"/base" {
-		t.Fatal(got)
-	}
-	// Ferry holds the current key: nothing more is sent.
-	if session := signIn(); session.escrow != "none" || f.escrows != 1 {
-		t.Fatalf("%+v escrows=%d", session, f.escrows)
-	}
-	// A key made since (in settings) is replaced on the next sign-in.
-	if _, err := account.generateRecovery("correct horse"); err != nil {
-		t.Fatal(err)
-	}
-	if got := status(); got["escrowed"] != false {
-		t.Fatal(got)
-	}
-	if session := signIn(); session.escrow != "stored" || f.escrows != 2 || held() == first {
-		t.Fatalf("%+v escrows=%d", session, f.escrows)
-	}
-	// The key Ferry holds resets the password. With a Cage password other than
-	// the Ferry one, the key the reset made stays as it is.
-	if _, err := account.resetPassword(held(), "another horse"); err != nil {
-		t.Fatal("the key Ferry holds does not reset the password:", err)
-	}
-	if session := signIn(); session.escrow != "none" || f.escrows != 2 {
-		t.Fatalf("%+v escrows=%d", session, f.escrows)
-	}
-	if got := status(); got["escrowed"] != false {
-		t.Fatal(got)
-	}
-}
-
-func TestFerryEscrowTriesALostConnectionAgain(t *testing.T) {
-	old := ferryEscrowRetry
-	ferryEscrowRetry = []time.Duration{time.Millisecond, time.Millisecond}
-	t.Cleanup(func() { ferryEscrowRetry = old })
-	_, public := ferryEscrowKeyPair(t, hpke.DHKEM(ecdh.X25519()))
-	f := newFakeFerry(t, public, ferryTestExits)
-	f.drop = 2
-	session, err := (&Server{}).ferrySignIn(context.Background(), f.URL+"/base", "张三", "correct horse", "RECOVERY-KEY-1")
-	if err != nil || session.escrow != "stored" || f.escrows != 3 {
-		t.Fatalf("%+v %v escrows=%d", session, err, f.escrows)
-	}
-	f.drop, f.escrows = 3, 0
-	session, err = (&Server{}).ferrySignIn(context.Background(), f.URL+"/base", "张三", "correct horse", "RECOVERY-KEY-1")
-	if err != nil || session.escrow != "failed" || f.escrows != 3 {
-		t.Fatalf("%+v %v escrows=%d", session, err, f.escrows)
 	}
 }
 
@@ -427,4 +259,114 @@ func ferryNodeID(t *testing.T, p managedproxy.Store, source, name string) string
 	}
 	t.Fatalf("no node %q in %s", name, source)
 	return ""
+}
+
+// ferryChainProfile is a profile whose route is 前置订阅 → Ferry exit, with
+// the Ferry source recorded in ferry.json.
+func ferryChainProfile(t *testing.T) (*Server, managedproxy.Store) {
+	t.Helper()
+	profile := t.TempDir()
+	if err := writePrivate(filepath.Join(profile, "config.json"), defaultConfig()); err != nil {
+		t.Fatal(err)
+	}
+	p, err := managedproxy.Load(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	relay := []byte("proxies:\n  - {name: \"🇦🇺 悉尼 01\", type: socks5, server: 192.0.2.1, port: 1080}\n")
+	exits := []byte("proxies:\n  - {name: \"🇦🇺 AU\", type: socks5, server: 192.0.2.2, port: 1080}\n")
+	if err = p.Import("前置订阅", "", relay, "relay", 0, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err = p.Import(ferrySourceName, ferryTestSub, exits, "ferry", ferryRefreshHours, ""); err != nil {
+		t.Fatal(err)
+	}
+	p.Chain = []string{ferryNodeID(t, p, "relay", "🇦🇺 悉尼 01"), ferryNodeID(t, p, "ferry", "🇦🇺 AU")}
+	p.Selected = p.Chain[1]
+	p.Revision = "test-revision"
+	if err = p.Save(profile); err != nil {
+		t.Fatal(err)
+	}
+	cfg := defaultConfig()
+	cfg.ProxyURL, cfg.ProxyRevision = p.Endpoint(), p.Revision
+	if err = writePrivate(filepath.Join(profile, "config.json"), cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err = saveFerryState(profile, ferryState{Source: "ferry"}); err != nil {
+		t.Fatal(err)
+	}
+	return &Server{profile: profile, configPath: filepath.Join(profile, "config.json")}, p
+}
+
+// Cage reaches Ferry through the route without its exit; only an update of
+// the Ferry source uses that client.
+func TestFerryIsReachedThroughTheRelayHop(t *testing.T) {
+	s, p := ferryChainProfile(t)
+	relayEndpoint, err := p.NodeEndpoint(p.Chain[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := ferryHopEndpoint(p, p.Endpoint()); err != nil || got != relayEndpoint || got == p.Endpoint() {
+		t.Fatal("a chain does not reach Ferry through its relay:", got, err)
+	}
+	single := p
+	single.Chain = nil
+	if got, err := ferryHopEndpoint(single, p.Endpoint()); err != nil || got != p.Endpoint() {
+		t.Fatal("a route of one node is not used as it is:", got, err)
+	}
+	if _, err := s.ferryHopClient(); err != nil {
+		t.Fatal(err)
+	}
+	ferry, relay := 1, 0
+	if _, ok := s.ferrySourceClient("refresh", p, ferry, false); !ok {
+		t.Fatal("the Ferry source is not updated through the relay hop")
+	}
+	for name, ok := range map[string]bool{
+		"import":        func() bool { _, ok := s.ferrySourceClient("import", p, ferry, false); return ok }(),
+		"host download": func() bool { _, ok := s.ferrySourceClient("refresh", p, ferry, true); return ok }(),
+		"other source":  func() bool { _, ok := s.ferrySourceClient("refresh", p, relay, false); return ok }(),
+	} {
+		if ok {
+			t.Error(name, "uses the Ferry client")
+		}
+	}
+}
+
+// Two failed probes of the Ferry exit in a row update the Ferry source at
+// once; a working exit, or an exit that is not Ferry's, is left alone.
+func TestFerryWithdrawnExitUpdatesTheFerrySourceAtOnce(t *testing.T) {
+	s, p := ferryChainProfile(t)
+	oldProbe, oldReady, oldUpdate := ferryProbe, ferryCoreReady, ferryUpdateNow
+	t.Cleanup(func() { ferryProbe, ferryCoreReady, ferryUpdateNow = oldProbe, oldReady, oldUpdate })
+	ferryCoreReady = func(context.Context, *Server, managedproxy.Store) bool { return true }
+	var probeErr error
+	probed, updated := []string{}, []string{}
+	ferryProbe = func(_ context.Context, _ string, id string) error { probed = append(probed, id); return probeErr }
+	ferryUpdateNow = func(_ *Server, id string) bool { updated = append(updated, id); return true }
+
+	if wait := s.ferryWatchOnce(); wait != ferryWatchEvery || len(updated) != 0 || len(probed) != 1 || probed[0] != p.Selected {
+		t.Fatal("working exit", wait, probed, updated)
+	}
+	probeErr = errors.New("connect error")
+	if wait := s.ferryWatchOnce(); wait != ferryWatchRetry || len(updated) != 0 {
+		t.Fatal("one failure updates", wait, updated)
+	}
+	if wait := s.ferryWatchOnce(); wait != ferryWatchEvery || len(updated) != 1 || updated[0] != "ferry" {
+		t.Fatal("two failures in a row do not update the Ferry source", wait, updated)
+	}
+	// Counting starts again after an update.
+	if s.ferryWatchOnce(); len(updated) != 1 {
+		t.Fatal("updated again after one more failure", updated)
+	}
+	// The user's own exit is not probed.
+	own := p
+	own.Chain, own.Selected = nil, p.Chain[0]
+	if err := own.Save(s.profile); err != nil {
+		t.Fatal(err)
+	}
+	probed = nil
+	s.ferryWatchOnce()
+	if s.ferryWatchOnce(); len(probed) != 0 || len(updated) != 1 {
+		t.Fatal("probed an exit that is not Ferry's", probed, updated)
+	}
 }

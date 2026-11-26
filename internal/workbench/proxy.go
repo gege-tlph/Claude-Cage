@@ -438,7 +438,11 @@ func (s *Server) changeProxy(action string, in proxyInput, resumeVersion *uint64
 		}
 		if in.URL != "" && action != "import-local" {
 			s.setMessage("正在下载节点订阅…")
-			client, e := s.subscriptionClient(in.HostDownload)
+			client, viaRelay := s.ferrySourceClient(action, p, index, in.HostDownload)
+			var e error
+			if !viaRelay {
+				client, e = s.subscriptionClient(in.HostDownload)
+			}
 			if e != nil {
 				s.proxySourceFailure(in.ID, e)
 				return e
@@ -836,6 +840,7 @@ func (s *Server) proxyLogs(w http.ResponseWriter, r *http.Request) {
 	jsonReply(w, map[string]any{"lines": lines})
 }
 func (s *Server) refreshProxySubscriptions() {
+	s.ferryWatchExit()
 	if s.busy() {
 		return
 	}
