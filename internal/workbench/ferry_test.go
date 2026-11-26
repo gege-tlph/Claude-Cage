@@ -403,4 +403,16 @@ func TestFerryExpiredUserIsNotUpdatedAgainAndAgain(t *testing.T) {
 	if s.ferryWatchOnce(); updated != 1 {
 		t.Fatal("a renewed user's subscription was not updated", updated)
 	}
+	// The update brought the same expiry (a disabled user the node still
+	// lets in): not updated again every round.
+	for range 3 {
+		s.ferryWatchOnce()
+	}
+	if updated != 1 {
+		t.Fatal("an expired user whose exit works was updated every round", updated)
+	}
+	s.ferryWatch.expiredUpdate = time.Now().Add(-ferryExpiredUpdateEvery)
+	if s.ferryWatchOnce(); updated != 2 {
+		t.Fatal("not updated again after an hour", updated)
+	}
 }

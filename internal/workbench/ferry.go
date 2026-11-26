@@ -489,7 +489,10 @@ func (s *Server) ferrySourceClient(action string, p managedproxy.Store, index in
 var (
 	ferryWatchEvery = 5 * time.Minute
 	ferryWatchRetry = 30 * time.Second
-	ferryProbe      = func(ctx context.Context, profile, nodeID string) error {
+	// While an expired account's exit still works, the subscription is
+	// updated at most this often: Ferry may keep sending the old expiry.
+	ferryExpiredUpdateEvery = time.Hour
+	ferryProbe              = func(ctx context.Context, profile, nodeID string) error {
 		_, err := measureProxyDelay(ctx, profile, nodeID)
 		return err
 	}
@@ -514,6 +517,8 @@ type ferryWatchState struct {
 	next     time.Time
 	failures int
 	running  bool
+	// The last update for an expired account whose exit worked.
+	expiredUpdate time.Time
 }
 
 // ferryWatchExit starts a probe when one is due. The network monitor calls
@@ -564,8 +569,15 @@ func (s *Server) ferryWatchOnce() time.Duration {
 		failed(0)
 		// Working again after the account expired: renewed. Update the
 		// subscription so its expiry, which the card shows, is current.
-		if expired && !s.busy() {
-			ferryUpdateNow(s, p.Sources[index].ID)
+		// A disabled user whose node has not cut them off yet keeps the old
+		// expiry, so this is not repeated every round.
+		w.mu.Lock()
+		due := time.Since(w.expiredUpdate) >= ferryExpiredUpdateEvery
+		w.mu.Unlock()
+		if expired && due && !s.busy() && ferryUpdateNow(s, p.Sources[index].ID) {
+			w.mu.Lock()
+			w.expiredUpdate = time.Now()
+			w.mu.Unlock()
 		}
 		return ferryWatchEvery
 	}
