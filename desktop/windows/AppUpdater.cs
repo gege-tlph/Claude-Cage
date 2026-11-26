@@ -16,17 +16,20 @@ internal sealed class AppUpdater : IDisposable
     private readonly Func<bool> canUpgradeUnsigned;
     // A message for the event log, and whether it reports an error.
     private readonly Action<string, bool>? report;
+    // Lets the helper's update window take the foreground (UpdateProgress);
+    // given by the App, so this file builds without the window code.
+    private readonly Action? handOff;
     private readonly Dictionary<string, object?> state = new() { ["phase"] = "idle", ["currentVersion"] = Version, ["message"] = "" };
     private CancellationTokenSource? cancellation;
     private InstallPlan? prepared;
     private bool committed;
 
-    public AppUpdater(Action<Dictionary<string, object?>> changed, Action quit, Action reconnect, Func<string>? readPublisher = null, Action<string, bool>? report = null, Func<bool>? canUpgradeUnsigned = null)
+    public AppUpdater(Action<Dictionary<string, object?>> changed, Action quit, Action reconnect, Func<string>? readPublisher = null, Action<string, bool>? report = null, Func<bool>? canUpgradeUnsigned = null, Action? handOff = null)
     {
         this.changed = changed; this.quit = quit; this.reconnect = reconnect;
         this.readPublisher = readPublisher ?? Authenticode.OwnPublisher;
         this.canUpgradeUnsigned = canUpgradeUnsigned ?? DefaultCanUpgradeUnsigned;
-        this.report = report;
+        this.report = report; this.handOff = handOff;
         try
         {
             var result = Path.Combine(Root, "last-result.json");
@@ -280,7 +283,7 @@ internal sealed class AppUpdater : IDisposable
             // This App still has the foreground from the click on install: let
             // the helper's window take it now, before this window closes and
             // Windows hands the focus to whatever lies behind it.
-            UpdateProgress.BringForward(UpdateWait.InstanceKey());
+            handOff?.Invoke();
             Change("installing", "正在安装并重启 Cage lite"); quit();
         }
         catch (Exception error) { Change("failed", error is OperationCanceledException ? "安装准备超时，原应用已保留" : error.Message, true); reconnect(); }
