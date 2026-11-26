@@ -171,7 +171,7 @@ func TestScanRejectsEscapesAndPreservesSSRFields(t *testing.T) {
 	if strings.Contains(string(entry.Data), "8080") {
 		t.Fatal("imported local listening port")
 	}
-	if _, _, err := nodeData(root, "", []byte(`{"server":"ss.example","server_port":443,"method":"aes-128-gcm","plugin":"unsupported-plugin"}`)); err == nil {
+	if _, _, err := nodeData(root, "", []byte(`{"server":"ss.example","server_port":443,"method":"aes-128-gcm","plugin":"unsupported-plugin"}`), nil); err == nil {
 		t.Fatal("silently dropped required plugin")
 	}
 }
@@ -433,7 +433,7 @@ dns:
   proxy-server-nameserver-policy: {'+.*': https://private-policy.example.test/dns-query}
   listen: 0.0.0.0:53
 `)
-	data, warning, err := nodeData(t.TempDir(), "", input)
+	data, warning, err := nodeData(t.TempDir(), "", input, nil)
 	if err != nil || warning != "" {
 		t.Fatal(err, warning)
 	}

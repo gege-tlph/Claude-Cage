@@ -176,6 +176,8 @@ func Scan(locations []Location, key []byte) []Config {
 		seen[root] = true
 		// providers is the directory, relative to root, that the client's
 		// mihomo core uses to resolve proxy-provider cache paths.
+		// selections holds, per config file, the group choices its client saved.
+		selections := map[string]map[string]string{}
 		build := func(file, providers, name, remote string, current bool) (Config, bool, bool) {
 			data, err := readWithin(root, file)
 			if os.IsNotExist(err) {
@@ -198,7 +200,7 @@ func Scan(locations []Location, key []byte) []Config {
 				encrypted = true
 				c.Error = privateConfigError
 			} else {
-				c.Data, c.Warning, err = nodeData(root, providers, data)
+				c.Data, c.Warning, err = nodeData(root, providers, data, selections[file])
 				if err != nil {
 					c.Error = "这份配置没有可导入的节点，或格式暂不支持；请从原软件导出 Clash/Mihomo 配置"
 				}
@@ -351,29 +353,49 @@ func Scan(locations []Location, key []byte) []Config {
 				add(filepath.Join("profiles", item.ID+".yaml"), "work", name, item.URL, item.ID == index.Current)
 			}
 		case Verge:
+			// profiles.yaml keeps, per profile, the choice made in each select
+			// group; the runtime file follows the current profile's choices.
+			var index struct {
+				Current string `yaml:"current"`
+				Items   []struct {
+					UID      string `yaml:"uid"`
+					Name     string `yaml:"name"`
+					File     string `yaml:"file"`
+					Type     string `yaml:"type"`
+					URL      string `yaml:"url"`
+					Selected []struct {
+						Name string `yaml:"name"`
+						Now  string `yaml:"now"`
+					} `yaml:"selected"`
+				} `yaml:"items"`
+			}
+			data, err := readWithin(root, "profiles.yaml")
+			indexed := err == nil && yaml.Unmarshal(data, &index) == nil
+			choices := func(uid string) map[string]string {
+				for _, item := range index.Items {
+					if item.UID != uid || uid == "" {
+						continue
+					}
+					out := map[string]string{}
+					for _, s := range item.Selected {
+						if s.Name != "" && s.Now != "" {
+							out[s.Name] = s.Now
+						}
+					}
+					return out
+				}
+				return nil
+			}
 			// Prefer the latest generated runtime file, which includes local
 			// overrides; never execute profile enhancement scripts ourselves.
 			for _, file := range []string{"clash-verge.yaml", "config.yaml"} {
 				if _, err := os.Stat(filepath.Join(root, file)); !os.IsNotExist(err) {
+					selections[file] = choices(index.Current)
 					add(file, "", "当前生效配置", "", true)
 					break
 				}
 			}
-			data, err := readWithin(root, "profiles.yaml")
-			if err != nil {
-				continue
-			}
-			var index struct {
-				Current string `yaml:"current"`
-				Items   []struct {
-					UID  string `yaml:"uid"`
-					Name string `yaml:"name"`
-					File string `yaml:"file"`
-					Type string `yaml:"type"`
-					URL  string `yaml:"url"`
-				} `yaml:"items"`
-			}
-			if yaml.Unmarshal(data, &index) != nil {
+			if !indexed {
 				continue
 			}
 			for i, item := range index.Items {
@@ -390,7 +412,9 @@ func Scan(locations []Location, key []byte) []Config {
 				if name == "" {
 					name = "已保存的配置"
 				}
-				add(filepath.Join("profiles", item.File), "", name, item.URL, item.UID == index.Current)
+				file := filepath.Join("profiles", item.File)
+				selections[file] = choices(item.UID)
+				add(file, "", name, item.URL, item.UID == index.Current)
 			}
 		case Nyanpasu:
 			// 2.x writes runtime/clash-config.yaml and keeps core settings in the
@@ -743,9 +767,13 @@ func providerPath(root, providers, path string) (string, bool) {
 	return rel, err == nil && filepath.IsLocal(rel)
 }
 
-func nodeData(root, providers string, data []byte) ([]byte, string, error) {
+// selected names each proxy group's member the client saved as its choice, when
+// the client keeps one; it may be nil.
+func nodeData(root, providers string, data []byte, selected map[string]string) ([]byte, string, error) {
 	var input struct {
 		DNS       yaml.Node        `yaml:"dns"`
+		Hosts     map[string]any   `yaml:"hosts"`
+		Groups    []map[string]any `yaml:"proxy-groups"`
 		Proxies   []map[string]any `yaml:"proxies"`
 		Payload   []map[string]any `yaml:"payload"`
 		Providers map[string]struct {
@@ -810,6 +838,8 @@ func nodeData(root, providers string, data []byte) ([]byte, string, error) {
 			return nil, "", err
 		}
 	}
+	expandNodeHosts(input.Hosts, input.Proxies)
+	notes := resolveDialerGroups(input.Proxies, input.Groups, selected)
 	// Keep identical nodes found in both the runtime and provider cache once.
 	seen := map[string]bool{}
 	unique := []map[string]any{}
@@ -828,11 +858,17 @@ func nodeData(root, providers string, data []byte) ([]byte, string, error) {
 		output["dns"] = map[string]any{"proxy-server-nameserver": nodeDNS}
 	}
 	result, err := json.Marshal(output)
-	warning := ""
+	var warnings []string
 	if missing > 0 {
-		warning = fmt.Sprintf("有 %d 份节点列表未能从本机缓存读取，这些节点不会导入。可先在原软件中更新配置，再重新检测。", missing)
+		warnings = append(warnings, fmt.Sprintf("有 %d 份节点列表未能从本机缓存读取，这些节点不会导入。可先在原软件中更新配置，再重新检测。", missing))
 	}
-	return result, warning, err
+	if len(notes) > 3 {
+		notes = append(notes[:3], fmt.Sprintf("另有 %d 个中转分组", len(notes)-3))
+	}
+	if len(notes) > 0 {
+		warnings = append(warnings, strings.Join(notes, "；")+"。")
+	}
+	return result, strings.Join(warnings, ""), err
 }
 
 func shadowsocksNodes(data []byte) ([]map[string]any, error) {
