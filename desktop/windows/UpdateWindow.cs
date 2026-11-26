@@ -271,6 +271,19 @@ internal sealed class UpdateWindow : Form
         TopMost = true; TopMost = false;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct FlashInfo { public uint Size; public IntPtr Window; public uint Flags, Count, Timeout; }
+    [DllImport("user32.dll")] private static extern bool FlashWindowEx(ref FlashInfo info);
+
+    // A result that appears while another window has the focus: the taskbar
+    // button flashes until the window is activated.
+    public void Flash()
+    {
+        if (GetForegroundWindow() == Handle) return;
+        var info = new FlashInfo { Size = (uint)Marshal.SizeOf<FlashInfo>(), Window = Handle, Flags = 3 | 12 }; // FLASHW_ALL | FLASHW_TIMERNOFG
+        FlashWindowEx(ref info);
+    }
+
     protected override void OnResize(EventArgs e)
     {
         base.OnResize(e);

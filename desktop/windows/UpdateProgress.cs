@@ -99,8 +99,11 @@ internal sealed class UpdateProgress : IUpdateProgressView
             window.Fail(index, InterfaceLanguage.Format(format, version), next.ToArray());
             window.SetDetail(detail);
             Restore();
+            window.Flash();
         });
     }
+
+    public void Raise() => Post(Restore);
 
     private static void StartApp(string target)
     {

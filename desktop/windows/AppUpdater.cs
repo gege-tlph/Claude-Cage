@@ -276,6 +276,10 @@ internal sealed class AppUpdater : IDisposable
             if (helper.HasExited) throw new IOException("安装程序已退出，原应用已保留");
             await helper.StandardInput.WriteLineAsync("COMMIT"); await helper.StandardInput.FlushAsync(token);
             helper.StandardInput.Close(); committed = true;
+            // This App still has the foreground from the click on install: let
+            // the helper's window take it now, before this window closes and
+            // Windows hands the focus to whatever lies behind it.
+            UpdateProgress.BringForward(UpdateWait.InstanceKey());
             Change("installing", "正在安装并重启 Cage lite"); quit();
         }
         catch (Exception error) { Change("failed", error is OperationCanceledException ? "安装准备超时，原应用已保留" : error.Message, true); reconnect(); }

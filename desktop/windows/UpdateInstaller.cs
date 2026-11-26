@@ -13,6 +13,8 @@ internal interface IUpdateProgressView : IDisposable
     // The update ended without the new version; the window keeps the result
     // until it is closed. canOpen: the installation may be started.
     void Fail(string format, string version, string? detail, string target, bool canOpen);
+    // In front again once the App has handed over and closed its window.
+    void Raise();
     Task Closed { get; }
 }
 
@@ -124,6 +126,7 @@ internal static class UpdateInstaller
             committed = true;
             progress?.Step(UpdateSteps.Install, 0);
             await parent.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(45));
+            progress?.Raise();
             VerifyArchive(plan.Archive, plan.Digest, plan.Version, targetPublisher);
             // NSIS requires /D= to be the final, unquoted argument; the executable
             // path is passed separately and no command shell is involved.
