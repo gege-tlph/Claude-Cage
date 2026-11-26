@@ -22,6 +22,7 @@ import { api } from "./api";
 import { SafetyMessage } from "./safety-message";
 import { isLocalListener } from "./proxy-server.mjs";
 import { groupNodesByRegion } from "./proxy-region.mjs";
+import { exitRegion, pickRelay } from "./relay-pick.mjs";
 import { ProxyYAMLInput } from "./proxy-yaml-input";
 import { LocalConfigImport } from "./local-config-import";
 import { getClientContext } from "./client-context.mjs";
@@ -296,6 +297,40 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
         const best = Object.entries(timings).sort((a, b) => a[1] - b[1])[0];
         setFastest(best ? best[0] : "");
       }
+    } finally {
+      measuring.current = false;
+      if (alive.current) setPending("");
+    }
+  };
+  // The relay in front of the exit: the fastest working node of the other
+  // sources in the exit's region (else anywhere), as a draft to apply.
+  const repickRelay = async () => {
+    if (measuring.current) return;
+    const exitId = route.at(-1);
+    const exitNode = allNodes.find((n) => n.id === exitId);
+    if (!exitNode) return;
+    const candidates = allNodes.filter((n) => !n.blocked_reason && n.id !== exitId && n.sourceID !== exitNode.sourceID);
+    if (!candidates.length) { setError(tr("前置订阅没有可用节点")); return; }
+    measuring.current = true;
+    setPending("delay");
+    setError("");
+    setNotice("");
+    try {
+      const measured = await api("/proxy/delay", { node_ids: candidates.map((n) => n.id).slice(0, 300) });
+      const results = measured.results || [];
+      for (const result of results) {
+        if (result.delay > 0) delete delayReasons.current[result.node_id];
+        else if (result.error) delayReasons.current[result.node_id] = result.error;
+      }
+      if (alive.current) setDelays((old) => ({ ...old, ...Object.fromEntries(results.map((r) => [r.node_id, r.delay > 0 ? `${r.delay} ms` : "不可用 / 未载入"])) }));
+      const pick = pickRelay({ region: exitRegion({ name: exitNode.name }), candidates, results });
+      if (!pick) { setError(tr("前置订阅没有可用节点")); return; }
+      if (alive.current) {
+        setRouteDraft([pick.node.id, exitId]);
+        if (!pick.sameRegion) setNotice(tr("无同地区前置"));
+      }
+    } catch (e) {
+      if (alive.current) setError(e.message);
     } finally {
       measuring.current = false;
       if (alive.current) setPending("");
@@ -703,18 +738,33 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                   );
                 })}
               </ol>
-              {route.length > 1 && route.length < usableNodes.length && (
-                <button
-                  type="button"
-                  className="proxy-route-add"
-                  disabled={busy || route.length >= usableNodes.length}
-                  onClick={() =>
-                    setRouteDraft([...route.slice(0, -1), "", route.at(-1)])
-                  }
-                >
-                  <Plus size={14} />
-                  {tr("添加中转")}
-                </button>
+              {route.length > 1 && (
+                <div className="proxy-route-actions">
+                  {route.length < usableNodes.length && (
+                    <button
+                      type="button"
+                      className="proxy-route-add"
+                      disabled={busy || route.length >= usableNodes.length}
+                      onClick={() =>
+                        setRouteDraft([...route.slice(0, -1), "", route.at(-1)])
+                      }
+                    >
+                      <Plus size={14} />
+                      {tr("添加中转")}
+                    </button>
+                  )}
+                  {route.length === 2 && Boolean(route[1]) && (
+                    <button
+                      type="button"
+                      className="proxy-route-add"
+                      disabled={busy || !proxy.running}
+                      onClick={repickRelay}
+                    >
+                      <RefreshCw size={14} />
+                      {tr("重新选择前置")}
+                    </button>
+                  )}
+                </div>
               )}
               {routeValid && <div className="proxy-route-preview" aria-label={tr("待应用链路")}>
                 <Route size={16} aria-hidden="true" />

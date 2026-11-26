@@ -43,6 +43,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(launch.url);
+  await page.getByRole("button", { name: "从 Cage 配置" }).click();
   await page.getByLabel("用户名", { exact: true }).fill("订阅验证");
   await page.getByLabel("设置密码", { exact: true }).fill("isolated-subscription-qa-password");
   await page.getByLabel("确认密码", { exact: true }).fill("isolated-subscription-qa-password");

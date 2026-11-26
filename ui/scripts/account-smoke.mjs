@@ -36,6 +36,7 @@ try {
   Object.assign(state.account, {exists:false,unlocked:false,username:''});
   const previousAcks = launchAcks;
   await page.reload();
+  await page.getByRole("button", { name: "从 Cage 配置" }).click();
   await page.getByRole('heading',{name:'注册账户'}).waitFor();
   await page.waitForFunction(async (previous) => await window.fixtureLaunchAcks() > previous, previousAcks);
   await page.screenshot({path:output+'create.png'});

@@ -54,6 +54,7 @@ try {
   await remember().waitFor();
   assert.equal(await remember().isChecked(), true);
   await remember().uncheck();
+  await page.getByRole("button", { name: "从 Cage 配置" }).click();
   await page.getByLabel("用户名", { exact: true }).fill("remember_live_qa");
   await page.getByLabel("设置密码", { exact: true }).fill(password);
   await page.getByLabel("确认密码", { exact: true }).fill(password);

@@ -26,6 +26,7 @@ import { Modal } from "./modal";
 import { TokenUsagePanel } from "./token-usage.jsx";
 import { translate, useTranslation } from "./interface-language.mjs";
 import { localizeBackendMessage } from "./backend-message.mjs";
+import { FerrySetup, SetupBack, SetupChooser } from "./ferry-setup.jsx";
 
 const AccountContext = createContext(null);
 export const useAccount = () => useContext(AccountContext);
@@ -201,6 +202,10 @@ export function AccountGate({ children }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [recovering, setRecovering] = useState(false);
+  // First run: null (choose), "cage" (the form below), "ferry" (FerrySetup),
+  // "done" (Ferry finished or left; the recovery key screen follows).
+  const [setupMode, setSetupMode] = useState(null);
+  const [ferryEscrow, setFerryEscrow] = useState("");
   const automaticAttempt = useRef("");
   const gateAcknowledged = useRef(false);
   const trustedAttempt = useRef(false);
@@ -232,10 +237,51 @@ export function AccountGate({ children }) {
     setBusy(true);
     deviceAction("unlock", "automatic").catch((e) => setError(e.message)).finally(() => setBusy(false));
   }, [account?.unlocked, account?.devices?.automatic, account?.require_authentication, deviceSupport]);
-  if (recovery) return <RecoveryKeyScreen />;
+  // After creating an account: remember this computer (desktop) or enrol automatic login.
+  const rememberAfterCreate = async (remember, secret) => {
+    if (localDesktop()) {
+      try {
+        await trustedLogin(remember ? "enable" : "disable", secret);
+        await refresh();
+      } catch (e) {
+        setDeviceNotice(remember ? translate("已登录，记住我未能开启：{0}。可在「设置 → 账户」中重试。", e.message) : translate("已登录，记住我未能关闭：{0}。可在「设置 → 账户」中重试。", e.message));
+      }
+    } else if (remember && deviceSupport?.supported && deviceSupport.device_status) {
+      try { await deviceAction("enable", "automatic"); }
+      catch (e) { setDeviceNotice(translate("账户已创建，记住登录未能开启：{0}。可在「设置 → 账户」中重试。", e.message)); }
+    }
+  };
+  const quitButton = nativeAvailable() && (
+    <button
+      className="text-button account-exit-app"
+      onClick={() => native("quitNow").catch((e) => setError(e.message))}
+    >
+      {account?.background_running ? tr("退出应用，后台继续运行") : tr("退出 Cage lite")}
+    </button>
+  );
+  if (setupMode === "ferry") return (
+    <main className="account-gate">
+      <StartupBrand label={tr("首次设置")} />
+      <FerrySetup
+        account={account}
+        act={act}
+        rememberLogin={rememberAfterCreate}
+        onBack={() => setSetupMode(null)}
+        onManual={() => setSetupMode("done")}
+        onDone={(escrow) => { setFerryEscrow(escrow); setSetupMode("done"); }}
+      />
+    </main>
+  );
+  if (recovery) return <RecoveryKeyScreen escrow={ferryEscrow} />;
   if (account?.unlocked) return children;
   if (recovering) return <AccountRecovery onBack={() => setRecovering(false)} onReset={() => { setRecovering(false); setPassword(""); setConfirmation(""); setRememberLogin(false); setError(""); }} />;
   const creating = account && !account.exists;
+  if (creating && !account.trusted_local && setupMode === null) return (
+    <main className="account-gate">
+      <StartupBrand label={tr("首次设置")} />
+      <SetupChooser onCage={() => setSetupMode("cage")} onFerry={() => setSetupMode("ferry")} />
+    </main>
+  );
   const rememberThisDevice = rememberLogin ?? Boolean(creating || account?.trusted_login || account?.devices?.automatic);
   const submit = async (event) => {
     event.preventDefault();
@@ -253,17 +299,7 @@ export function AccountGate({ children }) {
           ? { username, password, confirm_password: confirmation }
           : { password },
       );
-      if (localDesktop()) {
-        try {
-          await trustedLogin(rememberThisDevice ? "enable" : "disable", password);
-          await refresh();
-        } catch (e) {
-          setDeviceNotice(rememberThisDevice ? translate("已登录，记住我未能开启：{0}。可在「设置 → 账户」中重试。", e.message) : translate("已登录，记住我未能关闭：{0}。可在「设置 → 账户」中重试。", e.message));
-        }
-      } else if (creating && rememberThisDevice && deviceSupport?.supported && deviceSupport.device_status) {
-        try { await deviceAction("enable", "automatic"); }
-        catch (e) { setDeviceNotice(translate("账户已创建，记住登录未能开启：{0}。可在「设置 → 账户」中重试。", e.message)); }
-      }
+      if (localDesktop() || creating) await rememberAfterCreate(rememberThisDevice, password);
       setPassword("");
       setConfirmation("");
     } catch (e) {
@@ -280,6 +316,7 @@ export function AccountGate({ children }) {
         className="account-entry"
         aria-label={creating ? isRemoteClient() ? tr("创建云端账户") : tr("创建本地账户") : tr("解锁 Cage lite")}
       >
+        {creating && !account.trusted_local && <SetupBack disabled={busy} onClick={() => { setError(""); setSetupMode(null); }} />}
         {creating ? (
           <CageLogo className="account-welcome-logo" />
         ) : (
@@ -391,19 +428,12 @@ export function AccountGate({ children }) {
           {!creating && !account?.recovery_ready && tr("此账户尚未设置恢复密钥。登录后前往「设置 → 账户」设置。")}
         </p>}
       </section> : <div className="account-entry-pending"><p className="sr-only" role="status">{tr("正在连接 Cage lite")}</p></div>}
-      {nativeAvailable() && (
-        <button
-          className="text-button account-exit-app"
-          onClick={() => native("quitNow").catch((e) => setError(e.message))}
-        >
-          {account?.background_running ? tr("退出应用，后台继续运行") : tr("退出 Cage lite")}
-        </button>
-      )}
+      {!creating && quitButton}
     </main>
   );
 }
 
-function RecoveryKeyScreen() {
+function RecoveryKeyScreen({ escrow }) {
   const tr = useTranslation();
   const { recovery, dismissRecovery } = useAccount();
   const [saved, setSaved] = useState(false);
@@ -412,6 +442,7 @@ function RecoveryKeyScreen() {
     <section className="account-entry account-recovery" aria-label={tr("保存恢复密钥")}>
       <h1>{recovery.reset ? tr("密码已重置") : tr("保存你的恢复密钥")}</h1>
       <p className="account-entry-intro">{recovery.reset && tr("请保存新的恢复密钥。")}{tr("账户：")}{recovery.username}</p>
+      {escrow === "stored" && <p className="account-escrow-state"><Check size={14} />{tr("已交 Ferry 保管")}</p>}
       <label className="account-field">{tr("恢复密钥")}<textarea aria-label={tr("恢复密钥")} readOnly value={recovery.key} rows={4} spellCheck={false} autoComplete="off" onFocus={(event) => event.target.select()} /></label>
       <div className="account-recovery-actions">
         <button className="quiet-button" onClick={async () => {

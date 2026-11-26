@@ -25,6 +25,7 @@ try {
   const page = await browser.newPage({ acceptDownloads: true, viewport: { width: 1280, height: 900 } });
   await page.goto(entry.url);
   await page.getByRole("heading", { name: "注册账户", exact: true }).waitFor();
+  await page.getByRole("button", { name: "从 Cage 配置" }).click();
   await page.getByLabel("用户名", { exact: true }).fill("diagnostics_qa");
   await page.getByLabel("设置密码", { exact: true }).fill("Test-only-password-8712");
   await page.getByLabel("确认密码", { exact: true }).fill("Test-only-password-8712");

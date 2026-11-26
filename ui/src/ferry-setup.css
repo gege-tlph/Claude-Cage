@@ -1,0 +1,136 @@
+/* First screen: two choices, each half of the window. */
+.setup-chooser {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 20px 0 8px;
+  animation: surface-enter 200ms var(--ease-out, ease-out);
+}
+.setup-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  min-height: 240px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl, 18px);
+  background: var(--paper);
+  color: var(--strong);
+  font: inherit;
+  font-size: 22px;
+  font-weight: 550;
+  letter-spacing: -0.2px;
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition: border-color var(--duration-fast, 120ms) var(--ease-out, ease-out), box-shadow var(--duration-fast, 120ms) var(--ease-out, ease-out), transform var(--duration-fast, 120ms) var(--ease-out, ease-out);
+}
+.setup-choice:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md, 0 10px 30px rgb(0 0 0 / 0.08));
+}
+.setup-choice:active { transform: scale(0.995); }
+.setup-choice:focus-visible { outline: 2px solid var(--focus, var(--accent)); outline-offset: 3px; }
+.setup-choice-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  box-shadow: var(--shadow-xs);
+}
+.ferry-mark { flex: none; display: block; }
+.ferry-card-mark { margin: 0 auto; }
+@media (max-width: 640px) {
+  .setup-chooser { grid-template-columns: 1fr; }
+  .setup-choice { min-height: 160px; }
+}
+
+/* Ferry first run. */
+.ferry-setup form { text-align: left; }
+.ferry-steps {
+  list-style: none;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+}
+.ferry-steps li { display: flex; align-items: center; gap: 10px; color: var(--muted); }
+.ferry-steps li[data-state="running"],
+.ferry-steps li[data-state="done"] { color: var(--ink); }
+.ferry-steps li[data-state="failed"] { color: var(--danger); }
+.ferry-step-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+}
+.ferry-steps li[data-state="done"] .ferry-step-mark { border-color: transparent; background: color-mix(in srgb, var(--success) 16%, transparent); color: var(--success); }
+.ferry-steps li[data-state="running"] .ferry-step-mark { border-color: var(--accent); color: var(--accent); }
+.ferry-steps li[data-state="failed"] .ferry-step-mark { border-color: var(--danger); color: var(--danger); }
+.ferry-setup .ferry-link { align-self: center; }
+.ferry-summary {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px 16px;
+  margin: 18px 0 24px;
+  text-align: left;
+  font-size: 14px;
+}
+.ferry-summary dt { color: var(--muted); }
+.ferry-summary dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
+.ferry-muted { color: var(--muted); }
+.ferry-warn { color: var(--danger); }
+.ferry-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+.account-escrow-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: -12px 0 18px;
+  color: var(--success);
+  font-size: 13px;
+}
+
+/* Back (top left) and the Ferry address gear (top right) of first-run cards. */
+.account-entry { position: relative; }
+.setup-back,
+.setup-gear {
+  position: absolute;
+  top: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.setup-back { left: 14px; padding: 4px 8px 4px 4px; }
+.setup-gear { right: 14px; padding: 6px; }
+.setup-back:hover:not(:disabled),
+.setup-gear:hover,
+.setup-gear.is-open { color: var(--ink); background: var(--hover, color-mix(in srgb, var(--ink) 6%, transparent)); }
+.setup-back:disabled { opacity: 0.5; cursor: default; }
+.setup-back:focus-visible,
+.setup-gear:focus-visible { outline: 2px solid var(--focus, var(--accent)); outline-offset: 1px; }
+/* Centred like the Ferry mark, clear of the back button in the corner. */
+.account-entry > .account-welcome-logo { margin-left: auto; margin-right: auto; }

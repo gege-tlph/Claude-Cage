@@ -34,6 +34,7 @@ const menu=()=>page.getByRole('button',{name:/^账户菜单，/});
 try {
  Object.assign(state.account,{exists:false,unlocked:false,username:'',devices:{}});
  await page.reload();
+ await page.getByRole("button", { name: "从 Cage 配置" }).click();
  const defaultRemember=page.getByRole('checkbox',{name:/记住登录/});
  await defaultRemember.waitFor();assert.equal(await defaultRemember.isChecked(),true);
  await page.getByLabel('用户名',{exact:true}).fill('林间工作室');
