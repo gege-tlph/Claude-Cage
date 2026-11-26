@@ -18,7 +18,7 @@ Cage 会复制节点及认证参数，由内置核心独立连接；原软件的
 
 Surge 配置读取 `[Proxy]` 和 `[Proxy Group]` 中的节点，跟随同目录下的本地 `#!include`，`underlying-proxy` 会转成代理链。远程 `#!include` 不会下载，相关节点需在 Surge 中导出完整配置后再导入；WireGuard、Snell v4 及以上、使用钥匙串私钥的 SSH、非 Shadowsocks 的 ShadowTLS，以及链到多成员分组的节点，会在预览中列为未导入。
 
-自动查找限于软件常用的数据目录。如果检测到 `FlClash for oixCloud` 等使用 `age` 加密保存的配置文件，Cage 不会解密私有配置，会在列表中标出客户端名称及不可直接导入的原因；请先从原软件或服务商导出含节点的明文 Clash/Mihomo 配置，再通过“添加来源”导入或手动添加节点。便携版、自定义目录或其他格式同样可通过“添加来源”导入。远程连接不读取服务器上的代理软件配置；请手动上传要使用的配置。
+自动查找限于软件常用的数据目录。如果检测到 `FlClash for oixCloud` 等使用 `age` 加密保存的配置文件，Cage 不会解密私有配置，会在列表中标出客户端名称及不可直接导入的原因；请先从原软件或服务商导出含节点的明文 Clash/Mihomo 配置，再通过“添加来源”导入或手动添加节点。Windows 上的 FlClash for oixCloud 也可能装在 `%APPDATA%\com.follow\FlClash for oixCloud`，配置以 `FLEN` 开头的私有加密格式保存，Cage 同样只标出不可直接导入的原因，请从服务商用户中心或客户端的导出入口取得兼容的 Clash/Mihomo 订阅或 YAML。Windows 上的 SakuraCat（`%APPDATA%\SakuraCat\SakuraCat`）以私有格式保存配置，Cage 只会在列表中标出它并说明迁移方法：通过 SakuraCat 支持的导出入口或服务商用户中心取得个人 Clash/Mihomo 订阅、YAML 或节点分享链接，再通过“添加来源”导入；它的本机代理端口不能直接作为节点。便携版、自定义目录或其他格式同样可通过“添加来源”导入。远程连接不读取服务器上的代理软件配置；请手动上传要使用的配置。
 
 ## 导入自己的代理
 
@@ -42,12 +42,14 @@ Surge 配置读取 `[Proxy]` 和 `[Proxy Group]` 中的节点，跟随同目录�
 | 协议 | 链接格式 | 说明 |
 | --- | --- | --- |
 | Trojan | `trojan://密码@服务器:端口?sni=…#名称` | 支持 `sni`/`peer`、`allowInsecure`、`alpn`、`fp`，传输 `tcp`、`ws`、`grpc`、`h2` |
-| VLESS | `vless://UUID@服务器:端口?security=tls\|reality…#名称` | 支持 `flow`、`sni`、`fp`、`pbk`/`sid`（Reality）及同上传输；`encryption` 非 `none`、`xhttp`、`kcp`、`quic` 暂不支持 |
-| VMess | `vmess://Base64(v2rayN JSON)` | 支持 `tcp`、`ws`、`grpc`、`h2` 与 TLS |
+| VLESS | `vless://UUID@服务器:端口?security=tls\|reality…#名称`，或 Shadowrocket 的 `vless://Base64(auto:UUID@服务器:端口)?remarks=…` | 支持 `flow`、`sni`、`fp`、`pbk`/`sid`（Reality）及同上传输；`encryption` 非 `none`、`xhttp`、`kcp`、`quic` 暂不支持 |
+| VMess | `vmess://Base64(v2rayN JSON)`，或 Shadowrocket 的 `vmess://Base64(加密方式:UUID@服务器:端口)?remarks=…` | 支持 `tcp`、`ws`、`grpc`、`h2` 与 TLS；Shadowrocket 链接另支持 `obfs=http` |
 | Shadowsocks | `ss://Base64(方法:密码)@服务器:端口#名称`（SIP002）或旧式整段 Base64 | 插件只支持 `obfs-local`/`simple-obfs` |
 | Hysteria2 | `hysteria2://` 或 `hy2://认证@服务器:端口?sni=…&obfs=salamander…#名称` | 支持 `insecure`、`mport`、`pinSHA256` |
 | TUIC | `tuic://UUID:密码@服务器:端口?congestion_control=…#名称` | TUIC v4 token 链接暂不支持 |
 | AnyTLS | `anytls://密码@服务器:端口?sni=…#名称` | 支持 `insecure`、`fp`、`alpn` |
+
+Shadowrocket 导出的 VLESS 与 VMess 链接以 `remarks` 作为节点名称，支持 `obfs`（`none`、`websocket`、`grpc`、`h2`，VMess 另支持 `http`）、`obfsParam`、`path`、`tls`、`peer`、`allowInsecure`、`alpn`、`fp`、`tfo`、`udp` 及 VMess 的 `alterId`。开启 `mux` 或 `xtls`、`obfsParam` 为 JSON 请求头，或含其他参数的链接会列在跳过原因中，请改用 Clash/Mihomo YAML。
 
 无法无歧义转换的链接（其他协议、未支持的传输方式或伪装头、缺少端口或凭据等）不会被静默丢弃，会和名称一起列在来源的跳过原因中；跳过原因不包含链接内容或凭据。Xray/v2rayN 原生 JSON 与只引用远程 provider 的配置仍不支持。导入采用支持的节点、代理链及节点域名解析设置，不采用订阅中的主机系统代理、TUN、监听端口或直连规则。同一份配置中 `type: inline` 的 provider 节点会一并导入；设置了 `override` 或过滤规则的 inline provider 会列在跳过原因中。节点的 `dialer-proxy` 指向只含一个本来源节点的分组时，按该节点导入代理链；分组含多个节点、`DIRECT`、`use` 或过滤规则时仍会跳过该节点。
 
@@ -78,7 +80,7 @@ proxies:
 
 同一个订阅地址可能按请求的客户端身份返回不同格式。Cage 下载时使用 Clash 客户端身份，服务商返回 YAML 时可以导入；返回 Base64 或分享链接列表时按上面的分享链接规则导入。
 
-Clash/Mihomo YAML 中的 `dns.proxy-server-nameserver` 会按可用项随来源保存，最多采用 4 个远程 HTTPS DoH 地址（支持域名形式）；其中的非 HTTPS、本机/内网地址、含用户名密码、带 `#` 参数（如 `#skip-cert-verify=true`、`#DIRECT`）或超出上限的条目会被忽略，不会阻断节点导入或订阅更新，未采用自定义地址时回退到 Cage 自身的“节点域名解析”设置。它们仅解析该来源中具体节点的服务器域名；业务 DNS、订阅下载和其他来源继续使用各自的设置，解析服务自身的域名由 Cage 的“节点域名解析”设置引导解析。订阅更新会同步替换或移除这份列表，已导入的订阅需更新一次才能取得该设置。从本机客户端导入时也会按同样规则保留可用列表。Cage 不采用订阅的业务 DNS、DNS 监听端口、hosts 或全局 DNS 匹配规则。
+Clash/Mihomo YAML 中的 `dns.proxy-server-nameserver` 会按可用项随来源保存，最多采用 4 个远程 HTTPS DoH 地址（支持域名形式）；其中的非 HTTPS、本机/内网地址、含用户名密码、带 `#` 参数（如 `#skip-cert-verify=true`、`#h3=true`）或超出上限的条目会被忽略，不会阻断节点导入或订阅更新，未采用自定义地址时回退到 Cage 自身的“节点域名解析”设置。末尾恰为 `#DIRECT` 的地址会去掉该后缀后采用：Cage 本来就经物理网卡直接连接节点 DNS，与 `#DIRECT` 的效果相同；`#direct`、`#DIRECT&h3=true` 等其他写法仍按带参数处理。它们仅解析该来源中具体节点的服务器域名；业务 DNS、订阅下载和其他来源继续使用各自的设置，解析服务自身的域名由 Cage 的“节点域名解析”设置引导解析。订阅更新会同步替换或移除这份列表，已导入的订阅需更新一次才能取得该设置。从本机客户端导入时也会按同样规则保留可用列表。Cage 不采用订阅的业务 DNS、DNS 监听端口、hosts 或全局 DNS 匹配规则。
 
 内置核心按域名区分节点解析服务。多个来源使用同一节点域名且指定不同 DNS 时，导入、更新或应用会报错并保留原配置；可统一这些来源的节点 DNS，或移除冲突来源。
 

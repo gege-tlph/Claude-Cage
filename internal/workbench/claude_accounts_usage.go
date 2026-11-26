@@ -141,7 +141,7 @@ func (s *Server) refreshClaudeUsage(ctx context.Context, input claudeAccountInpu
 		return errors.New("未找到要检查的账号")
 	}
 	if a.CodeUnlinked {
-		return errors.New("Code 尚未授权，请先授权 Code 再查询额度")
+		return errors.New("Code 待授权")
 	}
 	if a.Email == "" {
 		if err = s.refreshClaudeAccount(ctx, input.ID); err != nil {

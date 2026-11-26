@@ -1,11 +1,56 @@
 package workbench
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/sylvinus/agent-vm/internal/cage"
+	"github.com/sylvinus/agent-vm/internal/managedproxy"
 )
+
+func TestFirstStartReportsUnreachableProxyBeforeImageSetup(t *testing.T) {
+	// The startup path validates Lima's socket length before it reaches the
+	// proxy. Keep the isolated profile short, including on Windows CI where
+	// TMP normally points inside a per-run directory under RUNNER_TEMP.
+	switch runtime.GOOS {
+	case "darwin", "linux":
+		t.Setenv("TMPDIR", "/tmp")
+	case "windows":
+		root := os.Getenv("RUNNER_TEMP")
+		if root == "" {
+			var err error
+			root, err = os.UserHomeDir()
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		t.Setenv("TMP", root)
+		t.Setenv("TEMP", root)
+	}
+	s := testServer(t)
+	if err := writePrivate(filepath.Join(s.profile, "environment.json"), cage.EnvironmentRecord{Directory: t.TempDir()}); err != nil {
+		t.Fatal(err)
+	}
+	setupUnreachableManagedProxy(t, s)
+	physical, validate, start := physicalProxyInterface, validateProxyCore, startProxyCore
+	t.Cleanup(func() { physicalProxyInterface, validateProxyCore, startProxyCore = physical, validate, start })
+	physicalProxyInterface = func(context.Context) (string, error) { return "test-uplink", nil }
+	validateProxyCore = func(context.Context, string, managedproxy.Store) error { return nil }
+	startProxyCore = func(context.Context, string, managedproxy.Store) error { return nil }
+	if _, err := s.submitJob("start", func() error { return s.startEnvironment(false) }); err != nil {
+		t.Fatal(err)
+	}
+	s.jobs.workers.Wait()
+	job := s.jobs.snapshot()
+	if job.SetupProgress != nil || !strings.Contains(job.Error, "代理出口预检未通过") || !strings.Contains(job.Error, "首跳状态未确定") || !strings.Contains(job.Error, "代理连接失败") {
+		t.Fatalf("expected a proxy preflight failure before image preparation, got %+v", job)
+	}
+}
 
 func TestRunCagePreservesOriginalVMError(t *testing.T) {
 	if os.Getenv("CAGE_TEST_START_FAILURE_HELPER") == "1" {

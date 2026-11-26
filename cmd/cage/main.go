@@ -156,12 +156,10 @@ func run() int {
 		if len(args) != 1 {
 			return 2
 		}
-		dir, err := os.MkdirTemp("", "cage-vm-assets-")
-		if err != nil {
-			return fail(err)
-		}
-		defer os.RemoveAll(dir)
-		if _, err := limaembed.WriteShare(dir); err != nil {
+		if err := verifyVMAssets(os.MkdirTemp, func(dir string) error {
+			_, err := limaembed.WriteShare(dir)
+			return err
+		}); err != nil {
 			return fail(err)
 		}
 		return 0
@@ -838,7 +836,7 @@ func relay(configPath, kind string) int {
 		return 2
 	}
 	configureRelayCommand(cmd)
-	cmd.Env = append(os.Environ(), cage.ConfigEnv+"="+configPath)
+	cmd.Env = relayEnv(kind, configPath, os.Environ())
 	store := diagnostics.New(filepath.Dir(configPath))
 	out := store.Stream(source, "info")
 	defer out.Close()
@@ -880,6 +878,15 @@ func relay(configPath, kind string) int {
 	return 0
 }
 
+// The relay runs before the host proxy variables are cleared for VM
+// operations, so the proxy core would otherwise inherit them.
+func relayEnv(kind, configPath string, env []string) []string {
+	if kind == "proxy" {
+		env = managedproxy.WithoutHostProxyEnv(env)
+	}
+	return append(env, cage.ConfigEnv+"="+configPath)
+}
+
 func expectedRelayStop(err error, forwarded os.Signal) bool {
 	signal, ok := forwarded.(syscall.Signal)
 	if !ok {
@@ -891,4 +898,16 @@ func expectedRelayStop(err error, forwarded os.Signal) bool {
 	}
 	status, ok := exit.Sys().(syscall.WaitStatus)
 	return ok && status.Signaled() && status.Signal() == signal || exit.ExitCode() == 128+int(signal)
+}
+
+func verifyVMAssets(mktemp func(string, string) (string, error), writeShare func(string) error) error {
+	dir, err := mktemp("", "cage-vm-assets-")
+	if err != nil {
+		if errors.Is(err, os.ErrPermission) {
+			return fmt.Errorf("%w (ensure TEMP/TMP points to a writable directory; on Windows, executables built in a Low Mandatory Level / sandboxed checkout directory cannot write to %%TEMP%% — move the repository to a normal local directory such as C:\\src\\Claude-Cage)", err)
+		}
+		return err
+	}
+	defer os.RemoveAll(dir)
+	return writeShare(dir)
 }

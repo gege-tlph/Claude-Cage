@@ -10,6 +10,10 @@ import (
 func GuestRunner() string {
 	return "#!/usr/bin/python3\n" + `import json, os, re, signal, subprocess, sys
 rules = [(re.compile(pattern), replacement) for pattern, replacement in json.loads(` + string(mustJSON(guestRules())) + `)]
+host_in_message = re.compile(` + string(mustJSON(hostInMessage.String())) + `)
+public_diagnostic = re.compile(` + string(mustJSON(publicDiagnostic.String())) + `)
+def redact_host(match):
+    return match[0] if public_diagnostic.fullmatch(match[0]) else match[1] + '[host]'
 # Handle stop signals before the child exists, so a stop that arrives while
 # it is starting is still forwarded and reported as requested.
 child = None
@@ -48,7 +52,7 @@ while True:
         continue
     for pattern, replacement in rules:
         line = pattern.sub(lambda match: match.expand(replacement), line)
-    print(line.rstrip(), flush=True)
+    print(host_in_message.sub(redact_host, line).rstrip(), flush=True)
 code = child.wait()
 if stopped_signal and code in (-stopped_signal, 128 + stopped_signal):
     code = 0

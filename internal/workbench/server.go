@@ -16,6 +16,7 @@ import (
 	"github.com/sylvinus/agent-vm/internal/host"
 	"github.com/sylvinus/agent-vm/internal/hostimage"
 	"github.com/sylvinus/agent-vm/internal/managedproxy"
+	"github.com/sylvinus/agent-vm/internal/usererror"
 	"io"
 	"io/fs"
 	"log"
@@ -294,6 +295,11 @@ func serve(configPath string, clientOnly bool, fullConfigPath string) (returned 
 			s.safety.monitorError = "旧代理核心尚未停止，请迁移到远程节点后重新应用；外网保持关闭"
 			diagnostics.Log("error", "proxy", "停止旧代理核心失败："+e.Error())
 		}
+		go func() {
+			if e := managedproxy.SweepPreflight(profile); e != nil {
+				diagnostics.Log("warn", "proxy", "清理遗留候选代理失败："+e.Error())
+			}
+		}()
 		// A previously running VM cannot keep an unmanaged endpoint online.
 		if cfg, e := loadConfig(configPath); e != nil || cfg.RequireManagedProxy(profile) != nil {
 			_ = s.closeProxyGate("尚未配置有效节点，外网保持关闭")
@@ -904,7 +910,8 @@ func (s *Server) probe(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := v.Config.RequireManagedProxy(s.profile); err != nil {
+	p, err := managedproxy.Applied(s.profile, v.Config.ProxyURL, v.Config.ProxyRevision)
+	if err != nil {
 		requestError(w, err)
 		return
 	}
@@ -915,7 +922,17 @@ func (s *Server) probe(w http.ResponseWriter, r *http.Request) {
 	}
 	// A candidate bootstrap DNS is tested on an isolated preflight core, so the
 	// active core is only rebound when the probe will actually use it.
-	if p, loadErr := s.proxyStore.Load(s.profile); loadErr != nil || !needsBootstrapPreflight(old, v.Config, p) {
+	if !needsBootstrapPreflight(old, v.Config, p) {
+		// A stopped environment has no running core to verify the exit with.
+		if !s.vmRunning() {
+			checkCtx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+			ready := proxyInterfaceCoreRunning(checkCtx, s.profile, p)
+			cancel()
+			if !ready {
+				requestError(w, usererror.New("验证代理出口", proxyNotReadyReason, "请先启动环境", nil))
+				return
+			}
+		}
 		if err := s.ensureProxyInterfaceBeforeUse(r.Context()); err != nil {
 			requestError(w, err)
 			return
