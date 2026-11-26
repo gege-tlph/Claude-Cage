@@ -14,6 +14,13 @@ import (
 const Repository = "gege-tlph/Claude-Cage"
 const ReleasesURL = "https://api.github.com/repos/" + Repository + "/releases?per_page=100"
 
+// ManifestName is the file each release carries from 0.2.3 on: that release
+// as the releases API lists it. Read from github.com, it does not count
+// against the API's 60 requests an hour per address, which users sharing an
+// address (an office, a proxy node) used up (customer report, 0.2.2).
+const ManifestName = "cage-lite-release.json"
+const LatestManifestURL = "https://github.com/" + Repository + "/releases/latest/download/" + ManifestName
+
 // Releases must stay below the limit of every published App that still updates
 // in place; scripts/prepare-release-assets.mjs enforces that smaller limit.
 const MaxArchive = 2 << 30

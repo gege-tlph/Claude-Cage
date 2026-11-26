@@ -14,25 +14,25 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sylvinus/agent-vm/internal/appupdate/catalog"
 	"github.com/sylvinus/agent-vm/internal/version"
 )
 
 func TestHostUpdateUsesProxyWithoutCageProfile(t *testing.T) {
 	var connects atomic.Int32
-	commit := strings.Repeat("a", 40)
 	origin := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.UserAgent(), "Cage") {
 			t.Error("product identity in request")
 		}
-		if strings.HasSuffix(r.URL.Path, "/commits/main") {
-			io.WriteString(w, `{"sha":"`+commit+`"}`)
+		if strings.HasSuffix(r.URL.Path, "/"+catalog.ManifestName) {
+			io.WriteString(w, `{"tag_name":"v0.2.0"}`)
 		} else {
 			io.WriteString(w, `[{"tag_name":"v0.2.0-rc.1","prerelease":true}]`)
 		}
 	}))
 	defer origin.Close()
 	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "CONNECT" || r.Host != "api.github.com:443" {
+		if r.Method != "CONNECT" || (r.Host != "github.com:443" && r.Host != "api.github.com:443") {
 			t.Errorf("unexpected proxy request: %s %s", r.Method, r.Host)
 			http.Error(w, "bad target", 400)
 			return
@@ -64,8 +64,8 @@ func TestHostUpdateUsesProxyWithoutCageProfile(t *testing.T) {
 	tr := client.Transport.(*updateTransport).host.(*http.Transport)
 	tr.TLSClientConfig = origin.Client().Transport.(*http.Transport).TLSClientConfig.Clone()
 	tr.TLSClientConfig.ServerName = "example.com"
-	got := checkAbout(context.Background(), client, version.Build{Version: "0.1.0", Commit: commit})
-	if connects.Load() == 0 || got.Source.Status != "current" || got.Release.Status != "available" {
+	got := checkAbout(context.Background(), client, version.Build{Version: "0.1.0", Commit: strings.Repeat("a", 40)})
+	if connects.Load() == 0 || got.Release.Status != "available" || got.Release.Version != "0.2.0" {
 		t.Fatalf("CONNECTs=%d result=%+v", connects.Load(), got)
 	}
 }
@@ -88,8 +88,8 @@ func TestUpdateTransportFallsBackOnlyOnConnectionFailure(t *testing.T) {
 		openManaged: func(ctx context.Context) (*http.Client, error) {
 			fallbacks.Add(1)
 			return aboutClient(t, func(r *http.Request) (int, any) {
-				if strings.HasSuffix(r.URL.Path, "/commits/main") {
-					return 200, map[string]string{"sha": strings.Repeat("b", 40)}
+				if strings.HasSuffix(r.URL.Path, "/"+catalog.ManifestName) {
+					return 200, release{Tag: "v0.2.0"}
 				}
 				return 200, []release{{Tag: "v0.2.0"}}
 			}), nil
@@ -98,7 +98,7 @@ func TestUpdateTransportFallsBackOnlyOnConnectionFailure(t *testing.T) {
 	client := updateHTTPClient(tr)
 	defer client.CloseIdleConnections()
 	got := checkAbout(context.Background(), client, version.Build{Version: "0.1.0"})
-	if fallbacks.Load() != 1 || got.Source.Status != "unknown" || got.Release.Status != "available" {
+	if fallbacks.Load() != 1 || got.Release.Status != "available" {
 		t.Fatalf("fallbacks=%d result=%+v", fallbacks.Load(), got)
 	}
 }
@@ -171,8 +171,8 @@ func TestLiveAboutWithStoppedCageProxy(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	got := CheckAbout(ctx, filepath.Join(t.TempDir(), "not-configured.json"))
-	if got.Source.Status == "failed" || !validCommit(got.Source.Commit) || got.Release.Status == "failed" || got.Release.Version == "" {
+	if got.Release.Status == "failed" || got.Release.Version == "" {
 		t.Fatalf("host-only check: %+v", got)
 	}
-	t.Logf("Host-only update check succeeded with no Cage profile: source=%s release=%s prerelease=%t", got.Source.Status, got.Release.Version, got.Release.Prerelease)
+	t.Logf("Host-only update check succeeded with no Cage profile: release=%s prerelease=%t", got.Release.Version, got.Release.Prerelease)
 }

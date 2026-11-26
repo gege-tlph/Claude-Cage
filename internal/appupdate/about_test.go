@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sylvinus/agent-vm/internal/appupdate/catalog"
 	"github.com/sylvinus/agent-vm/internal/version"
 )
 
@@ -27,10 +28,15 @@ func aboutClient(t *testing.T, handle func(*http.Request) (int, any)) *http.Clie
 	})}
 }
 
+// A prerelease build reads the API's full list, prereleases included; a
+// release build reads the latest release's manifest.
 func TestAboutReleaseIncludesPrereleasesWithoutRequiringPlatformAssets(t *testing.T) {
-	for _, current := range []struct{ version, status string }{{"0.1.0", "available"}, {"0.3.0-rc.10", "current"}, {"0.3.0", "ahead"}, {"development", "unknown"}} {
+	for _, current := range []struct{ version, status string }{{"0.3.0-rc.9", "available"}, {"0.3.0-rc.10", "current"}, {"0.3.0-rc.11", "ahead"}} {
 		t.Run(current.version, func(t *testing.T) {
 			client := aboutClient(t, func(r *http.Request) (int, any) {
+				if r.URL.Host != "api.github.com" {
+					t.Errorf("a prerelease build read %s", r.URL)
+				}
 				return 200, []release{{Tag: "v0.2.0"}, {Tag: "v0.3.0-rc.9", Prerelease: true}, {Tag: "v0.3.0-rc.10", Prerelease: true}, {Tag: "v0.4.0", Draft: true}, {Tag: "not-a-version"}}
 			})
 			got := checkPublishedRelease(context.Background(), client, current.version)
@@ -39,73 +45,83 @@ func TestAboutReleaseIncludesPrereleasesWithoutRequiringPlatformAssets(t *testin
 			}
 		})
 	}
-	if got := checkPublishedRelease(context.Background(), responseClient(`[{"tag_name":"v0.1.0","draft":true}]`, 200), "0.1.0"); got.Status != "missing" {
-		t.Fatalf("%+v", got)
-	}
-}
-
-func TestAboutSourceComparisonDirection(t *testing.T) {
-	base, head := strings.Repeat("a", 40), strings.Repeat("b", 40)
-	for _, test := range []struct{ relation, status string }{{"ahead", "available"}, {"behind", "ahead"}, {"diverged", "diverged"}, {"identical", "current"}} {
-		t.Run(test.relation, func(t *testing.T) {
+	for _, current := range []struct{ version, status string }{{"0.2.2", "available"}, {"0.2.3", "current"}, {"0.2.4", "ahead"}, {"development", "unknown"}} {
+		t.Run(current.version, func(t *testing.T) {
 			client := aboutClient(t, func(r *http.Request) (int, any) {
-				switch r.URL.Path {
-				case "/repos/" + repository + "/commits/main":
-					return 200, map[string]any{"sha": head}
-				case "/repos/" + repository + "/compare/" + base + "..." + head:
-					return 200, map[string]any{"status": test.relation, "ahead_by": 3, "behind_by": 2}
-				default:
-					t.Errorf("unexpected request: %s", r.URL)
-					return 404, nil
+				if r.URL.String() != catalog.LatestManifestURL {
+					t.Errorf("a release build read %s", r.URL)
 				}
+				return 200, release{Tag: "v0.2.3"}
 			})
-			got := checkSource(context.Background(), client, base)
-			if got.Status != test.status || got.Commit != head || got.AheadBy != 3 || got.BehindBy != 2 {
+			got := checkPublishedRelease(context.Background(), client, current.version)
+			if got.Status != current.status || got.Version != "0.2.3" || got.Prerelease {
 				t.Fatalf("%+v", got)
 			}
 		})
 	}
-	for _, test := range []struct{ commit, status string }{{head, "current"}, {"", "unknown"}, {"not-a-commit", "unknown"}} {
-		calls := 0
-		client := aboutClient(t, func(r *http.Request) (int, any) { calls++; return 200, map[string]any{"sha": head} })
-		got := checkSource(context.Background(), client, test.commit)
-		if got.Status != test.status || calls != 1 {
-			t.Fatalf("%+v; calls=%d", got, calls)
+	if got := checkPublishedRelease(context.Background(), responseClient(`[{"tag_name":"v0.1.0","draft":true}]`, 200), "0.1.0-rc.1"); got.Status != "missing" {
+		t.Fatalf("%+v", got)
+	}
+}
+
+// The latest release before 0.2.3 has no manifest: the API answers instead.
+// A failure other than a missing manifest is reported, not hidden by the API.
+func TestAboutManifestFallsBackOnlyWhenMissing(t *testing.T) {
+	requests := []string{}
+	client := aboutClient(t, func(r *http.Request) (int, any) {
+		requests = append(requests, r.URL.Host)
+		if r.URL.Host == "github.com" {
+			return 404, map[string]string{"message": "Not Found"}
 		}
+		return 200, []release{{Tag: "v0.2.2"}}
+	})
+	if got := checkPublishedRelease(context.Background(), client, "0.2.1"); got.Status != "available" || got.Version != "0.2.2" || strings.Join(requests, ",") != "github.com,api.github.com" {
+		t.Fatalf("%+v %v", got, requests)
+	}
+	requests = nil
+	client = aboutClient(t, func(r *http.Request) (int, any) {
+		requests = append(requests, r.URL.Host)
+		return 503, nil
+	})
+	if got := checkPublishedRelease(context.Background(), client, "0.2.1"); got.Status != "failed" || strings.Join(requests, ",") != "github.com" {
+		t.Fatalf("%+v %v", got, requests)
+	}
+	// A manifest that does not read as a release is not trusted as one.
+	requests = nil
+	client = aboutClient(t, func(r *http.Request) (int, any) {
+		requests = append(requests, r.URL.Host)
+		if r.URL.Host == "github.com" {
+			return 200, []string{"not", "a", "release"}
+		}
+		return 200, []release{{Tag: "v0.2.2"}}
+	})
+	if got := checkPublishedRelease(context.Background(), client, "0.2.1"); got.Version != "0.2.2" || len(requests) != 2 {
+		t.Fatalf("%+v %v", got, requests)
 	}
 }
 
 func TestAboutChecksPreservePartialSuccess(t *testing.T) {
-	client := aboutClient(t, func(r *http.Request) (int, any) {
-		if strings.HasSuffix(r.URL.Path, "/releases") {
-			return 200, []release{{Tag: "v0.2.0-beta.1", Prerelease: true}}
-		}
-		return 503, nil
-	})
+	client := aboutClient(t, func(r *http.Request) (int, any) { return 429, nil })
 	got := checkAbout(context.Background(), client, version.Build{Version: "0.1.0"})
-	if got.Source.Status != "failed" || got.Source.Error == "" || got.Release.Status != "available" || got.CheckedAt == "" {
-		t.Fatalf("%+v", got)
-	}
-	client = aboutClient(t, func(r *http.Request) (int, any) {
-		if strings.HasSuffix(r.URL.Path, "/commits/main") {
-			return 200, map[string]any{"sha": strings.Repeat("a", 40)}
-		}
-		return 429, nil
-	})
-	got = checkAbout(context.Background(), client, version.Build{Version: "0.1.0"})
-	if got.Source.Status != "unknown" || got.Release.Status != "failed" || got.Release.RetryAt == "" {
+	if got.Release.Status != "failed" || got.Release.RetryAt == "" || got.CheckedAt == "" {
 		t.Fatalf("%+v", got)
 	}
 }
 
 func TestAboutMetadataRejectsUntrustedPaths(t *testing.T) {
-	for _, path := range []string{"commits/other", "compare/../../main", "compare/" + strings.Repeat("a", 40) + "...main", "issues", "../Other/releases"} {
+	for _, path := range []string{"commits/main", "commits/other", "compare/" + strings.Repeat("a", 40) + "..." + strings.Repeat("b", 40), "issues", "../Other/releases"} {
 		u, _ := url.Parse(repositoryAPI + "/" + path)
 		if allowedURL(u, false) {
 			t.Fatalf("accepted %s", u)
 		}
 	}
-	if got := checkSource(context.Background(), responseClient(`{"sha":"invalid"}`, 200), ""); got.Status != "failed" {
-		t.Fatalf("%+v", got)
+	for _, raw := range []string{"https://github.com/" + repository + "/releases/latest/download/other.json", "https://github.com/" + repository + "/releases/latest", "https://github.com/Other/Claude-Cage/releases/latest/download/" + catalog.ManifestName} {
+		u, _ := url.Parse(raw)
+		if allowedURL(u, false) {
+			t.Fatalf("accepted %s", u)
+		}
+	}
+	if u, _ := url.Parse(catalog.LatestManifestURL); !allowedURL(u, false) {
+		t.Fatal("the manifest is not a trusted update source")
 	}
 }

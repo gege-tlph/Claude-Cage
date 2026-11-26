@@ -6,65 +6,89 @@ import { activeInterfaceLanguage, useTranslation } from "./interface-language.mj
 import { localizeBackendMessage } from "./backend-message.mjs";
 
 const repository = "https://github.com/gege-tlph/Claude-Cage";
-const sourceMessages = {
-  current: "已与主分支同步",
-  available: "主分支有新提交",
-  ahead: "当前构建的提交领先于主分支",
-  diverged: "当前构建与主分支存在分叉，请核对差异",
-  unknown: "此构建缺少提交信息，无法核对是否最新",
-};
 const releaseMessages = {
-  current: "已是最新发行版（含预发行）",
+  current: "已是最新版本",
   available: "发现新发行版",
   ahead: "当前版本高于最新发行版",
   unknown: "当前版本无法比较，请核对发行说明",
   missing: "暂无可比较的公开发行版",
 };
+const activePhases = new Set(["checking", "downloading", "downloaded", "verifying", "installing"]);
 
-function RepositoryLink({ kind, onError, children }) {
-  const url = `${repository}/${kind === "source" ? "commits/main" : "releases"}`;
-  return <a href={url} target="_blank" rel="noopener noreferrer" onClick={async event => {
-    if (!nativeAvailable()) return;
-    event.preventDefault();
-    try { await native("appReference", { kind }); }
-    catch (error) { onError(error.message); }
-  }}>{children}<ExternalLink size={13} aria-hidden="true" /></a>;
+// The App's own updater, the one behind the sidebar's update button, read as
+// one release result: About shows the same state and does not ask GitHub
+// again on its own.
+function updaterResult(state) {
+  if (state.phase === "failed" || state.phase === "waiting")
+    return { status: "failed", error: state.message || "更新未完成", retryAt: state.phase === "failed" ? state.retryAt : "" };
+  if (state.phase === "current") return { status: "current", version: state.currentVersion };
+  if (state.latestVersion && ["available", "ready", "manual", ...activePhases].includes(state.phase))
+    return { status: "available", version: state.latestVersion };
+  return null;
 }
 
-function CheckResult({ label, item, source, onError }) {
+function ReleasesLink({ onError }) {
   const tr = useTranslation();
-  return <section className="about-result" aria-label={tr(label)}>
-    <h4>{tr(label)}</h4>
+  return <a href={`${repository}/releases`} target="_blank" rel="noopener noreferrer" onClick={async event => {
+    if (!nativeAvailable()) return;
+    event.preventDefault();
+    try { await native("appReference", { kind: "releases" }); }
+    catch (error) { onError(error.message); }
+  }}>{tr("查看发行说明与下载")}<ExternalLink size={13} aria-hidden="true" /></a>;
+}
+
+// What the sidebar's button does next, as text.
+function UpdaterAction({ updates }) {
+  const tr = useTranslation();
+  const { state, run } = updates;
+  if (state.phase === "downloading") {
+    const percent = state.totalBytes > 0 ? Math.max(0, Math.min(100, Math.floor((state.receivedBytes || 0) / state.totalBytes * 100))) : null;
+    return <p className="about-result-detail" role="status">{percent === null ? tr("正在下载更新") : tr("正在下载更新 {0}%", percent)}</p>;
+  }
+  if (state.phase === "verifying" || state.phase === "downloaded") return <p className="about-result-detail" role="status">{tr("正在验证更新")}</p>;
+  if (state.phase === "installing") return <p className="about-result-detail" role="status">{tr("正在安装更新，完成后自动重启")}</p>;
+  if (state.phase === "available" || state.phase === "ready")
+    return <button className="secondary-button" onClick={() => void run("install")}>{state.phase === "ready" ? tr("安装已下载的更新") : tr("下载更新")}</button>;
+  return null;
+}
+
+function ReleaseResult({ item, updates, onError }) {
+  const tr = useTranslation();
+  return <section className="about-result" aria-label={tr("发行版更新")}>
+    <h4>{tr("发行版更新")}</h4>
     {!item ? <p className="footnote">{tr("尚未检查")}</p> : <>
       <p className={item.error ? "error-message" : "about-result-status"}>
-        {item.error
-          ? localizeBackendMessage(item.error, tr)
-          : tr((source ? sourceMessages : releaseMessages)[item.status])}
+        {item.error ? localizeBackendMessage(item.error, tr) : tr(releaseMessages[item.status])}
       </p>
       {item.retryAt && <p className="footnote">{tr("可于") + " "}{new Date(item.retryAt).toLocaleString(activeInterfaceLanguage())}{" " + tr("后重试")}</p>}
-      {source && item.commit && <p className="about-result-detail">{tr("主分支提交") + " "}<code title={item.commit}>{item.commit.slice(0, 12)}</code></p>}
-      {source && item.status === "available" && item.aheadBy > 0 && <p className="footnote">{tr("主分支新增") + " "}{item.aheadBy}{" " + tr("个提交")}</p>}
-      {!source && item.version && <p className="about-result-detail">{item.version} · {item.prerelease ? tr("预发行版") : tr("正式版")}</p>}
-      <RepositoryLink kind={source ? "source" : "releases"} onError={onError}>{source ? tr("查看源码提交") : tr("查看发行说明与下载")}</RepositoryLink>
+      {item.version && <p className="about-result-detail">{item.version} · {item.prerelease ? tr("预发行版") : tr("正式版")}</p>}
+      {updates && <UpdaterAction updates={updates} />}
     </>}
+    <ReleasesLink onError={onError} />
   </section>;
 }
 
-export function AboutSettings() {
+// updates: the App's updater when this page runs in the App; a browser or
+// remote client checks through the controller instead.
+export function AboutSettings({ updates }) {
   const tr = useTranslation();
+  const own = updates?.available ? updates : null;
   const [build, setBuild] = useState(null);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [clock, setClock] = useState(Date.now);
-  const retryAt = Math.max(Date.parse(result?.source?.retryAt || "") || 0, Date.parse(result?.release?.retryAt || "") || 0);
-  const coolingDown = retryAt > clock;
+  const [checkedAt, setCheckedAt] = useState("");
+  const item = own ? updaterResult(own.state) : result?.release;
+  const checking = own ? own.state.phase === "checking" : busy;
+  const retryAt = Date.parse(item?.retryAt || "") || 0;
+  const coolingDown = own ? own.coolingDown : retryAt > clock;
   useEffect(() => {
-    if (!coolingDown) return;
+    if (own || !coolingDown) return;
     const timer = setTimeout(() => setClock(Date.now()), Math.min(60000, retryAt - Date.now()));
     return () => clearTimeout(timer);
-  }, [clock, coolingDown, retryAt]);
+  }, [clock, coolingDown, retryAt, own]);
   const request = useRef(null);
   useEffect(() => {
     const controller = new AbortController();
@@ -74,13 +98,20 @@ export function AboutSettings() {
     return () => { controller.abort(); request.current?.abort(); };
   }, []);
   const check = async () => {
+    setError("");
+    if (own) {
+      if (activePhases.has(own.state.phase) || own.coolingDown) return;
+      await own.run("check");
+      setCheckedAt(new Date().toISOString());
+      return;
+    }
     if (request.current || retryAt > Date.now()) return;
     const controller = new AbortController();
     request.current = controller;
-    setBusy(true); setError(""); setResult(null);
+    setBusy(true); setResult(null);
     try {
       const next = await api("/client/about", {}, undefined, {}, { signal: controller.signal });
-      setBuild(next.build); setResult(next); setClock(Date.now());
+      setBuild(next.build); setResult(next); setCheckedAt(next.checkedAt || ""); setClock(Date.now());
     } catch (error) { if (!controller.signal.aborted) setError(error.message); }
     finally {
       request.current = null;
@@ -95,17 +126,15 @@ export function AboutSettings() {
     </dl>
     {build?.modified && <p className="footnote">{tr("此构建包含未提交的修改")}</p>}
     <div className="about-check-actions">
-      <button className="secondary-button" onClick={check} disabled={busy || coolingDown}>
-        {busy ? <LoaderCircle size={15} className="spin" /> : <RefreshCw size={15} />}
-        {busy ? tr("正在检查…") : coolingDown ? tr("等待重试") : tr("检测更新")}
+      <button className="secondary-button" onClick={check} disabled={checking || coolingDown || (own && activePhases.has(own.state.phase))}>
+        {checking ? <LoaderCircle size={15} className="spin" /> : <RefreshCw size={15} />}
+        {checking ? tr("正在检查…") : coolingDown ? tr("等待重试") : tr("检测更新")}
       </button>
-      {result?.checkedAt && <span className="footnote">{tr("检查时间：")}{new Date(result.checkedAt).toLocaleString(activeInterfaceLanguage())}</span>}
+      {checkedAt && <span className="footnote">{tr("检查时间：")}{new Date(checkedAt).toLocaleString(activeInterfaceLanguage())}</span>}
     </div>
-    {busy && <p role="status">{tr("正在核对源码提交与发行版…")}</p>}
     {error && <p className="error-message" role="alert">{localizeBackendMessage(error, tr)}</p>}
-    <div className="about-results" aria-live="polite" aria-busy={busy}>
-      <CheckResult label={tr("源码更新")} item={result?.source} source onError={setError} />
-      <CheckResult label={tr("发行版更新（含预发行）")} item={result?.release} onError={setError} />
+    <div className="about-results" aria-live="polite" aria-busy={checking}>
+      <ReleaseResult item={item} updates={own} onError={setError} />
     </div>
   </section>;
 }

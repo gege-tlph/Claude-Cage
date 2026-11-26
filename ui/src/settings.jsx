@@ -70,6 +70,7 @@ export function SettingsPanel({
   onSaved,
   onConfirm,
   initialSection = "keyboard",
+  appUpdates,
 }) {
   const tr = useTranslation();
   const activeWorkspace = workspace || status?.workspace || current.workspace || status?.projects?.[0] || "";
@@ -289,7 +290,7 @@ export function SettingsPanel({
         <div className={section === "archived-sessions" ? "settings-content settings-content--archives" : section === "account" ? "settings-content settings-content--account" : section === "mobile" ? "settings-content settings-content--remote" : "settings-content"} ref={contentRef}>
           {section === "appearance" && <AppearanceSettings />}
           {section === "notifications" && <NotificationSettings />}
-          {section === "about" && <AboutSettings />}
+          {section === "about" && <AboutSettings updates={appUpdates} />}
           {section === "archived-sessions" && <ArchivedSessions ready={status.ready && !busy} />}
           {section === "vault" && <PasswordVaultSettings onConfirm={onConfirm} onDirty={setAccountDirty} />}
           {section === "account" && <AccountSettings busy={busy} onDirty={setAccountDirty} onConfirm={onConfirm} />}

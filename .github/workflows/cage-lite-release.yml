@@ -168,6 +168,9 @@ jobs:
           test -f "Cage-$VERSION-windows-amd64-setup.exe"
           sha256sum -c SHA256SUMS
           sha256sum cage-lite-signing.cer >> SHA256SUMS
+          # In-app updates read this release from github.com, not the API with
+          # its 60 requests an hour per address. Written once SHA256SUMS is final.
+          node "$GITHUB_WORKSPACE/scripts/release-manifest.mjs" "$files" "$VERSION" "$GITHUB_REPOSITORY"
           ls -l
       - name: Draft, check the uploaded files, then publish
         env:
@@ -184,5 +187,6 @@ jobs:
           mkdir "$check"
           gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir "$check"
           (cd "$check" && sha256sum -c "$files/SHA256SUMS")
+          cmp "$check/cage-lite-release.json" "$files/cage-lite-release.json"
           gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false --latest
           echo "Published $tag" >> "$GITHUB_STEP_SUMMARY"

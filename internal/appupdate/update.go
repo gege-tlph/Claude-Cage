@@ -28,6 +28,7 @@ import (
 	"github.com/sylvinus/agent-vm/internal/managedproxy"
 	"github.com/sylvinus/agent-vm/internal/usererror"
 	"github.com/sylvinus/agent-vm/internal/version"
+	"golang.org/x/mod/semver"
 )
 
 const repository = catalog.Repository
@@ -190,21 +191,22 @@ func allowedURL(u *url.URL, redirect bool) bool {
 		if path == u.Path {
 			return false
 		}
-		if path == "releases" || path == "commits/main" {
+		return path == "releases"
+	case "github.com":
+		if u.Path == "/"+repository+"/releases/latest/download/"+catalog.ManifestName {
 			return true
 		}
-		if comparison, ok := strings.CutPrefix(path, "compare/"); ok {
-			base, head, found := strings.Cut(comparison, "...")
-			return found && validCommit(base) && validCommit(head)
-		}
-		return false
-	case "github.com":
 		return strings.HasPrefix(u.Path, "/"+repository+"/releases/download/") && !strings.Contains(u.Path, "/../")
 	case "release-assets.githubusercontent.com", "objects.githubusercontent.com":
 		return redirect
 	}
 	return false
 }
+
+// notFoundError is a 404 of the update source.
+type notFoundError struct{ error }
+
+func (e *notFoundError) Unwrap() error { return e.error }
 
 // transientError marks failures that a later attempt can continue from.
 type transientError struct{ error }
@@ -251,7 +253,7 @@ func requestFrom(ctx context.Context, client *http.Client, raw string, offset in
 			if strings.Contains(u.Path, "/compare/") {
 				return nil, errors.New("当前构建提交未被源码仓库收录，无法核对提交关系")
 			}
-			return nil, errors.New("更新源找不到请求的版本或安装包（HTTP 404）。请稍后检查更新；需要手动安装时，请核对 Cage lite 发布页面中的对应平台文件。")
+			return nil, &notFoundError{errors.New("更新源找不到请求的版本或安装包（HTTP 404）。请稍后检查更新；需要手动安装时，请核对 Cage lite 发布页面中的对应平台文件。")}
 		case 403, 429:
 			return nil, updateSourceError(resp, time.Now())
 		default:
@@ -278,6 +280,35 @@ func limitedBody(resp *http.Response, limit int64) ([]byte, error) {
 }
 
 func findRelease(ctx context.Context, client *http.Client, current string) (*candidate, error) {
+	releases, err := publishedReleases(ctx, client, current)
+	if err != nil {
+		return nil, err
+	}
+	return catalog.Select(releases, current, runtime.GOOS, runtime.GOARCH)
+}
+
+// publishedReleases reads the latest release's manifest (catalog.ManifestName)
+// and falls back to the releases API only where it has none: a latest
+// release from before 0.2.3, or a manifest that does not read as one. A
+// prerelease build follows the API's full list, which has prereleases too.
+func publishedReleases(ctx context.Context, client *http.Client, current string) ([]release, error) {
+	if semver.Prerelease("v"+current) == "" {
+		resp, err := request(ctx, client, catalog.LatestManifestURL)
+		var missing *notFoundError
+		switch {
+		case err == nil:
+			b, err := limitedBody(resp, maxMetadata)
+			if err != nil {
+				return nil, err
+			}
+			var latest release
+			if json.Unmarshal(b, &latest) == nil && latest.Tag != "" {
+				return []release{latest}, nil
+			}
+		case !errors.As(err, &missing):
+			return nil, err
+		}
+	}
 	resp, err := request(ctx, client, releasesURL)
 	if err != nil {
 		return nil, err
@@ -290,7 +321,7 @@ func findRelease(ctx context.Context, client *http.Client, current string) (*can
 	if json.Unmarshal(b, &releases) != nil {
 		return nil, errors.New("更新源返回了无效的版本信息")
 	}
-	return catalog.Select(releases, current, runtime.GOOS, runtime.GOARCH)
+	return releases, nil
 }
 
 func releaseDigest(ctx context.Context, client *http.Client, c candidate) (string, error) {

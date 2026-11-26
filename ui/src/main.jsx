@@ -2387,6 +2387,7 @@ function App() {
           onClose={() => setSettingsOpen(false)}
           onSaved={refreshSettings}
           onConfirm={confirm}
+          appUpdates={appUpdates}
         />
       )}
       {projectDialog && (
