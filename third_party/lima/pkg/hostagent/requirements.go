@@ -22,11 +22,29 @@ import (
 	"github.com/lima-vm/lima/v2/pkg/sshutil"
 )
 
+// waitForFinalRequirements waits for the boot marker. A first boot whose
+// progress is followed (bootDeadline set) can install packages for a long time
+// on a slow network: the progress watcher owns the idle limit, so the marker
+// check retries until that boot's overall deadline instead of the ordinary 200
+// attempts, which ended a still progressing installation after 10 minutes
+// (upstream #981).
+func (a *HostAgent) waitForFinalRequirements(ctx context.Context, bootDeadline time.Time) error {
+	if *a.instConfig.OS == limatype.WINDOWS {
+		return a.waitForRequirements(ctx, "final", a.finalWinRequirements())
+	}
+	final := a.finalRequirements()
+	if bootDeadline.IsZero() {
+		return a.waitForRequirements(ctx, "final", final)
+	}
+	ctx, cancel := context.WithDeadline(ctx, bootDeadline)
+	defer cancel()
+	return checkRequirements(ctx, "final", final, 0, a.waitForRequirement)
+}
+
 // waitForRequirements stops retrying once ctx ends: a host agent shutting
 // down, for example stopped right after a start, does not keep probing a
 // guest it is powering off.
 func (a *HostAgent) waitForRequirements(ctx context.Context, label string, requirements []requirement) error {
-	const sleepDuration = 3 * time.Second
 	retries := 200
 	if *a.instConfig.OS == limatype.DARWIN && *a.instConfig.VMType == limatype.QEMU {
 		var opts limatype.QEMUOpts
@@ -36,17 +54,29 @@ func (a *HostAgent) waitForRequirements(ctx context.Context, label string, requi
 			retries = 1200
 		}
 	}
-	var errs []error
-
 	fn := a.waitForRequirement
 	if *a.instConfig.OS == limatype.WINDOWS {
 		fn = a.waitForWinRequirement
 	}
+	return checkRequirements(ctx, label, requirements, retries, fn)
+}
 
+// requirementRetryInterval separates two checks of one requirement.
+const requirementRetryInterval = 3 * time.Second
+
+// checkRequirements checks each requirement until it holds, it fails fatally,
+// it has failed retries times, or ctx ends. A zero retries keeps checking
+// until ctx ends.
+func checkRequirements(ctx context.Context, label string, requirements []requirement, retries int, fn func(requirement) error) error {
+	var errs []error
 	for i, req := range requirements {
 		logrus.Infof("Waiting for the %s requirement %d of %d: %#q", label, i+1, len(requirements), req.description)
 	retryLoop:
-		for j := range retries {
+		for j := 1; ; j++ {
+			if err := ctx.Err(); err != nil {
+				logrus.Infof("Stopped waiting for the %s requirements: %v", label, err)
+				return errors.Join(append(errs, err)...)
+			}
 			err := fn(req)
 			if err == nil {
 				logrus.Infof("The %s requirement %d of %d is satisfied", label, i+1, len(requirements))
@@ -57,15 +87,15 @@ func (a *HostAgent) waitForRequirements(ctx context.Context, label string, requi
 				errs = append(errs, fmt.Errorf("failed to satisfy the %s requirement %d of %d %#q: %s; skipping further checks: %w", label, i+1, len(requirements), req.description, req.debugHint, err))
 				return errors.Join(errs...)
 			}
-			if j == retries-1 {
+			if j == retries {
 				errs = append(errs, fmt.Errorf("failed to satisfy the %s requirement %d of %d %#q: %s: %w", label, i+1, len(requirements), req.description, req.debugHint, err))
 				break retryLoop
 			}
 			select {
 			case <-ctx.Done():
 				logrus.Infof("Stopped waiting for the %s requirements: %v", label, ctx.Err())
-				return errors.Join(append(errs, ctx.Err())...)
-			case <-time.After(sleepDuration):
+				return errors.Join(append(errs, fmt.Errorf("waiting for the %s requirement %#q: %w: %w", label, req.description, ctx.Err(), err))...)
+			case <-time.After(requirementRetryInterval):
 			}
 		}
 	}
