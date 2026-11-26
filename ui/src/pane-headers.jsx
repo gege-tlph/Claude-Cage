@@ -55,7 +55,7 @@ export function TerminalHeader({ tab, contentWorkspace, project, metadata, termi
           <button
             className="icon-button"
             aria-label={archives ? tr("归档当前会话") : tr("关闭当前标签")}
-            title={shortcut(archives ? "归档当前会话 ⌘W" : "关闭当前标签 ⌘W")}
+            title={shortcut(tr(archives ? "归档当前会话 ⌘W" : "关闭当前标签 ⌘W"))}
             onClick={onClose}
             disabled={busy}
           >
@@ -78,7 +78,7 @@ export function BrowserTabRail({ tabs, metadata, active, ready, busy, splitDrag,
   return <aside className="chrome browser-tab-rail" aria-label={tr("竖排标签栏")}>
     <div className="browser-tab-rail-heading">
       {sidebarButton}<strong>{tr("标签页")}</strong>
-      <button className="icon-button browser-new-tab" aria-label={tr("新建网页")} title={shortcut("新建网页 ⌘T")}
+      <button className="icon-button browser-new-tab" aria-label={tr("新建网页")} title={shortcut(tr("新建网页 ⌘T"))}
         disabled={!ready || busy} onClick={onNew}><Plus size={17} /></button>
     </div>
     <WorkspaceTabs tabs={tabs} saved={metadata} active={active} label={tr("浏览器标签页")} vertical
@@ -148,7 +148,7 @@ export function BrowserHeader({ vault, onManageVault, tab, tabs, metadata, ready
         ref={triggerRef}
         data-terminal-location={location}
         aria-label={tr("新建网页")}
-        title={shortcut("新建网页 ⌘T")}
+        title={shortcut(tr("新建网页 ⌘T"))}
         disabled={!ready || busy}
         onClick={onNew}
       >

@@ -176,7 +176,7 @@ export function BrowserFavorites({ current, ready, onOpen, shortcuts = true, men
           className={`${menu ? "browser-menu-item" : "icon-button"} favorite-star ${favorite ? "saved" : ""}`}
           role={menu ? "menuitem" : undefined}
           aria-label={favorite ? tr("编辑此页收藏") : tr("收藏此页")}
-          title={shortcut(favorite ? "编辑此页收藏 ⌘D" : "收藏此页 ⌘D")}
+          title={shortcut(tr(favorite ? "编辑此页收藏 ⌘D" : "收藏此页 ⌘D"))}
           disabled={!canSave || !data}
           onClick={(event) => {
             event.currentTarget.focus();
@@ -191,7 +191,7 @@ export function BrowserFavorites({ current, ready, onOpen, shortcuts = true, men
           className={menu ? "browser-menu-item" : "icon-button"}
           role={menu ? "menuitem" : undefined}
           aria-label={tr("收藏夹")}
-          title={shortcut("收藏夹 ⌘⇧O")}
+          title={shortcut(tr("收藏夹 ⌘⇧O"))}
           aria-expanded={open}
           onClick={() => (open ? setOpen(false) : show())}
         >
