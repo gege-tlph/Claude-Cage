@@ -381,6 +381,13 @@ func PrepareUpdate(configPath string, stop bool) (DesktopResult, error) {
 	}
 	return DesktopResult{Status: "stop_required", Message: message}, nil
 }
+
+// stopHandoffWait covers a VM that shuts down within the stop's own budget
+// (internal/vm: 3 minutes 10 seconds). Two minutes cancelled updates whose
+// VM was still shutting down normally (upstream #1051). The App waits longer
+// for the commands that stop: Backend.StopDeadline.
+const stopHandoffWait = 4 * time.Minute
+
 func (c *controllerClient) stopAndHandoff() error {
 	legacy := c.launch.Controller.Protocol == 0
 	var owner legacyProcessIdentity
@@ -439,7 +446,7 @@ func (c *controllerClient) stopAndHandoff() error {
 	if status != http.StatusOK || requested.ID == "" {
 		return errors.New("后台未接受停止请求，已取消本次更新。")
 	}
-	deadline := time.Now().Add(2 * time.Minute)
+	deadline := time.Now().Add(stopHandoffWait)
 	for {
 		var state struct {
 			VMRunning *bool `json:"vm_running"`

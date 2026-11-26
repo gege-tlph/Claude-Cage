@@ -74,6 +74,10 @@ internal static class Backend
         return start;
     }
 
+    // A command that stops the environment: the controller waits up to four
+    // minutes for a VM that shuts down within its own budget (#1051).
+    public static readonly TimeSpan StopDeadline = TimeSpan.FromMinutes(5);
+
     public static Task<(int Exit, JsonElement Data)> Json(string[] arguments, CancellationToken cancellation = default, TimeSpan? deadline = null, int outputLimit = 65536) =>
         JsonAt(Executable, arguments, cancellation, deadline, outputLimit);
 
