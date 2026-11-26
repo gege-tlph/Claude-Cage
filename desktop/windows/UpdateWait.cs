@@ -75,8 +75,7 @@ internal static class UpdateWait
     {
         var proceed = true;
         var finished = false;
-        using var window = new UpdateWindow(null, ["正在更新"]);
-        window.SetStep(0, null);
+        using var window = new UpdateWindow(InterfaceLanguage.Text("正在更新"), []);
         var deadline = DateTime.UtcNow + timeout;
         var nextHelperCheck = DateTime.UtcNow;
         using var timer = new System.Windows.Forms.Timer { Interval = 250 };

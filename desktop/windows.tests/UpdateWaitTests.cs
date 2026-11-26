@@ -309,6 +309,7 @@ internal static class UpdateWaitTests
         Directory.CreateDirectory(directory);
         void Save(UpdateWindow window, string name)
         {
+            window.Settle();
             window.StartPosition = FormStartPosition.Manual; window.Location = new Point(-4000, -4000);
             window.Show(); window.PerformLayout(); Application.DoEvents();
             using var image = new Bitmap(window.Width, window.Height);
@@ -317,20 +318,26 @@ internal static class UpdateWaitTests
             window.Close();
         }
         string[] steps = ["备份", "停止环境", "安装", "启动新版"];
-        using (var running = new UpdateWindow("0.2.3  →  0.2.4", steps)) { running.SetStep(2, 62); Save(running, "1-installing"); }
-        using (var restoring = new UpdateWindow("0.2.3  →  0.2.4", steps)) { restoring.SetStep(3, null); restoring.SetStatus("正在恢复 0.2.3"); Save(restoring, "2-restoring"); }
-        using (var failed = new UpdateWindow("0.2.3  →  0.2.4", steps))
+        foreach (var dark in new[] { false, true })
         {
-            failed.SetStep(3, null);
-            failed.Fail(3, "已恢复 0.2.3", ("打开 Cage lite", _ => { }), ("导出诊断包", _ => { }));
-            Save(failed, "3-restored");
+            UpdateWindow.DarkOverride = dark;
+            var theme = dark ? "dark-" : "light-";
+            using (var running = new UpdateWindow("0.2.3  →  0.2.4", steps)) { running.SetStep(2, 62); Save(running, theme + "1-installing"); }
+            using (var restoring = new UpdateWindow("0.2.3  →  0.2.4", steps)) { restoring.SetStep(3, null); restoring.SetStatus("正在恢复 0.2.3"); Save(restoring, theme + "2-restoring"); }
+            using (var failed = new UpdateWindow("0.2.3  →  0.2.4", steps))
+            {
+                failed.SetStep(3, null);
+                failed.Fail(3, "已恢复 0.2.3", ("打开 Cage lite", _ => { }), ("导出诊断包", _ => { }));
+                Save(failed, theme + "3-restored");
+            }
+            using (var waiting = new UpdateWindow("正在更新", [])) Save(waiting, theme + "4-waiting");
         }
-        using (var waiting = new UpdateWindow(null, ["正在更新"])) { waiting.SetStep(0, null); Save(waiting, "4-waiting"); }
+        UpdateWindow.DarkOverride = null;
     }
 
     private static void ApplicationConfiguration()
     {
-        try { Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false); }
+        try { Application.SetHighDpiMode(HighDpiMode.PerMonitorV2); Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false); }
         catch (InvalidOperationException) { }
     }
 }
