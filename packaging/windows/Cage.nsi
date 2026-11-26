@@ -519,6 +519,22 @@ Section "Cage" Main
   !insertmacro AcquireInstallationMutex
   StrCpy $TransactionRecord "$INSTDIR.cage-installation.json"
   ${If} ${FileExists} "$TransactionRecord"
+    ; An in-app update rollback that moved nothing leaves a receipt that would
+    ; stop every later installation; the helper archives only such a receipt.
+    !insertmacro InstallPhase "healing_transaction_record"
+    InitPluginsDir
+    SetOutPath "$PLUGINSDIR"
+    File /oname=installation-files.ps1 "installation-files.ps1"
+    File /oname=verified-file-deletion.cs "verified-file-deletion.cs"
+    SetOutPath "$TEMP"
+    nsExec::ExecToStack '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\installation-files.ps1" -Operation heal -Target "$INSTDIR" -Receipt "$TransactionRecord" $DiagnosticArguments'
+    Pop $0
+    Pop $1
+    StrCpy $HelperExit $0
+    Call WriteInstallDiagnostic
+    DetailPrint "$1"
+  ${EndIf}
+  ${If} ${FileExists} "$TransactionRecord"
     SetErrorLevel 2
     Abort "$(CageSetupDetail5)"
   ${EndIf}

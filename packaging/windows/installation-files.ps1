@@ -1,7 +1,7 @@
 ﻿#requires -Version 5.1
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('prepare', 'move', 'restore', 'cleanup', 'complete', 'abandon', 'uninstall', 'detach', 'attach')][string]$Operation,
+    [Parameter(Mandatory)][ValidateSet('prepare', 'move', 'restore', 'cleanup', 'complete', 'abandon', 'uninstall', 'detach', 'attach', 'heal')][string]$Operation,
     [Parameter(Mandatory)][string]$Target,
     [string]$Source,
     [string]$Receipt,
@@ -496,6 +496,28 @@ if ($Operation -eq 'prepare') {
 } elseif ($Operation -eq 'complete') {
     $diagnosticStep = 'completing_transaction_receipt'
     Complete-Transfer
+} elseif ($Operation -eq 'heal') {
+    # The in-app updater's rollback copies the previous App to
+    # <installation>.restore-<id>, writes this receipt, then detaches. When
+    # detaching fails it puts every entry back and the receipt stays, though
+    # nothing moved (customer report, 0.2.2): the installation folder is as
+    # before and every later installation stopped at the receipt. Only such
+    # a receipt is archived; the restore copy stays where it is.
+    $diagnosticStep = 'healing_unmoved_rollback'
+    $transfer = Get-Content -LiteralPath $Receipt -Raw -Encoding UTF8 | ConvertFrom-Json
+    $restorePrefix = $Target + '.restore-'
+    $stage = [string]$transfer.stagePath
+    $id = [guid]::Empty
+    $unmoved = $transfer.kind -eq 'cage-installation' -and $transfer.version -eq 1 -and $transfer.installPath -and
+        [IO.Path]::GetFullPath([string]$transfer.installPath).TrimEnd([IO.Path]::DirectorySeparatorChar) -eq $Target -and
+        $stage.StartsWith($restorePrefix, [StringComparison]::OrdinalIgnoreCase) -and [guid]::TryParse($stage.Substring($restorePrefix.Length), [ref]$id) -and
+        !($transfer.backupPath -and (Test-Path -LiteralPath ([string]$transfer.backupPath))) -and
+        !@($transfer.moves | Where-Object { $_.state -ne 'prepared' }).Count -and
+        (Test-Path -LiteralPath (Join-Path $Target $identityName) -PathType Leaf)
+    if (!$unmoved) { throw '安装事务涉及已搬移的文件，回执已保留待核对。' }
+    $archive = $Target + '.cage-installation-archived-' + [DateTime]::Now.ToString('yyyyMMdd-HHmmss') + '-' + $id.ToString('N').Substring(0, 8) + '.json'
+    [IO.File]::Move($Receipt, $archive)
+    Write-Output ('未搬移文件的更新回滚记录已归档：' + $archive)
 } elseif ($Operation -eq 'abandon') {
     # A first installation that could not publish its staged folder has no
     # previous installation, backup or moved entry to recover. Only then is

@@ -491,6 +491,48 @@ try {
         Invoke-Helper @('-Operation','complete','-Target',$old,'-Receipt',$receipt)
         Check (!(Test-Path -LiteralPath $receipt)) 'Completing a failed detach left its receipt.'
 
+        # The in-app updater's rollback whose detach failed (customer report,
+        # 0.2.2): the installation is the new version as before, the previous
+        # App sits in <installation>.restore-<id>, and the receipt stopped
+        # every later installation. The installer archives exactly that one.
+        $scenario = Join-Path $root 'heal-unmoved-rollback'
+        $old = Join-Path $scenario 'Cage'; $id = [guid]::NewGuid().ToString()
+        $restore = $old + '.restore-' + $id; $failed = $old + '.failed-' + $id; $receipt = $old + '.cage-installation.json'
+        App $old 'candidate'; App $restore 'previous'
+        Write-File (Join-Path $old 'CageData/vm/disk.vhdx') 'persistent disk'
+        Write-File (Join-Path $old 'my-project/work.txt') 'kept project'
+        $before = @(Get-ChildItem -LiteralPath $old -Force -Recurse | ForEach-Object { $_.FullName }) -join ','
+        Invoke-Helper @('-Operation','prepare','-Source',$old,'-Target',$restore,'-Receipt',$receipt,'-Backup',$failed,'-LegacyTarget','-KeepInPlace','CageData')
+        $held = [IO.File]::Open((Join-Path $old 'program.txt'), 'Open', 'Read', 'Read')
+        try { Invoke-Helper @('-Operation','detach','-Source',$old,'-Target',$failed,'-Receipt',$receipt) 1 }
+        finally { $held.Dispose() }
+        Check ((Test-Path -LiteralPath $receipt) -and !(Test-Path -LiteralPath $failed)) 'The failed rollback fixture is not the reported state.'
+        $original = [IO.File]::ReadAllBytes($receipt)
+        $variants = @(
+            @{name = 'installer'; edit = { param($t) $t.stagePath = (Join-Path $scenario 'nsA1B2.tmp') }},
+            @{name = 'moved'; edit = { param($t) $t.moves = @(@{path = 'my-project'; destination = 'my-project'; directory = $true; state = 'moved'}) }},
+            @{name = 'other'; edit = { param($t) $t.installPath = (Join-Path $scenario 'Other') }}
+        )
+        foreach ($variant in $variants) {
+            $transfer = [Text.Encoding]::UTF8.GetString($original).TrimStart([char]0xFEFF) | ConvertFrom-Json
+            & $variant.edit $transfer
+            $transfer | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $receipt -Encoding UTF8
+            Invoke-Helper @('-Operation','heal','-Target',$old,'-Receipt',$receipt) 1
+            Check (Test-Path -LiteralPath $receipt) ('Healing dropped a receipt it must keep: ' + $variant.name)
+        }
+        [IO.File]::WriteAllBytes($receipt, $original)
+        [IO.Directory]::CreateDirectory($failed) | Out-Null
+        Write-File (Join-Path $failed 'program.txt') 'moved away'
+        Invoke-Helper @('-Operation','heal','-Target',$old,'-Receipt',$receipt) 1
+        Check (Test-Path -LiteralPath $receipt) 'Healing dropped a receipt whose backup folder holds files.'
+        Remove-TestTree $failed; [IO.Directory]::Delete($failed)
+        Invoke-Helper @('-Operation','heal','-Target',$old,'-Receipt',$receipt)
+        $archived = @(Get-ChildItem -LiteralPath $scenario -File -Filter 'Cage.cage-installation-archived-*.json')
+        Check (!(Test-Path -LiteralPath $receipt) -and $archived.Count -eq 1) 'Healing did not archive the unmoved rollback receipt.'
+        Check ([Convert]::ToBase64String([IO.File]::ReadAllBytes($archived[0].FullName)) -eq [Convert]::ToBase64String($original)) 'The archived receipt changed.'
+        Check ((@(Get-ChildItem -LiteralPath $old -Force -Recurse | ForEach-Object { $_.FullName }) -join ',') -eq $before) 'Healing changed the installation.'
+        Check ((Get-Content (Join-Path $restore 'program.txt') -Raw) -eq 'previous') 'Healing removed the restore copy.'
+
         # A process still running the replaced program keeps its file open:
         # cleanup can neither delete it nor move its folder. Unchanged program
         # bytes stay behind; anything else keeps the receipt until it moves.
