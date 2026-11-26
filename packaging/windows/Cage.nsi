@@ -127,20 +127,25 @@ Function UnpackFailed
   Push $2
   Push $3
   ${If} $DiagnosticFile != ""
+    ; On a full disk these may not fit either (a silent install skips the
+    ; file); then there is no report, and the staged folder still goes.
     InitPluginsDir
     SetOutPath "$PLUGINSDIR"
+    ClearErrors
     File /oname=installation-files.ps1 "installation-files.ps1"
     File /oname=install-files.json "${FILE_MANIFEST}"
-    SetOutPath "$TEMP"
-    nsExec::ExecToStack '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\installation-files.ps1" -Operation inspect-stage -Target "$StageDir" -Manifest "$PLUGINSDIR\install-files.json"'
-    Pop $0
-    Pop $1
-    StrCpy $2 $1 1
-    StrCpy $3 $1 "" -1
-    ${If} $0 == 0
-    ${AndIf} $2 == "{"
-    ${AndIf} $3 == "}"
-      StrCpy $UnpackReport ',"unpack":$1'
+    ${IfNot} ${Errors}
+      SetOutPath "$TEMP"
+      nsExec::ExecToStack '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\installation-files.ps1" -Operation inspect-stage -Target "$StageDir" -Manifest "$PLUGINSDIR\install-files.json"'
+      Pop $0
+      Pop $1
+      StrCpy $2 $1 1
+      StrCpy $3 $1 "" -1
+      ${If} $0 == 0
+      ${AndIf} $2 == "{"
+      ${AndIf} $3 == "}"
+        StrCpy $UnpackReport ',"unpack":$1'
+      ${EndIf}
     ${EndIf}
   ${EndIf}
   SetOutPath "$TEMP"
