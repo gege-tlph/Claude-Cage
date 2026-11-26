@@ -767,13 +767,51 @@ func providerPath(root, providers, path string) (string, bool) {
 	return rel, err == nil && filepath.IsLocal(rel)
 }
 
+// lenientHosts reads a hosts mapping entry by entry; entries that do not
+// decode, and repeated names after the first, are left out.
+func lenientHosts(n yaml.Node) map[string]any {
+	if n.Kind != yaml.MappingNode {
+		return nil
+	}
+	out := map[string]any{}
+	for i := 0; i+1 < len(n.Content); i += 2 {
+		var name string
+		var value any
+		if n.Content[i].Decode(&name) != nil || n.Content[i+1].Decode(&value) != nil {
+			continue
+		}
+		if _, seen := out[name]; !seen {
+			out[name] = value
+		}
+	}
+	return out
+}
+
+// lenientGroups reads proxy-groups entry by entry, leaving out entries that
+// are not mappings or do not decode.
+func lenientGroups(n yaml.Node) []map[string]any {
+	if n.Kind != yaml.SequenceNode {
+		return nil
+	}
+	var out []map[string]any
+	for _, item := range n.Content {
+		var group map[string]any
+		if item.Kind == yaml.MappingNode && item.Decode(&group) == nil {
+			out = append(out, group)
+		}
+	}
+	return out
+}
+
 // selected names each proxy group's member the client saved as its choice, when
 // the client keeps one; it may be nil.
 func nodeData(root, providers string, data []byte, selected map[string]string) ([]byte, string, error) {
 	var input struct {
-		DNS       yaml.Node        `yaml:"dns"`
-		Hosts     map[string]any   `yaml:"hosts"`
-		Groups    []map[string]any `yaml:"proxy-groups"`
+		DNS yaml.Node `yaml:"dns"`
+		// Only used to fill in nodes: an entry that does not decode is
+		// skipped rather than failing the whole import.
+		Hosts     yaml.Node        `yaml:"hosts"`
+		Groups    yaml.Node        `yaml:"proxy-groups"`
 		Proxies   []map[string]any `yaml:"proxies"`
 		Payload   []map[string]any `yaml:"payload"`
 		Providers map[string]struct {
@@ -838,8 +876,8 @@ func nodeData(root, providers string, data []byte, selected map[string]string) (
 			return nil, "", err
 		}
 	}
-	expandNodeHosts(input.Hosts, input.Proxies)
-	notes := resolveDialerGroups(input.Proxies, input.Groups, selected)
+	expandNodeHosts(lenientHosts(input.Hosts), input.Proxies)
+	notes := resolveDialerGroups(input.Proxies, lenientGroups(input.Groups), selected)
 	// Keep identical nodes found in both the runtime and provider cache once.
 	seen := map[string]bool{}
 	unique := []map[string]any{}

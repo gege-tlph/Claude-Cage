@@ -204,3 +204,36 @@ items:
 		t.Fatalf("node DNS = %v", servers)
 	}
 }
+
+// hosts and proxy-groups only fill in nodes: a repeated name or an entry of
+// the wrong kind there does not fail the import.
+func TestNodeDataSkipsBrokenHostsAndGroupEntries(t *testing.T) {
+	data := []byte(`
+hosts:
+  entry-alias.example.test: 203.0.113.20
+  entry-alias.example.test: 203.0.113.99
+  odd.example.test: {nested: map}
+proxy-groups:
+  - just-a-string
+  - {name: AI稳定, type: url-test, proxies: [SG-1]}
+proxies:
+  - {name: SG-1, type: trojan, server: entry-alias.example.test, port: 443, password: p}
+  - {name: HOME, type: socks5, server: home.example.test, port: 1080, dialer-proxy: AI稳定}
+`)
+	out, warning, err := nodeData(t.TempDir(), "", data, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var store managedproxy.Store
+	if err := store.Import("x", "", out, "x", 0, ""); err != nil {
+		t.Fatal(err, warning)
+	}
+	for _, n := range store.Sources[0].Nodes {
+		if n.Name == "SG-1" && n.Config["server"] != "203.0.113.20" {
+			t.Fatalf("first hosts entry not used: %v", n.Config)
+		}
+		if n.Name == "HOME" && n.Config["dialer-proxy"] == "AI稳定" {
+			t.Fatalf("group after a broken entry not resolved: %v", n.Config)
+		}
+	}
+}
