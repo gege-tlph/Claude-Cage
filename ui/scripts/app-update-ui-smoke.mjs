@@ -63,7 +63,7 @@ try {
   await page.getByRole("button", { name: "正在验证更新", exact: true }).waitFor();
   assert.equal(fixture.state.requests.filter(request => request.path === "/stop").length, 0, "downloading and verification must leave the environment running");
   await publish({ ...update, phase: "ready" });
-  const prompt = page.getByRole("dialog", { name: "停止环境并安装更新？" });
+  const prompt = page.getByRole("dialog", { name: "安装 " + update.latestVersion });
   await prompt.waitFor();
   await prompt.screenshot({ path: `${output}/stop-before-install.png`, animations: "disabled" });
   assert.equal(count("complete"), 0, "download completion must wait for the user");
@@ -87,11 +87,11 @@ try {
     ...fixture.state.status, vm_running: stopping,
     job: { id: `update-stop-${stopID}`, kind: "stop", running: stopping, error: stopFailure },
   } }));
-  await prompt.getByRole("button", { name: "保存并停止环境后安装" }).click();
+  await prompt.getByRole("button", { name: "停止环境并安装" }).click();
   await prompt.getByRole("alert").filter({ hasText: "当前任务尚未结束" }).waitFor();
   assert.equal(count("complete"), 0, "a rejected stop request must remain retryable without installing");
   refuseStop = false;
-  await prompt.getByRole("button", { name: "重试停止并安装" }).click();
+  await prompt.getByRole("button", { name: "重试", exact: true }).click();
   await prompt.getByRole("status").waitFor();
   assert.equal(count("complete"), 0, "installation must wait for shutdown confirmation");
   stopping = false;
@@ -100,14 +100,14 @@ try {
   assert.equal(count("complete"), 0, "a failed stop must prevent installation");
   stopFailure = "";
   stopping = true;
-  await prompt.getByRole("button", { name: "重试停止并安装" }).click();
+  await prompt.getByRole("button", { name: "重试", exact: true }).click();
   await prompt.getByRole("status").waitFor();
   await prompt.getByRole("button", { name: "稍后安装" }).click();
   stopping = false;
   await page.clock.fastForward(1000);
   assert.equal(count("complete"), 0, "cancelling during shutdown prevents subsequent installation");
   await resume.click();
-  await prompt.getByRole("button", { name: "保存并停止环境后安装" }).click();
+  await prompt.getByRole("button", { name: "停止环境并安装" }).click();
   await page.getByRole("button", { name: "正在安装更新，完成后自动重启", exact: true }).waitFor();
   await prompt.waitFor({ state: "hidden" });
   assert.equal(count("complete"), 1, "install only after this window's successful stop");
@@ -152,10 +152,11 @@ try {
   await upgradeButton.waitFor();
   assert.match(await upgradeButton.getAttribute("title"), /0.2.1.*本地未签名构建.*官方签名发行版/);
   await publish({ phase: "ready", currentVersion: "0.2.0", latestVersion: "0.2.1", officialUpgrade: true });
-  await prompt.waitFor();
-  await prompt.getByText(/本地未签名构建.*官方签名发行版.*本地源码改动不会保留/).waitFor();
-  await prompt.getByRole("button", { name: "取消", exact: true }).click();
-  await prompt.waitFor({ state: "hidden" });
+  const upgradePrompt = page.getByRole("dialog", { name: "安装 0.2.1" });
+  await upgradePrompt.waitFor();
+  await upgradePrompt.getByText("将切换为官方签名版，本地源码改动不保留。").waitFor();
+  await upgradePrompt.getByRole("button", { name: "取消", exact: true }).click();
+  await upgradePrompt.waitFor({ state: "hidden" });
   assert.deepEqual(errors, []);
   const result = { checks: ["automatic startup and periodic checks", "failed background check retry", "latest version hidden", "download before confirmation", "ring and percentage", "indeterminate progress", "manual stop card, cancellation and resume without download", "stop failure blocks install; retry waits for shutdown", "visible failure and retry", "collapsed sidebar", "Linux manual update remains separate", "Linux newer package opens the release page", "unsigned Windows build opens the release page without installation", "unsigned macOS build opens the release page without installation", "eligible unsigned source build explains switch to official signed release"], calls };
   await fs.writeFile(`${output}/checks.json`, JSON.stringify(result, null, 2));
@@ -186,8 +187,8 @@ const remote = await createWorkbench({
   },
 });
 try {
-  const dialog = remote.page.getByRole("dialog", { name: "停止环境并安装更新？" });
-  await dialog.getByRole("button", { name: "保存并停止环境后安装" }).click();
+  const dialog = remote.page.getByRole("dialog", { name: "安装 0.2.0" });
+  await dialog.getByRole("button", { name: "停止环境并安装" }).click();
   await dialog.getByRole("alert").filter({ hasText: "先切回本机工作台" }).waitFor();
   assert.equal(remote.state.requests.filter(request => request.path === "/stop").length, 0);
   assert.ok(!remoteCalls.includes("complete"), "a cloud selection cannot authorize stopping or installing the local app");

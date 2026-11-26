@@ -171,8 +171,8 @@ internal sealed class MainWindow : Form
     }
 
     private bool ConfirmStop() => MessageBox.Show(this,
-        InterfaceLanguage.Text("请先保存编辑器中的文件并结束正在运行的工作。继续后 Cage lite 会停止环境、安装已验证的更新并重新启动。"),
-        InterfaceLanguage.Text("保存并停止环境后安装重启"), MessageBoxButtons.OKCancel, MessageBoxIcon.Information) == DialogResult.OK;
+        InterfaceLanguage.Text("环境会停止，终端任务会结束。"),
+        InterfaceLanguage.Text("完成更新"), MessageBoxButtons.OKCancel, MessageBoxIcon.Information) == DialogResult.OK;
 
     // A start of this App made by the update helper finds this one running
     // and hands it the helper's token: this App confirms the update instead.

@@ -226,7 +226,7 @@ func refusalText(body io.Reader) string {
 	return text
 }
 func pendingUpdate(c *controllerClient) DesktopResult {
-	return DesktopResult{Status: "upgrade_pending", Legacy: c.launch.Controller.Protocol == 0, Controller: c.launch.Controller, Message: "新版已准备好，当前后台仍在运行。请先打开现有环境保存文件，再选择“保存后停止环境并完成更新”。终端任务会结束，项目和登录状态会保留。"}
+	return DesktopResult{Status: "upgrade_pending", Legacy: c.launch.Controller.Protocol == 0, Controller: c.launch.Controller, Message: "新版已就绪，旧版后台仍在运行。"}
 }
 
 // Desktop never silently loads a different build's UI. Completing an update is

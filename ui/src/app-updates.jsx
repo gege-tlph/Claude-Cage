@@ -144,17 +144,14 @@ export function AppUpdateDialog({ updates, onStatus }) {
     }
   };
   if (!installationPrompt) return null;
-  return <Modal title={tr("停止环境并安装更新？")} onClose={close} footer={<>
+  return <Modal title={state.latestVersion ? tr("安装 {0}", state.latestVersion) : tr("安装更新")} onClose={close} footer={<>
     <button onClick={close}>{stopping ? tr("稍后安装") : tr("取消")}</button>
-    <button className="primary" disabled={stopping} onClick={install}>
-      {stopping ? tr("正在停止环境…") : error ? tr("重试停止并安装") : tr("保存并停止环境后安装")}
-    </button>
+    <button className="primary" disabled={stopping} onClick={install}>{error ? tr("重试") : tr("停止环境并安装")}</button>
   </>}>
     <div className="modal-body">
-      <p>{tr("更新已下载并验证。请先保存文件，点击下方按钮停止环境后安装并重启 Cage lite。当前终端任务会结束，项目、账户和登录状态会保留。")}</p>
-      {state.officialUpgrade && <p>{tr("当前运行的是本地未签名构建。继续安装将切换为官方签名发行版，本地源码改动不会保留；配置、账户、项目和虚拟机磁盘会保留，后续将持续接收官方自动更新。")}</p>}
-      <p>{tr("取消可稍后安装，已下载的更新会保留。停止开始后，取消只推迟安装，环境仍会停止。")}</p>
-      {stopping && <p role="status"><LoaderCircle size={16} className="spin" />{" " + tr("正在等待环境停止，完成后继续安装…")}</p>}
+      <p>{tr("环境会停止，终端任务会结束。")}</p>
+      {state.officialUpgrade && <p>{tr("将切换为官方签名版，本地源码改动不保留。")}</p>}
+      {stopping && <p role="status"><LoaderCircle size={16} className="spin" />{" " + tr("正在停止环境…")}</p>}
       {error && <p className="error-message" role="alert">{localizeBackendMessage(error, tr)}</p>}
     </div>
   </Modal>;
