@@ -253,7 +253,7 @@ func fetchSubscription(ctx context.Context, client *http.Client, target string) 
 		if errors.Is(err, errInfrastructureDNS) {
 			return nil, "", retry, errInfrastructureDNS
 		}
-		return nil, "", retry, errors.New("订阅下载失败，请检查下载路径和服务地址")
+		return nil, "", retry, withCause("订阅下载失败，请检查下载路径和服务地址", err)
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
@@ -263,13 +263,34 @@ func fetchSubscription(ctx context.Context, client *http.Client, target string) 
 	}
 	b, err := io.ReadAll(io.LimitReader(res.Body, MaxImport+1))
 	if err != nil || len(b) > MaxImport {
-		return nil, "", len(b) <= MaxImport && transient(ctx, err), errors.New("订阅下载中断或超过 8 MiB")
+		return nil, "", len(b) <= MaxImport && transient(ctx, err), withCause("订阅下载中断或超过 8 MiB", err)
 	}
 	if raw := res.Header.Get("Subscription-Userinfo"); len(raw) < 300 {
 		// Keep only known numeric metadata; never echo arbitrary headers.
 		usage = usageSummary(raw)
 	}
 	return b, usage, false, nil
+}
+
+// causedError is a message for the page that keeps the transport error
+// behind it for the event log (jobs log errors.Unwrap). The page shows only
+// the message.
+type causedError struct {
+	message string
+	cause   error
+}
+
+func (e *causedError) Error() string { return e.message }
+func (e *causedError) Unwrap() error { return e.cause }
+
+// withCause drops the request URL from the cause: it carries the
+// subscription token.
+func withCause(message string, err error) error {
+	var u *url.Error
+	if errors.As(err, &u) {
+		err = u.Err
+	}
+	return &causedError{message: message, cause: err}
 }
 
 func transient(ctx context.Context, err error) bool {

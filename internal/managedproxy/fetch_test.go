@@ -350,3 +350,21 @@ func TestFetchRetriesOnlyTransientFailures(t *testing.T) {
 		t.Fatalf("refused redirect: %v", err)
 	}
 }
+
+// A failed download says the same on the page; the event log gets the
+// transport error behind it, without the URL and its token.
+func TestFetchKeepsTheCauseWithoutTheURL(t *testing.T) {
+	old := subscriptionRetryDelays
+	subscriptionRetryDelays = nil
+	t.Cleanup(func() { subscriptionRetryDelays = old })
+	cause := errors.New("connectex: fixture refused")
+	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) { return nil, cause })}
+	_, _, err := Fetch(t.Context(), client, "https://sub.example.test/private-path?token=secret-fixture")
+	if err == nil || err.Error() != "订阅下载失败，请检查下载路径和服务地址" {
+		t.Fatalf("page message changed: %v", err)
+	}
+	inner := errors.Unwrap(err)
+	if inner == nil || !errors.Is(err, cause) || strings.Contains(inner.Error(), "secret-fixture") || strings.Contains(inner.Error(), "private-path") {
+		t.Fatalf("cause = %v", inner)
+	}
+}
