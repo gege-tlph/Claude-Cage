@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -301,7 +302,7 @@ func TestLimaEphemeralPorts(t *testing.T) {
 	if err != nil || inst.Config == nil {
 		t.Fatalf("inspect: %v %v", err, inst.Errors)
 	}
-	if n := len(inst.Config.PortForwards); n != 5 || inst.Config.PortForwards[0].GuestPort != 40000 {
+	if n := len(inst.Config.PortForwards); n != 6 || inst.Config.PortForwards[0].GuestPort != 40000 {
 		t.Errorf("port forwards: %+v", inst.Config.PortForwards)
 	}
 	def := limatype.PortForward{}
@@ -332,14 +333,33 @@ func TestLimaEphemeralPorts(t *testing.T) {
 	if len(got) != 1 || got[0].Type == events.PortForwardEventNotForwarding {
 		t.Errorf("32767: %+v", got)
 	}
-	// The host's VNC reaches the guest's 15900 through Lima: forwarded.
-	got = nil
-	fw.OnEvent(cctx, nil, &api.Event{AddedLocalPorts: []*api.IPPort{{Protocol: "tcp", Ip: "127.0.0.1", Port: 15900}}})
-	if len(got) != 1 || got[0].Type == events.PortForwardEventNotForwarding {
-		t.Errorf("15900: %+v", got)
+	// The host's VNC reaches the guest's 15900, on either loopback, through
+	// the host port Start chose. The second loopback finds that port held by
+	// the first one's forward, as both lead to the same display.
+	display := vncRule(inst.Config.PortForwards)
+	if display == 0 {
+		t.Fatalf("no display forward: %+v", inst.Config.PortForwards)
+	}
+	if want := VNCAddress(inst.Dir); want != net.JoinHostPort("127.0.0.1", strconv.Itoa(display)) {
+		t.Errorf("VNCAddress %s, rule port %d", want, display)
+	}
+	for _, ip := range []string{"127.0.0.1", "::1"} {
+		got = nil
+		fw.OnEvent(cctx, nil, &api.Event{AddedLocalPorts: []*api.IPPort{{Protocol: "tcp", Ip: ip, Port: 15900}}})
+		if len(got) != 1 || got[0].Type == events.PortForwardEventNotForwarding || got[0].HostAddr != VNCAddress(inst.Dir) {
+			t.Errorf("%s 15900: %+v", ip, got)
+		}
 	}
 
-	// Once there, not written again.
+	// Once there, not written again. A start finds its display port free:
+	// the forwards of the VM's previous run are gone.
+	fw.Close()
+	for deadline := time.Now().Add(5 * time.Second); portfwd.InUse(ctx, "tcp", VNCAddress(inst.Dir)) != nil; {
+		if time.Now().After(deadline) {
+			t.Fatalf("%s still held after the forwarder closed", VNCAddress(inst.Dir))
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 	y := filepath.Join(inst.Dir, "lima.yaml")
 	before, _ := os.ReadFile(y)
 	l.Start(ctx, "p-12345678", io.Discard)

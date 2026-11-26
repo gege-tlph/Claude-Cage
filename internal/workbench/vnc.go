@@ -12,6 +12,7 @@ import (
 
 	"github.com/sylvinus/agent-vm/internal/containerenv"
 	"github.com/sylvinus/agent-vm/internal/diagnostics"
+	"github.com/sylvinus/agent-vm/internal/vm"
 )
 
 func (s *Server) vnc(w http.ResponseWriter, r *http.Request) {
@@ -28,7 +29,7 @@ func (s *Server) vnc(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer release()
-	address := "127.0.0.1:15900"
+	address := vm.VNCAddress(s.instanceDir())
 	if containerenv.Configured(s.profile) {
 		environment, err := containerenv.Load(s.profile)
 		if err != nil {

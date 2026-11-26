@@ -15,6 +15,12 @@ import (
 // client of the host's loopback reaches it.
 var probeAddrs = []string{"127.0.0.1", "::1", "0.0.0.0", "::"}
 
+// InUse is inUse for a host port chosen before the VM starts: a port that
+// fails it would fail the forward too.
+func InUse(ctx context.Context, protocol, hostAddress string) error {
+	return inUse(ctx, protocol, hostAddress)
+}
+
 // inUse reports whether a program of the host already serves the port of
 // hostAddress, on any of probeAddrs. The listener of a forward binds with
 // SO_REUSEADDR, which BSD (macOS) lets bind 127.0.0.1:port next to a program

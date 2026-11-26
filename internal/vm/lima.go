@@ -339,6 +339,11 @@ func exprs(s Settings) ([]string, error) {
 			e = append(e, fmt.Sprintf(`.portForwards = ((.portForwards // []) | map(select(((.guestPortRange // []) | join("-")) != "%d-%d"))) + [{"guestIP": "0.0.0.0", "guestIPMustBeZero": false, "guestPortRange": [%d, %d], "proto": "any", "ignore": true}]`, ports[0], ports[1], ports[0], ports[1]))
 		}
 	}
+	if s.vncHostPort > 0 {
+		// Before Lima's default rule, which forwards to the same host port.
+		// guestIP 127.0.0.1 covers the display's ::1 listener too.
+		e = append(e, fmt.Sprintf(`.portForwards = ((.portForwards // []) | map(select(((.guestPortRange // []) | join("-")) != "%d-%d"))) + [{"guestIP": "127.0.0.1", "guestPortRange": [%d, %d], "hostIP": "127.0.0.1", "hostPortRange": [%d, %d], "proto": "tcp"}]`, vncGuestPort, vncGuestPort, vncGuestPort, vncGuestPort, s.vncHostPort, s.vncHostPort))
+	}
 	if s.MountType != nil {
 		if *s.MountType == "" {
 			e = append(e, "del(.mountType)")
@@ -766,6 +771,9 @@ func (l *Lima) Start(ctx context.Context, name string, log io.Writer) error {
 	// Here, so that VMs made before it get it too; nothing is written when
 	// it is there already.
 	settings := Settings{noEphemeralPorts: true}
+	if settings.vncHostPort, err = vncHostPort(ctx, inst.Config.PortForwards); err != nil {
+		return err
+	}
 	if configPath := os.Getenv(cage.ConfigEnv); configPath != "" {
 		allocation, loadErr := cage.LoadResourceAllocation(configPath)
 		if loadErr != nil {

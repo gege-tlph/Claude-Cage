@@ -93,6 +93,9 @@ type Settings struct {
 
 	// noEphemeralPorts: see ephemeralPorts.
 	noEphemeralPorts bool
+	// vncHostPort, when set, is where the host reaches the guest's display:
+	// see vncGuestPort.
+	vncHostPort int
 }
 
 // ephemeralPorts is the guest kernel's range for the ports a program gets
