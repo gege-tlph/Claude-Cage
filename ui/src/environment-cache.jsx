@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { api } from "./api";
 import "./environment-cache.css";
+import { localizeBackendMessage } from "./backend-message.mjs";
 import { activeInterfaceLanguage, translate, useTranslation } from "./interface-language.mjs";
 
 function size(bytes) {
@@ -70,22 +71,22 @@ export function EnvironmentCache({ status, onConfirm }) {
     {error && <p role="alert" className="error-message">{tr(error)}</p>}
     {result && <div role="status" className="cache-result">
       <strong>{result.status === "partial" ? tr("部分项目未完成，请查看原因") : result.action === "clean" ? tr("缓存清理完成，恢复副本已保留") : tr("缓存恢复完成")}</strong>
-      {result.outcomes.map(item => <p key={item.id}>{result.titles[item.id] || item.id}：{item.reason}</p>)}
+      {result.outcomes.map(item => <p key={item.id}>{localizeBackendMessage(result.titles[item.id] || item.id, tr)}{tr("：")}{localizeBackendMessage(item.reason, tr)}</p>)}
     </div>}
     {inventory && <>
-      <p className="field-help">{inventory.notice}</p>
+      <p className="field-help">{localizeBackendMessage(inventory.notice, tr)}</p>
       <div className="cache-items">
         {inventory.items.filter(item => item.state !== "absent").map(item => <label className="check-line cache-item" key={item.id}>
-          <input type="checkbox" aria-label={item.title} checked={selected.includes(item.id)} disabled={disabled || item.state !== "ready"}
+          <input type="checkbox" aria-label={localizeBackendMessage(item.title, tr)} checked={selected.includes(item.id)} disabled={disabled || item.state !== "ready"}
             onChange={event => setSelected(previous => event.target.checked ? [...previous, item.id] : previous.filter(id => id !== item.id))} />
-          <span><strong>{item.title}</strong><small>{item.location}</small><small>{item.reason}</small></span>
+          <span><strong>{localizeBackendMessage(item.title, tr)}</strong><small>{item.location}</small><small>{localizeBackendMessage(item.reason, tr)}</small></span>
           <span className="cache-size">{size(item.bytes)}<small>{item.files}{" " + tr("个文件")}</small></span>
         </label>)}
       </div>
       {!inventory.items.some(item => item.state !== "absent") && <p>{tr("未发现允许清单中的缓存。")}</p>}
       <div className="cache-protected" aria-label={tr("受保护资料")}>
         <strong>{tr("以下资料保留")}</strong>
-        {inventory.protected.map(item => <p key={item.title}>{item.title}{tr("：发现") + " "}{item.present}{" " + tr("处")}{item.unknown ? tr("，{0} 处无法确认", (item.unknown)) : ""}</p>)}
+        {inventory.protected.map(item => <p key={item.title}>{localizeBackendMessage(item.title, tr)}{tr("：发现") + " "}{item.present}{" " + tr("处")}{item.unknown ? tr("，{0} 处无法确认", (item.unknown)) : ""}</p>)}
       </div>
       <div className="cache-recovery" aria-label={tr("缓存恢复批次")}>
         <h4>{tr("缓存恢复批次")}</h4>

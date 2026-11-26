@@ -4,6 +4,11 @@ export function setMessages(catalog) {
   messages = catalog;
 }
 
+// The current catalog object; it changes identity whenever the language does.
+export function catalog() {
+  return messages;
+}
+
 export function formatMessage(message, ...values) {
   return values.length ? message.replace(/\{(\d+)\}/g, (match, index) =>
     Number(index) < values.length ? String(values[index]) : match,

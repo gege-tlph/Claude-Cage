@@ -1,4 +1,4 @@
-import { translate } from "./message-catalog.mjs";
+import { catalog, translate } from "./message-catalog.mjs";
 
 const JOB_NAMES = new Set([
   "启动环境",
@@ -343,13 +343,105 @@ function localizeSkippedDetail(item, localize) {
   return translateTemplate(localize, "第 {0} 个节点 {1}：{2}", match[1], name, reason) ?? item;
 }
 
+// Every catalog key with {n} placeholders is also a pattern for backend text
+// built from it (fmt.Errorf, concatenation). Its values are kept as they are,
+// or translated in turn when they are Chinese messages themselves.
+const SHORT_BACKEND_TEMPLATES = new Set(["{0}失败：{1}", "{0}失败", "节点 {0}", "终端 {0}", "Ferry 返回 HTTP {0}", "{0}（{1} 个）"]);
+let templates = { source: null, list: [] };
+function catalogTemplates() {
+  const source = catalog();
+  if (templates.source === source) return templates.list;
+  const list = [];
+  for (const key of Object.keys(source)) {
+    if (!/\{\d+\}/.test(key)) continue;
+    // Short UI labels such as "关闭 {0}" would match unrelated backend text.
+    const fixed = key.replace(/\{\d+\}/g, "").match(/\p{Script=Han}/gu)?.length ?? 0;
+    if (fixed < 3 && !SHORT_BACKEND_TEMPLATES.has(key)) continue;
+    const order = [];
+    const pattern = key.split(/(\{\d+\})/).map(part => {
+      const slot = part.match(/^\{(\d+)\}$/);
+      if (slot) {
+        order.push(Number(slot[1]));
+        return "([\\s\\S]+?)";
+      }
+      return part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }).join("");
+    list.push({ key, order, pattern: new RegExp(`^${pattern}$`, "u"), weight: key.replace(/\{\d+\}/g, "").length });
+  }
+  // The most specific template wins.
+  list.sort((a, b) => b.weight - a.weight);
+  templates = { source, list };
+  return list;
+}
+
+function localizeByTemplate(text, localize, skip = null) {
+  for (const { key, order, pattern } of catalogTemplates()) {
+    if (skip?.has(key)) continue;
+    const m = text.match(pattern);
+    if (!m || localize(key) === key) continue;
+    const values = [];
+    order.forEach((index, i) => {
+      values[index] = localizeValue(m[i + 1], localize);
+    });
+    return localize(key, ...values);
+  }
+  return null;
+}
+
+// A value cut out of a sentence lacks the full stop its catalog key may have.
+function localizeValue(value, localize) {
+  if (!/\p{Script=Han}/u.test(value)) return value;
+  const english = localizeBackendMessage(value, localize);
+  if (!/\p{Script=Han}/u.test(english) || /[。；]$/u.test(value)) return english;
+  const sentence = localizeBackendMessage(value + "。", localize);
+  return /\p{Script=Han}/u.test(sentence) ? english : sentence.replace(/\.$/u, "");
+}
+
+// Backend text joined from several known sentences at run time.
+function localizeSentences(text, localize) {
+  const parts = text.split(/(?<=[。；])/u).filter(Boolean);
+  if (parts.length < 2) return null;
+  const out = [];
+  for (const part of parts) {
+    const end = /[。；]$/u.test(part) ? part.slice(-1) : "";
+    const body = end ? part.slice(0, -1) : part;
+    let english = body ? localizeBackendMessage(body, localize) : "";
+    if (english === body && end) english = localizeBackendMessage(part, localize);
+    else if (end === "。") english = english.replace(/[.!?]?$/u, ".");
+    else if (end === "；") english = english.replace(/[.;]?$/u, ";");
+    if (/\p{Script=Han}/u.test(english)) return null;
+    out.push(english);
+  }
+  return out.join(" ");
+}
+
+// Template keys the explicit rules in localizeComposed translate themselves.
+let ruleKeySet = null;
+const ruleKeys = { has: key => (ruleKeySet ??= new Set(backendMessageKeys)).has(key) };
+
+const cache = new WeakMap();
 export function localizeBackendMessage(message, localize = translate) {
   if (typeof message !== "string" || !message) return message || "";
   const trimmed = message.trim();
   if (!trimmed) return message;
   const direct = localize(trimmed);
   if (direct !== trimmed) return direct;
+  let known = cache.get(localize);
+  if (!known || known.source !== catalog() || known.map.size > 1000) {
+    known = { source: catalog(), map: new Map() };
+    cache.set(localize, known);
+  }
+  if (known.map.has(trimmed)) return known.map.get(trimmed);
+  const result = localizeComposed(trimmed, localize);
+  known.map.set(trimmed, result);
+  return result;
+}
 
+function localizeComposed(trimmed, localize) {
+  // A whole-message template wins over the broader rules below when it leaves
+  // nothing untranslated; keys those rules handle themselves are left to them.
+  const whole = localizeByTemplate(trimmed, localize, ruleKeys);
+  if (whole !== null && !/\p{Script=Han}/u.test(whole)) return whole;
   let m;
   if ((m = trimmed.match(/^节点 ("(?:[^"\\]|\\.)*") 需要迁移：([\s\S]+)$/))) {
     return translateTemplate(localize, "节点 {0} 需要迁移：{1}", unquoteGo(m[1]), localizeBackendMessage(m[2], localize)) ?? trimmed;
@@ -469,6 +561,8 @@ export function localizeBackendMessage(message, localize = translate) {
       return translateTemplate(localize, key, ...m.slice(1)) ?? trimmed;
     }
   }
+  const templated = localizeByTemplate(trimmed, localize);
+  if (templated !== null) return templated;
   if ((m = trimmed.match(/^(.+)失败$/)) && JOB_NAMES.has(m[1])) {
     return translateTemplate(localize, "{0}失败", localize(m[1])) ?? trimmed;
   }
@@ -489,5 +583,5 @@ export function localizeBackendMessage(message, localize = translate) {
   if ((m = trimmed.match(/^([^：]+)：([^\p{Script=Han}]+)$/u)) && localize(m[1]) !== m[1]) {
     return `${localize(m[1])}: ${m[2]}`;
   }
-  return trimmed;
+  return localizeSentences(trimmed, localize) ?? trimmed;
 }

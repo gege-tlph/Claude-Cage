@@ -200,7 +200,7 @@ export function SafetyPanel({
                     >
                       <summary>
                         <Icon size={16} />
-                        <strong>{check.title}</strong>
+                        <strong>{localizeBackendMessage(check.title, tr)}</strong>
                         <span>
                           {check.state === "passed"
                             ? tr("通过")
@@ -213,9 +213,9 @@ export function SafetyPanel({
                         <ChevronDown size={14} />
                       </summary>
                       <div>
-                        <p>{check.evidence}</p>
+                        <p>{localizeBackendMessage(check.evidence, tr)}</p>
                         {check.state !== "passed" && check.remedy && (
-                          <p className="check-remedy">{check.remedy}</p>
+                          <p className="check-remedy">{localizeBackendMessage(check.remedy, tr)}</p>
                         )}
                       </div>
                     </details>
@@ -233,8 +233,8 @@ export function SafetyPanel({
                 <p key={check.id}>
                   <CircleHelp size={15} />
                   <span>
-                    <strong>{check.title}：</strong>
-                    {check.evidence}
+                    <strong>{localizeBackendMessage(check.title, tr)}{tr("：")}</strong>
+                    {localizeBackendMessage(check.evidence, tr)}
                   </span>
                 </p>
               ))}

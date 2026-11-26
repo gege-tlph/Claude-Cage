@@ -1039,12 +1039,12 @@ function SettingsPage({ model, status, onConfirm }) {
           {syncStatus.error && <p className="error-message">{syncStatus.error}</p>}
           {syncStatus.skipped?.length > 0 && (
             <ul className="plugin-sync-notes">
-              {syncStatus.skipped.map(item => <li key={item.name}><code>{item.name}</code><span>{item.reason}</span></li>)}
+              {syncStatus.skipped.map(item => <li key={item.name}><code>{item.name}</code><span>{localizeBackendMessage(item.reason, tr)}</span></li>)}
             </ul>
           )}
           {syncStatus.failed?.length > 0 && (
             <ul className="plugin-sync-notes problem">
-              {syncStatus.failed.map(item => <li key={item.name}><code>{item.name}</code><span>{item.reason}</span></li>)}
+              {syncStatus.failed.map(item => <li key={item.name}><code>{item.name}</code><span>{localizeBackendMessage(item.reason, tr)}</span></li>)}
             </ul>
           )}
         </section>

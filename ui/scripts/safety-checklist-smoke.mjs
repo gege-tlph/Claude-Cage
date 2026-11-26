@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { createWorkbench } from "./workbench-fixture.mjs";
 
-const failure = "联网检查未通过：浏览器语言未通过。语言与已保存的设置不一致。请核对语言设置后重新检测。外网保持关闭。";
+const failure = "联网检查未通过：浏览器语言（未通过）。语言与已保存的设置不一致。请核对语言设置后重新检测。外网保持关闭。";
 const output = process.env.CAGE_SAFETY_SCREENSHOTS || "/tmp/cage-safety-checklist";
 await mkdir(output, { recursive: true });
 const platforms = process.env.CAGE_TEST_BROWSER === "webkit" ? ["darwin"] : ["darwin", "windows", "linux"];

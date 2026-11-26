@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { api } from "./api";
 import { SafetyMessage } from "./safety-message";
 import "./device-checks.css";
+import { localizeBackendMessage } from "./backend-message.mjs";
 import { activeInterfaceLanguage, useTranslation } from "./interface-language.mjs";
 
 const labels = { passed: "通过", failed: "未通过", unknown: "未观测", warning: "需关注", observed: "已观测" };
@@ -34,7 +35,7 @@ export function DeviceChecks({ target, disabled = false }) {
         <dt>{tr("显示尺寸")}</dt><dd>{report.browser.screen.width} × {report.browser.screen.height}{tr("，像素比") + " "}{report.browser.screen.pixel_ratio}</dd>
         <dt>{tr("诊断文档视口")}</dt><dd>{report.browser.viewport.width} × {report.browser.viewport.height}</dd>
       </dl></details>}
-      <ul className="device-check-results">{report.checks.map(check => <li key={check.id} data-state={check.state}><strong>{check.title}</strong><span>{labels[check.state] ? tr(labels[check.state]) : tr("未观测")}</span><p>{check.evidence}</p></li>)}</ul>
+      <ul className="device-check-results">{report.checks.map(check => <li key={check.id} data-state={check.state}><strong>{localizeBackendMessage(check.title, tr)}</strong><span>{labels[check.state] ? tr(labels[check.state]) : tr("未观测")}</span><p>{localizeBackendMessage(check.evidence, tr)}</p></li>)}</ul>
     </div>}
   </section>;
 }

@@ -82,7 +82,7 @@ func (r SafetyReport) Authorizes(runID, configuration string, now time.Time) err
 			if next == "" {
 				next = "打开“检查清单”查看此项结果，重新检测；仍失败时在设置中导出诊断包"
 			}
-			return fmt.Errorf("联网检查未通过：%s%s。%s。%s。外网保持关闭。", title, state, evidence, next)
+			return fmt.Errorf("联网检查未通过：%s（%s）。%s。%s。外网保持关闭。", title, state, evidence, next)
 		}
 	}
 	for _, id := range requiredSafetyChecks {

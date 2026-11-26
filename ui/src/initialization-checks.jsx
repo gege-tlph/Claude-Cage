@@ -12,8 +12,8 @@ export function InitializationDetails({ status }) {
     <p>{job.running ? tr("当前操作") : tr("最近一次操作")}：{job.message ? localizeBackendMessage(job.message, tr) : tr("尚未开始")}</p>
     {reasons.map(reason => <p key={reason} role="alert">{localizeBackendMessage(reason, tr)}</p>)}
     {checks.length > 0 && <><h3>{tr("最近一次检查结果")}</h3><ol className="initialization-checks">{checks.map(check => <li key={check.id}>
-      <strong>{check.title} · {labels[check.state] ? tr(labels[check.state]) : tr("尚未完成")}</strong>
-      <p>{check.evidence}</p>{check.state !== "passed" && check.remedy && <p>{check.remedy}</p>}
+      <strong>{localizeBackendMessage(check.title, tr)} · {labels[check.state] ? tr(labels[check.state]) : tr("尚未完成")}</strong>
+      <p>{localizeBackendMessage(check.evidence, tr)}</p>{check.state !== "passed" && check.remedy && <p>{localizeBackendMessage(check.remedy, tr)}</p>}
     </li>)}</ol></>}
     <h3>{tr("操作记录")}</h3><pre className="job-log">{job.log || tr("当前操作没有额外日志。失败原因显示在上方，完整记录可在「日志与诊断」中导出。")}</pre>
   </div>;
