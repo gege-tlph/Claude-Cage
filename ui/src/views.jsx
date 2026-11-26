@@ -30,6 +30,7 @@ import { followDisplaySize } from "./remote-display.mjs";
 import { guestKeys } from "./guest-keys.mjs";
 import { RefreshCw, Clipboard, ArrowUpRight } from "lucide-react";
 import { SessionAccount } from "./session-account";
+import { PausedSession } from "./paused-session";
 import "@xterm/xterm/css/xterm.css";
 import { useTranslation, translate } from "./interface-language.mjs";
 
@@ -277,7 +278,7 @@ export const RemoteView = forwardRef(function RemoteView(
   );
 });
 
-export function TerminalView({ session, visible, focused = true, onStatus, onControls, onAccountChanged, onLoginTab, onOpenPage }) {
+export function TerminalView({ session, visible, focused = true, onStatus, onControls, onAccountChanged, onLoginTab, onOpenPage, onContinued }) {
   const tr = useTranslation();
   const { appearance, theme, variant } = useAppearance();
   const box = useRef(),
@@ -290,6 +291,12 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
   const reconnectNow = useRef();
   const hostInput = useRef(false);
   hostInput.current = Boolean(session.host_input);
+  const paused = useRef(false);
+  paused.current = Boolean(session.paused);
+  const replaying = useRef(false);
+  useEffect(() => {
+    if (instance.current) instance.current.options.disableStdin = Boolean(session.paused || replaying.current);
+  }, [session.paused]);
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
   const focusedRef = useRef(focused);
@@ -313,6 +320,7 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
       } catch (error) { if (!disposed) onStatus(error.message); }
     };
     const terminal = new Terminal({
+      disableStdin: paused.current,
       linkHandler: { activate(event, uri) {
         if (isClaudeLoginLink(uri)) return void activateLogin(event, uri);
         // Other explicit HTTP(S) links come from the guest: after the user
@@ -386,9 +394,9 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
           );
       } catch {}
     };
-    let replayingHistory = false;
+    replaying.current = false;
     const clipboardHandler = terminal.parser.registerOscHandler(52, async (data) => {
-      if (disposed || replayingHistory || !visibleRef.current || !focusedRef.current || !box.current?.contains(document.activeElement)) return true;
+      if (disposed || replaying.current || !visibleRef.current || !focusedRef.current || !box.current?.contains(document.activeElement)) return true;
       const text = terminalClipboardText(data);
       if (text === undefined) return true;
       try {
@@ -423,15 +431,17 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
       if (historyFrame || historyRemaining > 0) {
         historyRemaining = historyFrame ? 0 : historyRemaining - bytes.length;
         historyFrame = false;
-        replayingHistory = true;
+        replaying.current = true;
         // History includes old device/color queries. Answering them again can
         // overflow the remote PTY input queue and close the new connection.
         // Keep input disabled until xterm has finished parsing the replay;
         // subsequent live output must still receive normal terminal replies.
         terminal.options.disableStdin = true;
         terminal.write(bytes, historyRemaining > 0 ? undefined : () => {
-          replayingHistory = false;
-          if (!disposed) terminal.options.disableStdin = false;
+          if (!disposed) {
+            replaying.current = false;
+            terminal.options.disableStdin = paused.current;
+          }
         });
       } else terminal.write(bytes);
     };
@@ -503,7 +513,7 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
     connect();
     let inputTimer = null, pendingInput = [];
     const send = (data) => {
-      if (hostInput.current) return;
+      if (hostInput.current || paused.current) return;
       if (disposed || ws?.readyState !== WebSocket.OPEN) throw new Error("终端已断开，请重新连接后重试");
       // A redraw can produce several synchronous device replies. Preserve
       // byte order but send each event-loop batch as one PTY input message.
@@ -512,19 +522,19 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
         inputTimer = null;
         const data = pendingInput.join("");
         pendingInput = [];
-        if (!disposed && ws?.readyState === WebSocket.OPEN)
+        if (!disposed && !paused.current && ws?.readyState === WebSocket.OPEN)
           ws.send(JSON.stringify({ type: "input", data }));
       }, 0);
     };
     terminal.onData((data) => {
       // Replayed history can contain DA/DSR/OSC queries; xterm's answers to
       // them belong to a past screen and would flood the shell's input.
-      if (disposed || replayingHistory) return;
+      if (disposed || replaying.current || paused.current) return;
       if (emittingPaste) send(data);
       else void enqueue(() => send(data)).catch(() => {});
     });
     const receiveClipboard = (content) => {
-      if (hostInput.current) return;
+      if (hostInput.current || paused.current) return;
       // Attach rejection immediately, even while another image is in flight.
       const ready = Promise.resolve(content).then(value => ({ value }), error => ({ error }));
       onStatus("正在传递剪贴板内容…");
@@ -712,8 +722,9 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
   return (
     <div className={`terminal-view ${visible ? "" : "concealed"}`}>
       {session.workspace_notice && <p className="connection-banner" role="status">{session.workspace_notice}</p>}
+      {session.paused && <PausedSession id={session.cli_session_id} request={terminalAccountRequest} onContinued={onContinued} disabled={!connected} />}
       {session.host_input && <p className="connection-banner" role="status">{tr("正在本机终端输入。关闭本机终端后可在这里继续。")}</p>}
-      {visible && session.cli_session_id && <SessionAccount id={session.cli_session_id} request={terminalAccountRequest} compact
+      {visible && session.cli_session_id && <SessionAccount id={session.cli_session_id} request={terminalAccountRequest} paused={session.paused} compact
         onChanged={onAccountChanged} />}
       <div className={`terminal-host ${preparing ? "terminal-preparing" : ""}`} ref={box} aria-hidden={preparing || undefined} />
       {preparing && (
