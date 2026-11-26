@@ -19,6 +19,8 @@ internal sealed class MainWindow : Form
     private int expectedPort;
     private bool controllerNeedsUpdate, allowQuit, bootstrapping, initializing, webFailed, quitProbeInFlight;
     private bool completingSmoke;
+    // Set once the workbench page confirmed it runs on this controller.
+    private volatile bool workbenchConfirmed;
     // Until the first workbench page (or an error) the window shows the
     // startup splash page rather than the status text.
     private bool starting = true, splashPending;
@@ -171,6 +173,15 @@ internal sealed class MainWindow : Form
     private bool ConfirmStop() => MessageBox.Show(this,
         InterfaceLanguage.Text("请先保存编辑器中的文件并结束正在运行的工作。继续后 Cage lite 会停止环境、安装已验证的更新并重新启动。"),
         InterfaceLanguage.Text("保存并停止环境后安装重启"), MessageBoxButtons.OKCancel, MessageBoxIcon.Information) == DialogResult.OK;
+
+    // A start of this App made by the update helper finds this one running
+    // and hands it the helper's token: this App confirms the update instead.
+    // Any thread; the confirmation itself runs on the UI thread.
+    public void AcceptUpdateConfirmation(Guid token)
+    {
+        Environment.SetEnvironmentVariable("CAGE_UPDATE_CONFIRMATION", token.ToString());
+        if (workbenchConfirmed && IsHandleCreated) BeginInvoke(updater.MarkReady);
+    }
 
     public void RestoreWindow() { Show(); if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal; Activate(); PublishVisibility(); }
     private async Task ReloadWorkbench()
@@ -556,6 +567,7 @@ internal sealed class MainWindow : Form
                     break;
                 case "workbenchReady":
                     if (controllerNeedsUpdate) throw new IOException("后台版本尚未同步，更新未完成");
+                    workbenchConfirmed = true;
                     updater.MarkReady(); result = true; _ = CompleteSmoke(); break;
                 case "appUpdate": result = updater.Handle(request.Text("operation")); break;
                 case "importTheme":

@@ -109,6 +109,21 @@ internal sealed class AppUpdater : IDisposable
         state["phase"] = phase; state["message"] = message; state["retryable"] = retryable; state["retryAt"] = retryAt; changed(new(state));
     }
 
+    public static Guid? PendingConfirmation() =>
+        Guid.TryParse(Environment.GetEnvironmentVariable("CAGE_UPDATE_CONFIRMATION"), out var token) ? token : null;
+
+    // A start made by the update helper that handed its token to the App
+    // already running. Helpers before 0.2.3 read the confirmation only while
+    // the process they started runs, about every 500 ms: stay until it exists
+    // and a little after.
+    public static void AwaitConfirmation(Guid token, TimeSpan timeout)
+    {
+        var marker = Path.Combine(Root, "launch-" + token + ".json");
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline && !File.Exists(marker)) Thread.Sleep(250);
+        if (File.Exists(marker)) Thread.Sleep(2000);
+    }
+
     public void MarkReady()
     {
         if (!Guid.TryParse(Environment.GetEnvironmentVariable("CAGE_UPDATE_CONFIRMATION"), out var token)) return;

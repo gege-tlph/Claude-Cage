@@ -36,6 +36,7 @@ if (args is ["--app-updater-only"]) return;
 #if WINDOWS
 NativeInputTests.Run();
 TrayMenuTests.Run();
+await UpdateWaitTests.Run();
 #endif
 
 var assertions = 0;
