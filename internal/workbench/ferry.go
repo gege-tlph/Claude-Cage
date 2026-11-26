@@ -63,10 +63,8 @@ func (s *Server) ferrySaveExits(input proxyInput, pauseVersion *uint64) error {
 	if err != nil {
 		return err
 	}
-	for _, src := range p.Sources {
-		if src.Name != input.Name || src.URL == "" {
-			continue
-		}
+	if i := ferryKnownSource(p, loadFerryState(s.profile), input); i >= 0 {
+		src := p.Sources[i]
 		if src.URL != input.URL {
 			if err := s.changeProxy("edit", proxyInput{ID: src.ID, Name: src.Name, URL: input.URL, Interval: src.Interval}, pauseVersion); err != nil {
 				return err
@@ -88,6 +86,21 @@ func (s *Server) ferrySaveExits(input proxyInput, pauseVersion *uint64) error {
 		}
 	}
 	return nil
+}
+
+// ferryKnownSource is the source a sign-in updates in place, or -1: the one
+// ferry.json names, else one with Ferry's name and this very subscription. A
+// source of the user's that only shares the name keeps its subscription.
+func ferryKnownSource(p managedproxy.Store, state ferryState, input proxyInput) int {
+	if i := ferrySourceIndex(p, state); i >= 0 && p.Sources[i].URL != "" {
+		return i
+	}
+	for i, src := range p.Sources {
+		if src.Name == input.Name && src.URL != "" && src.URL == input.URL {
+			return i
+		}
+	}
+	return -1
 }
 
 func (s *Server) ferryRememberSource(id string) {

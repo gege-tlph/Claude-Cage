@@ -416,3 +416,25 @@ func TestFerryExpiredUserIsNotUpdatedAgainAndAgain(t *testing.T) {
 		t.Fatal("not updated again after an hour", updated)
 	}
 }
+
+// A sign-in updates the Ferry source in place, never a source of the user's
+// that only shares its name.
+func TestFerrySignInUpdatesOnlyItsOwnSource(t *testing.T) {
+	var p managedproxy.Store
+	p.Sources = []managedproxy.Source{
+		{ID: "mine", Name: ferrySourceName, URL: "https://example.com/colleague"},
+		{ID: "local", Name: ferrySourceName},
+		{ID: "ferry", Name: ferrySourceName, URL: "https://ferry.example/old-token"},
+	}
+	input := proxyInput{Name: ferrySourceName, URL: ferryTestSub}
+	if i := ferryKnownSource(p, ferryState{Source: "ferry"}, input); i != 2 {
+		t.Fatal("the recorded Ferry source with an older link is not updated in place", i)
+	}
+	if i := ferryKnownSource(p, ferryState{}, input); i != -1 {
+		t.Fatal("a source that only shares the name would be overwritten", i)
+	}
+	p.Sources[0].URL = ferryTestSub
+	if i := ferryKnownSource(p, ferryState{Source: "gone"}, input); i != 0 {
+		t.Fatal("the same subscription under Ferry's name is not reused", i)
+	}
+}
