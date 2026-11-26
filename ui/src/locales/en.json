@@ -91,8 +91,6 @@
   "”的主机指纹。": "\" with the server administrator.",
   "”的本机连接配置？云端文件和任务会保留。": "\" from this computer? Cloud files and tasks are kept.",
   "。停止将结束本机终端任务并释放资源，未保存的内容可能丢失。云端任务继续运行。": ". Stopping ends terminal tasks on this computer and frees resources; unsaved work may be lost. Cloud tasks keep running.",
-  "。可点击更新按钮重试。": ". Click the update button to try again.",
-  "。请等待更新源恢复后重试。": ". Try again once the update source recovers.",
   "「测速」只检测节点延迟。Cage lite 内的浏览器、终端和开发工具会共用所选节点，无需分别配置代理。": "\"Test\" only measures node latency. The browser, terminal and dev tools in Cage lite all use the selected node; no separate proxy setup needed.",
   "一次只能导入一个配置文件，请逐个添加来源。": "Only one configuration file can be imported at a time. Add the sources one by one.",
   "一次性配对码已复制，可在手机上粘贴。": "One-time pairing code copied. Paste it on your phone.",

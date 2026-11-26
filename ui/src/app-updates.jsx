@@ -223,7 +223,7 @@ export function AppUpdateButton({ updates }) {
           </>
         ) : failed ? <RefreshCw size={20} /> : <ArrowDownToLine size={20} />}
       </button>}
-      {(failure || startupFailure) && <div className="app-update-error" role="alert">{localizeBackendMessage(failure || startupFailure, tr)}{visible ? coolingDown ? tr("。请等待更新源恢复后重试。") : tr("。可点击更新按钮重试。") : ""}</div>}
+      {(failure || startupFailure) && <div className="app-update-error" role="alert">{localizeBackendMessage(failure || startupFailure, tr)}</div>}
     </>
   );
 }
