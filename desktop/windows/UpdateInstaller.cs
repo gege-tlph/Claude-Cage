@@ -370,6 +370,7 @@ internal static class UpdateInstaller
         "unpacking_application" => 10,
         "detecting_webview_runtime" => 45,
         "installing_webview_runtime" => 50,
+        "closing_reopened_application" => 58,
         "preparing_file_transaction" => 60,
         "moving_previous_application" => 70,
         "moving_personal_files" => 75,

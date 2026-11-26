@@ -1,7 +1,7 @@
 ﻿#requires -Version 5.1
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('prepare', 'move', 'restore', 'cleanup', 'complete', 'abandon', 'uninstall', 'detach', 'attach', 'heal')][string]$Operation,
+    [Parameter(Mandatory)][ValidateSet('prepare', 'move', 'restore', 'cleanup', 'complete', 'abandon', 'uninstall', 'detach', 'attach', 'heal', 'close-app')][string]$Operation,
     [Parameter(Mandatory)][string]$Target,
     [string]$Source,
     [string]$Receipt,
@@ -529,6 +529,24 @@ if ($Operation -eq 'prepare') {
     $archive = $Target + '.cage-installation-archived-' + [DateTime]::Now.ToString('yyyyMMdd-HHmmss') + '-' + $id.ToString('N').Substring(0, 8) + '.json'
     [IO.File]::Move($Receipt, $archive)
     Write-Output ('未搬移文件的更新回滚记录已归档：' + $archive)
+} elseif ($Operation -eq 'close-app') {
+    # An in-app update closed the App before it started the installer. A
+    # window opened from the program folder since then runs the previous
+    # version and takes the place of the version that the update starts,
+    # which then cannot confirm and is rolled back (customer report, 0.2.2).
+    # Only that window process closes, by its exact image; the controller
+    # and the VM keep running. WMI gives the image: this 32-bit host cannot
+    # read the modules of the 64-bit App.
+    $diagnosticStep = 'closing_reopened_application'
+    $launcher = Join-Path $Target 'Cage.exe'
+    $closed = @()
+    foreach ($process in @(Get-CimInstance -ClassName Win32_Process -Filter "Name = 'Cage.exe'")) {
+        if (!$process.ExecutablePath -or ![string]::Equals([IO.Path]::GetFullPath($process.ExecutablePath), $launcher, [StringComparison]::OrdinalIgnoreCase)) { continue }
+        Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+        $closed += $process.ProcessId
+    }
+    foreach ($id in $closed) { Wait-Process -Id $id -Timeout 10 -ErrorAction SilentlyContinue }
+    Write-Output ('closed ' + $closed.Count)
 } elseif ($Operation -eq 'abandon') {
     # A first installation that could not publish its staged folder has no
     # previous installation, backup or moved entry to recover. Only then is

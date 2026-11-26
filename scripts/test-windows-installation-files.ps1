@@ -533,6 +533,25 @@ try {
         Check ((@(Get-ChildItem -LiteralPath $old -Force -Recurse | ForEach-Object { $_.FullName }) -join ',') -eq $before) 'Healing changed the installation.'
         Check ((Get-Content (Join-Path $restore 'program.txt') -Raw) -eq 'previous') 'Healing removed the restore copy.'
 
+        # A Cage window opened during an in-app update runs the previous
+        # version (customer report, 0.2.2): the installer closes exactly the
+        # Cage.exe of the installation folder, never another one by name.
+        $scenario = Join-Path $root 'close-reopened-app'
+        $installed = Join-Path $scenario 'Cage'; $elsewhere = Join-Path $scenario 'Other'
+        [IO.Directory]::CreateDirectory($installed) | Out-Null; [IO.Directory]::CreateDirectory($elsewhere) | Out-Null
+        Copy-Item (Join-Path $env:SystemRoot 'System32\PING.EXE') (Join-Path $installed 'Cage.exe')
+        Copy-Item (Join-Path $env:SystemRoot 'System32\PING.EXE') (Join-Path $elsewhere 'Cage.exe')
+        $reopened = Start-Process (Join-Path $installed 'Cage.exe') -ArgumentList '-n', '120', '127.0.0.1' -WindowStyle Hidden -PassThru
+        $other = Start-Process (Join-Path $elsewhere 'Cage.exe') -ArgumentList '-n', '120', '127.0.0.1' -WindowStyle Hidden -PassThru
+        try {
+            Invoke-Helper @('-Operation','close-app','-Target',$installed)
+            Check ($reopened.WaitForExit(10000)) 'The Cage window of the installation folder kept running.'
+            Check (!$other.HasExited) 'Closing the reopened window closed a Cage.exe outside the installation folder.'
+            Invoke-Helper @('-Operation','close-app','-Target',$installed)
+        } finally {
+            foreach ($process in $reopened, $other) { if (!$process.HasExited) { $process.Kill(); $process.WaitForExit(5000) | Out-Null } }
+        }
+
         # A process still running the replaced program keeps its file open:
         # cleanup can neither delete it nor move its folder. Unchanged program
         # bytes stay behind; anything else keeps the receipt until it moves.

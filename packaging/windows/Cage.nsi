@@ -599,6 +599,19 @@ Section "Cage" Main
   ; PowerShell 5.1 Add-Type must not resolve NSIS's native System.dll as a
   ; managed compiler reference from the plugin working directory.
   SetOutPath "$TEMP"
+  ; The in-app update closed the App before starting this installer. A Cage
+  ; window opened from the folder since then runs the previous version and
+  ; keeps the updated one from confirming, so the update is rolled back
+  ; (customer report, 0.2.2). Close that window process only; its controller
+  ; and VM stay. A failure leaves the transaction as it was before 0.2.3.
+  ${If} $UpdateMode == "1"
+  ${AndIf} $ExistingInstall == "1"
+    !insertmacro InstallPhase "closing_reopened_application"
+    nsExec::ExecToStack '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\installation-files.ps1" -Operation close-app -Target "$INSTDIR"'
+    Pop $0
+    Pop $1
+    DetailPrint "$1"
+  ${EndIf}
   DetailPrint "$(CageSetupDetail6)"
   !insertmacro InstallPhase "preparing_file_transaction"
   ; CageData is the default storage of a packaged Windows installation. It
