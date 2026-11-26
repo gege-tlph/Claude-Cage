@@ -37,21 +37,42 @@ var patterns = []struct {
 	{regexp.MustCompile(`\b` + ipv4Address + `\b(?::[0-9]+)?`), "[ip]"},
 	// Older logs already contain masked IPs with their original ports attached.
 	{regexp.MustCompile(`\[ip\]:[0-9]+`), "[ip]"},
-	// Browser command names such as Page.navigate look like hostnames. They
-	// name the failing step (#791), so the next rule passes over them.
-	{regexp.MustCompile(`\b(` + cdpDomains + `)\.([a-z][A-Za-z]+)\b`), "${1}#${2}"},
-	// Core errors contain bare endpoints as well as URLs. Remove the complete
-	// hostname and optional port, including punycode labels and DNS trailing dots.
-	{regexp.MustCompile(`(?i)\b(?:[a-z0-9_][a-z0-9_-]*\.)+(?:xn--[a-z0-9-]+|[a-z]{2,})\b\.?(?::[0-9]+)?`), "[host]"},
-	{regexp.MustCompile(`\b(` + cdpDomains + `)#([a-z][A-Za-z]+)\b`), "${1}.${2}"},
 }
 
+// Core errors contain bare endpoints as well as URLs. Match the whole endpoint,
+// including its port, before considering a dotted word in a diagnostic message.
+const bareHost = `(?i:(?:[a-z0-9_][a-z0-9_-]*\.)+(?:xn--[a-z0-9-]+|[a-z]{2,}(?:-[a-z0-9-]+)?)\b\.?(?::[0-9]+)?)`
+const operationLead = `(?:call |then |recovery=)`
+const localeLead = `(?:Locale=|LANG=|LC_ALL=|locale \()`
+const cageFile = `(?:lima\.yaml|setup\.sh|main\.go)`
+const fileLead = `(?:writing|reading|opening) (?:` + cageFile + ` and )*`
+const sourceLead = `panic at `
+
 // Chrome DevTools Protocol domains, capitalized as the protocol spells them.
+// Browser command names such as Page.navigate look like hostnames; they name
+// the failing step (#791).
 const cdpDomains = `Accessibility|Animation|Audits|Browser|CSS|CacheStorage|Cast|DOM|DOMDebugger|DOMSnapshot|DOMStorage|Debugger|Emulation|Fetch|HeapProfiler|IO|IndexedDB|Input|Inspector|Log|Media|Memory|Network|Overlay|Page|Performance|Profiler|Runtime|Security|ServiceWorker|Storage|SystemInfo|Target|Tracing|WebAuthn`
+const cdpCommand = `(?:` + cdpDomains + `)\.[a-z][A-Za-z]+`
+
+var hostInMessage = regexp.MustCompile(`\b((?:` + operationLead + `|` + localeLead + `|` + fileLead + `|` + sourceLead + `)?)(` + bareHost + `)`)
+
+// A filename such as setup.sh can also be an endpoint. Preserve only complete,
+// known diagnostic forms. A port or a further domain label still masks the host.
+var publicDiagnostic = regexp.MustCompile(`^(?:` +
+	operationLead + `(?:network\.check|settings\.probe|proxy\.(?:route|select))|` +
+	localeLead + `[a-zA-Z]{2,3}_[a-zA-Z]{2,3}\.UTF-8|` +
+	fileLead + cageFile + `|` + sourceLead + `main\.go:[0-9]+|` +
+	cdpCommand + `)$`)
 
 func Redact(s string) string {
 	for _, p := range patterns {
 		s = p.re.ReplaceAllString(s, p.replacement)
 	}
+	s = hostInMessage.ReplaceAllStringFunc(s, func(match string) string {
+		if publicDiagnostic.MatchString(match) {
+			return match
+		}
+		return hostInMessage.ReplaceAllString(match, "${1}[host]")
+	})
 	return strings.ToValidUTF8(s, "�")
 }
