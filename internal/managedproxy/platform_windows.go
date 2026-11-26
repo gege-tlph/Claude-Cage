@@ -73,8 +73,13 @@ func stopWindowsCore(profile string) error {
 	if err != nil {
 		return err
 	}
-	if !strings.EqualFold(filepath.Clean(core), filepath.Clean(record.Executable)) {
-		return errors.New("代理进程不属于当前安装目录")
+	// A record left by another install directory (installed elsewhere, a
+	// swapped package) is still this profile's core: forget it when it no
+	// longer runs and stop it when it does, or its port blocks every start.
+	// Only the core's own file name is accepted, so a damaged record never
+	// names another application.
+	if !strings.EqualFold(filepath.Base(record.Executable), filepath.Base(core)) || !filepath.IsAbs(record.Executable) {
+		return errors.New("代理进程记录无效")
 	}
 	handle, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION|windows.PROCESS_TERMINATE|windows.SYNCHRONIZE, false, record.PID)
 	if errors.Is(err, windows.ERROR_INVALID_PARAMETER) {
