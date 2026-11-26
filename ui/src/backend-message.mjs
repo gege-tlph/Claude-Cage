@@ -397,19 +397,37 @@ function localizeValue(value, localize) {
   return /\p{Script=Han}/u.test(sentence) ? english : sentence.replace(/\.$/u, "");
 }
 
-// Backend text joined from several known sentences at run time.
+// One sentence or clause ending in "。", "；" or nothing; null if it stays Chinese.
+function localizePart(part, localize) {
+  // The catalog's own wording of the whole sentence wins over a composed one.
+  const exact = localize(part);
+  if (exact !== part && !/\p{Script=Han}/u.test(exact)) return exact;
+  const end = /[。；]$/u.test(part) ? part.slice(-1) : "";
+  const body = end ? part.slice(0, -1) : part;
+  let english = body ? localizeBackendMessage(body, localize) : "";
+  if (english === body && end) english = localizeBackendMessage(part, localize);
+  else if (end === "。") english = english.replace(/[.!?]?$/u, ".");
+  else if (end === "；") english = english.replace(/[.;]?$/u, ";");
+  return /\p{Script=Han}/u.test(english) ? null : english;
+}
+
+// Backend text joined from several known sentences at run time, such as a
+// reason and the help after it ("原因。打开“操作详情”…；仍无法判断时，…。").
+// A sentence is first looked up whole, since catalog entries may contain
+// "；", and only then clause by clause.
 function localizeSentences(text, localize) {
-  const parts = text.split(/(?<=[。；])/u).filter(Boolean);
-  if (parts.length < 2) return null;
+  const sentences = text.split(/(?<=。)/u).filter(Boolean);
+  if (sentences.length < 2 && !/；./u.test(text)) return null;
   const out = [];
-  for (const part of parts) {
-    const end = /[。；]$/u.test(part) ? part.slice(-1) : "";
-    const body = end ? part.slice(0, -1) : part;
-    let english = body ? localizeBackendMessage(body, localize) : "";
-    if (english === body && end) english = localizeBackendMessage(part, localize);
-    else if (end === "。") english = english.replace(/[.!?]?$/u, ".");
-    else if (end === "；") english = english.replace(/[.;]?$/u, ";");
-    if (/\p{Script=Han}/u.test(english)) return null;
+  for (const sentence of sentences) {
+    let english = sentences.length > 1 ? localizePart(sentence, localize) : null;
+    if (english === null) {
+      const clauses = sentence.split(/(?<=；)/u).filter(Boolean);
+      if (clauses.length < 2) return null;
+      const parts = clauses.map(clause => localizePart(clause, localize));
+      if (parts.includes(null)) return null;
+      english = parts.join(" ");
+    }
     out.push(english);
   }
   return out.join(" ");
