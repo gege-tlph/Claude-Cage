@@ -65,10 +65,21 @@ function siteCookie(input, url) {
   };
 }
 
+// Cookies belong to a host, not to a path or fragment: moving within one site,
+// or the settings page switching its section, leaves the open list valid.
+function cookieSite(value) {
+  try {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol) ? `${url.protocol}//${url.hostname}` : url.protocol;
+  } catch {
+    return value;
+  }
+}
+
 export async function browserCookies(cdp, session, tab, input) {
   if (!tab || tab.login) throw new Error("当前标签不可管理 Cookie");
   // The host always forwards "url"; an empty value means the caller named no page.
-  if (input.url !== undefined && input.url !== "" && input.url !== tab.url) throw new Error("网页已切换，请重新打开 Cookie 管理");
+  if (input.url !== undefined && input.url !== "" && cookieSite(input.url) !== cookieSite(tab.url)) throw new Error("网页已切换，请重新打开 Cookie 管理");
   const { mode = "list", scope = "site", query = "", page = 0 } = input;
   if (!["list", "details", "delete", "delete-selected", "clear", "set"].includes(mode) || !["site", "all"].includes(scope) ||
       typeof query !== "string" || query.length > 200 || !Number.isInteger(page) || page < 0)

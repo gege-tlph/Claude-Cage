@@ -72,6 +72,14 @@ test('invalid, stale, out-of-scope or opaque batches fail before deleting any se
   assert.deepEqual(f.deletions, []);
 });
 
+test('a page change within the same site keeps the open list valid', async () => {
+  const f = storage([cookie('sub.example.test'), cookie('other.test')]);
+  for (const url of ['https://sub.example.test/other?x=1', 'https://sub.example.test/page#section'])
+    assert.equal((await f.run({ mode: 'list', scope: 'site', url })).total, 1);
+  for (const url of ['https://other.test/page', 'http://sub.example.test/page', 'chrome://settings/'])
+    await assert.rejects(f.run({ mode: 'list', scope: 'site', url }), /网页已切换/);
+});
+
 test('a transport failure during a batch reports partial deletion and requests a refresh', async () => {
   const f = storage([cookie('sub.example.test', { name: 'first' }), cookie('sub.example.test', { name: 'second' })]);
   const result = await f.run({ mode: 'list' });

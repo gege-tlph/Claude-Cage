@@ -71,7 +71,7 @@ export function BrowserCookies({ tab, onClose }) {
       .catch(error => { if (version === generation.current) setError(error.message); })
       .finally(() => { if (version === generation.current) setLoading(false); });
     return () => { generation.current++; };
-  }, [tab.id, scope, query, page, revision]);
+  }, [tab.id, hostname, scope, query, page, revision]);
   const run = async (mode, cookieKey, extra = {}, edit = null) => {
     if (operation.current || loading) return;
     operation.current = true; setBusy(true); setError("");
