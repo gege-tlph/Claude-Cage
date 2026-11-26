@@ -54,8 +54,11 @@ internal static class Program
         var instanceMutex = @"Local\Cage-" + key;
         // Helpers before 0.2.3 show no window: show that an update runs until
         // the App it starts is there; this start then hands over to it below,
-        // as to any App already running.
-        if (helper != null && UpdateWait.Legacy(helper) && !UpdateWait.Wait(UpdateWait.InstallPath, instanceMutex, TimeSpan.FromMinutes(5))) return 0;
+        // as to any App already running. Such a helper gives the installer up
+        // to 10 minutes and the new App 2 more to confirm, then may roll back:
+        // the wait covers all of it, so this start never runs from a folder
+        // still being replaced; it ends only for a helper that hangs.
+        if (helper != null && UpdateWait.Legacy(helper) && !UpdateWait.Wait(UpdateWait.InstallPath, instanceMutex, TimeSpan.FromMinutes(15))) return 0;
         using var mutex = new Mutex(true, instanceMutex, out var owner);
         if (!owner)
         {
