@@ -139,12 +139,17 @@ func keepServerName(p map[string]any, name string) {
 			headers = map[string]any{}
 			ws["headers"] = headers
 		}
-		for key, value := range headers {
-			if strings.EqualFold(key, "Host") && !blank(value) {
-				return
+		key := "Host"
+		for k, value := range headers {
+			if strings.EqualFold(k, "Host") {
+				if !blank(value) {
+					return
+				}
+				// A blank host: fill that key rather than add a second one.
+				key = k
 			}
 		}
-		headers["Host"] = name
+		headers[key] = name
 	}
 }
 

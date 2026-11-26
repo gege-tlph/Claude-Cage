@@ -237,3 +237,13 @@ proxies:
 		}
 	}
 }
+
+// A blank host header is filled in place, not joined by a second "Host".
+func TestKeepServerNameFillsABlankHostHeader(t *testing.T) {
+	p := map[string]any{"type": "vless", "network": "ws", "ws-opts": map[string]any{"headers": map[string]any{"host": ""}}}
+	keepServerName(p, "alias.example.test")
+	headers := p["ws-opts"].(map[string]any)["headers"].(map[string]any)
+	if len(headers) != 1 || headers["host"] != "alias.example.test" {
+		t.Fatalf("headers = %v", headers)
+	}
+}
