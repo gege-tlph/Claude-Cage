@@ -3258,6 +3258,7 @@
   "从 Ferry 导入": "Import from Ferry",
   "Ferry 出口": "Ferry exit",
   "未使用 Ferry 出口": "Not using a Ferry exit",
+  "Ferry 账号已到期或停用": "Ferry account expired or disabled",
   "恢复": "Restore",
   "更换": "Change",
   "创建账户": "Create account",

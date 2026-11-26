@@ -370,3 +370,37 @@ func TestFerryWithdrawnExitUpdatesTheFerrySourceAtOnce(t *testing.T) {
 		t.Fatal("probed an exit that is not Ferry's", probed, updated)
 	}
 }
+
+// An expired or disabled Ferry user still gets the subscription but no
+// node lets them in: the watcher stops updating, and updates once when the
+// exit works again so the expiry shown is current.
+func TestFerryExpiredUserIsNotUpdatedAgainAndAgain(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0)
+	for usage, want := range map[string]bool{"": false, "upload=1; download=2; total=3": false, "expire=0": false, "expire=1": true, "total=5; expire=1799999999": true, "expire=1800000001": false, "expire=x": false} {
+		if usageExpired(usage, now) != want {
+			t.Error(usage, !want)
+		}
+	}
+	s, p := ferryChainProfile(t)
+	p.Sources[1].Usage = "upload=0; download=0; total=0; expire=1"
+	if err := p.Save(s.profile); err != nil {
+		t.Fatal(err)
+	}
+	oldProbe, oldReady, oldUpdate := ferryProbe, ferryCoreReady, ferryUpdateNow
+	t.Cleanup(func() { ferryProbe, ferryCoreReady, ferryUpdateNow = oldProbe, oldReady, oldUpdate })
+	ferryCoreReady = func(context.Context, *Server, managedproxy.Store) bool { return true }
+	probeErr := errors.New("connect error")
+	updated := 0
+	ferryProbe = func(context.Context, string, string) error { return probeErr }
+	ferryUpdateNow = func(*Server, string) bool { updated++; return true }
+	for range 4 {
+		s.ferryWatchOnce()
+	}
+	if updated != 0 {
+		t.Fatal("an expired user's subscription was updated", updated)
+	}
+	probeErr = nil
+	if s.ferryWatchOnce(); updated != 1 {
+		t.Fatal("a renewed user's subscription was not updated", updated)
+	}
+}

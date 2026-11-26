@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -558,7 +559,19 @@ func (s *Server) ferryWatchOnce() time.Duration {
 		failed(0)
 		return ferryWatchRetry
 	}
+	expired := usageExpired(p.Sources[index].Usage, time.Now())
 	if ferryProbe(ctx, s.profile, p.Selected) == nil {
+		failed(0)
+		// Working again after the account expired: renewed. Update the
+		// subscription so its expiry, which the card shows, is current.
+		if expired && !s.busy() {
+			ferryUpdateNow(s, p.Sources[index].ID)
+		}
+		return ferryWatchEvery
+	}
+	if expired {
+		// Ferry still serves the subscription of an expired or disabled user
+		// but its nodes refuse them: updating would change nothing.
 		failed(0)
 		return ferryWatchEvery
 	}
@@ -572,4 +585,17 @@ func (s *Server) ferryWatchOnce() time.Duration {
 	failed(0)
 	diagnostics.Log("warn", "ferry", "Ferry 出口连不上，已提前更新 Ferry 订阅")
 	return ferryWatchEvery
+}
+
+// usageExpired says the subscription's user has expired: its
+// Subscription-Userinfo expire is past. Ferry gives a disabled user expire=1.
+func usageExpired(usage string, now time.Time) bool {
+	for _, field := range strings.Split(usage, ";") {
+		key, value, ok := strings.Cut(strings.TrimSpace(field), "=")
+		if ok && key == "expire" {
+			n, err := strconv.ParseInt(value, 10, 64)
+			return err == nil && n > 0 && n <= now.Unix()
+		}
+	}
+	return false
 }

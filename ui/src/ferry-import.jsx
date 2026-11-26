@@ -8,6 +8,13 @@ import { useTranslation } from "./interface-language.mjs";
 import { localizeBackendMessage } from "./backend-message.mjs";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+// The subscription's Subscription-Userinfo expire is past: Ferry still serves
+// the subscription of an expired or disabled user (disabled: expire=1), but
+// its nodes refuse them.
+const usageExpired = (usage) => {
+  const at = Number(/(?:^|;\s*)expire=(\d+)/.exec(usage || "")?.[1] || 0);
+  return at > 0 && at * 1000 <= Date.now();
+};
 
 async function proxyJob(action, input, tr) {
   const job = await api(`/proxy/${action}`, input);
@@ -50,7 +57,8 @@ export function FerryImport({ proxy, busy, onChanged }) {
   const regionOf = (node) => exitRegion(exits.find((exit) => exit.name === node.name) || { name: node.name });
   const relayNode = route.length > 1 ? relaySource?.nodes.find((node) => node.id === route[route.length - 2]) : null;
   const sameRegion = !exitNode || !regionOf(exitNode) || (relayNode && exitRegion({ name: relayNode.name }) === regionOf(exitNode));
-  const canRestore = Boolean(relaySource && ferrySource && (!exitNode || !sameRegion));
+  const expired = Boolean(ferrySource && usageExpired(ferrySource.usage));
+  const canRestore = Boolean(relaySource && ferrySource && !expired && (!exitNode || !sameRegion));
 
   const restore = async () => {
     if (working) return;
@@ -95,7 +103,7 @@ export function FerryImport({ proxy, busy, onChanged }) {
       />
     );
   }
-  const state = [known?.user, exitNode ? `${tr("Ferry 出口")} · ${exitNode.name}` : ferrySource ? tr("未使用 Ferry 出口") : ""].filter(Boolean).join(" · ");
+  const state = [known?.user, expired ? tr("Ferry 账号已到期或停用") : exitNode ? `${tr("Ferry 出口")} · ${exitNode.name}` : ferrySource ? tr("未使用 Ferry 出口") : ""].filter(Boolean).join(" · ");
   return (
     <section className="ferry-import" aria-label={tr("从 Ferry 导入")}>
       <div className="ferry-import-heading">
@@ -112,7 +120,7 @@ export function FerryImport({ proxy, busy, onChanged }) {
       {state && (
         <p className="ferry-import-state">
           {state}
-          {exitNode && !sameRegion && <span className="ferry-tag">{tr("无同地区前置")}</span>}
+          {exitNode && !expired && !sameRegion && <span className="ferry-tag">{tr("无同地区前置")}</span>}
         </p>
       )}
       {error && <p className="account-error ferry-import-error" role="alert">{localizeBackendMessage(error, tr)}</p>}
