@@ -561,8 +561,11 @@ function localizeComposed(trimmed, localize) {
       return translateTemplate(localize, key, ...m.slice(1)) ?? trimmed;
     }
   }
+  // A template that leaves Chinese values (such as "{0}失败：{1}" with an
+  // action the catalog lacks) yields to the rules below, which know the
+  // whole lead ("操作失败"); it is only the last resort.
   const templated = localizeByTemplate(trimmed, localize);
-  if (templated !== null) return templated;
+  if (templated !== null && !/\p{Script=Han}/u.test(templated)) return templated;
   if ((m = trimmed.match(/^(.+)失败$/)) && JOB_NAMES.has(m[1])) {
     return translateTemplate(localize, "{0}失败", localize(m[1])) ?? trimmed;
   }
@@ -583,5 +586,5 @@ function localizeComposed(trimmed, localize) {
   if ((m = trimmed.match(/^([^：]+)：([^\p{Script=Han}]+)$/u)) && localize(m[1]) !== m[1]) {
     return `${localize(m[1])}: ${m[2]}`;
   }
-  return localizeSentences(trimmed, localize) ?? trimmed;
+  return localizeSentences(trimmed, localize) ?? templated ?? trimmed;
 }

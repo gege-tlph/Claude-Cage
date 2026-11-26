@@ -31,6 +31,9 @@ test("known sentences joined at run time are translated one by one", () => {
   try {
     assert.equal(localizeBackendMessage("请检查网络与代理，再重新检测。外网保持关闭。", translate),
       "Check the network and proxy, then check again. Internet access stays closed.");
+    // A template that would leave a Chinese value yields to the known lead.
+    assert.equal(localizeBackendMessage("操作失败：dial tcp 1.2.3.4: refused", translate), "Operation failed: dial tcp 1.2.3.4: refused");
+    assert.equal(localizeBackendMessage("诊断包导出失败：disk full", translate), "Diagnostics export failed: disk full");
     // An unknown sentence keeps the whole message as it was.
     assert.equal(localizeBackendMessage("外网保持关闭。这是一句没有翻译的话。", translate), "外网保持关闭。这是一句没有翻译的话。");
   } finally {
