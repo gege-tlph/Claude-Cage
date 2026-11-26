@@ -183,7 +183,11 @@ internal static class UpdateInstaller
             if (!ready) throw new IOException("新版工作台未能完成启动确认");
             succeeded = true;
             Result(true, "Cage lite 已更新至 " + plan.Version);
-            // The new version's window shows now.
+            // The new version's window shows now: this one closes before the
+            // backup is deleted below, which takes seconds for a large folder.
+            // Meanwhile a start of the App must reach the new version, not
+            // bring this window forward.
+            progress?.Dispose(); progress = null;
             // The currently executing helper cannot delete itself on Windows.
             // Keep this small signed file; the next successful update may remove it.
             return 0;
