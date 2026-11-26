@@ -56,6 +56,7 @@ try{
  const page=await browser.newPage({viewport:{width:1280,height:1000}});
  page.on('pageerror',e=>errors.push(e.message));
  await page.goto(launch.url);
+ await page.getByRole("button", { name: "从 Cage 配置" }).click();
  await page.getByLabel('用户名',{exact:true}).fill('Proxy Chain QA');
  await page.getByLabel('设置密码',{exact:true}).fill('isolated-chain-test-password');
  await page.getByLabel('确认密码',{exact:true}).fill('isolated-chain-test-password');

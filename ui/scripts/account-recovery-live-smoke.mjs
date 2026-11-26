@@ -112,6 +112,7 @@ const lock = async () => {
 };
 try {
   await restart();
+  await page.getByRole("button", { name: "从 Cage 配置" }).click();
   await page.getByLabel("用户名", { exact: true }).fill("recovery_live_qa");
   await page.getByLabel("设置密码", { exact: true }).fill("original-test-password");
   await page.getByLabel("确认密码", { exact: true }).fill("original-test-password");

@@ -30,6 +30,7 @@ try {
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(entry.url);
   await page.getByRole("heading", { name: "注册账户", exact: true }).waitFor();
+  await page.getByRole("button", { name: "从 Cage 配置" }).click();
   await page.getByLabel("用户名",{exact:true}).waitFor();
   const initial = await page.evaluate(async () => (await fetch("/api/client/local-status")).json());
   assert.ok(initial.known && initial.service_running && !initial.running, "opening the local home must not boot the VM");

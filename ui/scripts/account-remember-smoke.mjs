@@ -117,6 +117,7 @@ for (const platform of ["windows", "darwin", "linux"]) {
 
     Object.assign(state.account, { exists: false, unlocked: false, username: "", devices: {}, require_authentication: false });
     await page.reload();
+    await page.getByRole("button", { name: "从 Cage 配置" }).click();
     await page.getByRole("heading", { name: "创建本地账户", exact: true }).waitFor();
     await remember().waitFor();
     assert.equal(await remember().isChecked(), true);

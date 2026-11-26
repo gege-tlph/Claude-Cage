@@ -805,9 +805,11 @@ button.proxy-region-group-header:hover:not(:disabled) {
   flex: none;
   margin-top: 28px;
 }
-.proxy-route-add {
-  margin-left: 37px;
-  margin-bottom: 16px;
+.proxy-route-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px 37px;
 }
 .proxy-route-preview {
   display: flex;
