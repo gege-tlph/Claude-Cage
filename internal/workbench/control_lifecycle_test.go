@@ -270,6 +270,65 @@ func TestPrepareUpdateWaitsForRoutineProbeAndPreservesActiveWork(t *testing.T) {
 	}
 }
 
+// The App's exit locks the account, and a locked controller refuses the stop
+// request. An update rollback stops the App first, so an idle controller must
+// still hand off when asked to stop; one with work names the lock (0.2.3).
+func TestPrepareUpdateWithStopAfterAppExitLockedAccount(t *testing.T) {
+	for _, activeJob := range []bool{false, true} {
+		t.Run(strconv.FormatBool(activeJob), func(t *testing.T) {
+			s := testServer(t)
+			var err error
+			s.identity, err = currentController()
+			if err != nil {
+				t.Fatal(err)
+			}
+			lock, err := openControllerLock(s.profile, os.O_CREATE|os.O_RDWR)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer lock.Close()
+			if err := lockController(lock); err != nil {
+				t.Fatal(err)
+			}
+			defer unlockController(lock)
+			var stopped atomic.Bool
+			shutdownDone := make(chan struct{})
+			s.shutdown = func() {
+				stopped.Store(true)
+				_ = unlockController(lock)
+				close(shutdownDone)
+			}
+			server := httptest.NewServer(s.handler())
+			defer server.Close()
+			_, portString, _ := net.SplitHostPort(server.Listener.Addr().String())
+			port, _ := strconv.Atoi(portString)
+			s.origin = "http://localhost:" + portString
+			if err := writePrivate(filepath.Join(s.profile, "control.json"), controlFile{Port: port, Token: s.token, PID: os.Getpid(), Controller: s.identity}); err != nil {
+				t.Fatal(err)
+			}
+			if activeJob {
+				s.setJobForTest(Job{ID: "active", Running: true})
+			}
+			s.account.lock()
+			result, err := PrepareUpdate(s.configPath, true)
+			if activeJob {
+				if err == nil || !strings.Contains(err.Error(), "已锁定") || stopped.Load() {
+					t.Fatalf("locked controller with work: %+v %v stopped=%v", result, err, stopped.Load())
+				}
+				return
+			}
+			if err != nil || result.Status != "prepared" {
+				t.Fatalf("locked idle controller did not hand off: %+v %v", result, err)
+			}
+			select {
+			case <-shutdownDone:
+			case <-time.After(time.Second):
+				t.Fatal("handed-off controller did not shut down")
+			}
+		})
+	}
+}
+
 // A launcher that starts a replacement while a handed-off service exits keeps
 // the profile lock. The timeout must name that, not report a stuck service.
 func TestHandedOffControllerExitTimeoutNamesReplacement(t *testing.T) {

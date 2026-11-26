@@ -339,12 +339,10 @@ func PrepareUpdate(configPath string, stop bool) (DesktopResult, error) {
 		return DesktopResult{}, err
 	}
 	defer c.close()
-	if stop {
-		if err = c.stopAndHandoff(); err != nil {
-			return DesktopResult{}, err
-		}
-		return DesktopResult{Status: "prepared"}, nil
-	}
+	// An idle controller hands off without a stop request, also with stop:
+	// the stop request needs an unlocked account, and the App's exit locks
+	// it. An update rollback stops the App first, then the controller the
+	// App may have restarted (0.2.3).
 	reason := ""
 	if c.launch.Controller.Protocol == controlProtocol {
 		// Routine status probes also hold the operation lock. Retry briefly.
@@ -369,6 +367,12 @@ func PrepareUpdate(configPath string, stop bool) (DesktopResult, error) {
 			}
 			time.Sleep(50 * time.Millisecond)
 		}
+	}
+	if stop {
+		if err = c.stopAndHandoff(); err != nil {
+			return DesktopResult{}, err
+		}
+		return DesktopResult{Status: "prepared"}, nil
 	}
 	message := "请保存文件后确认停止环境并安装更新。终端任务会结束，项目和登录状态会保留。"
 	// Earlier controllers answer every refusal with this generic sentence.
@@ -428,6 +432,9 @@ func (c *controllerClient) stopAndHandoff() error {
 	status, err = c.call("POST", "/api/stop", map[string]any{}, &requested)
 	if err != nil {
 		return err
+	}
+	if status == http.StatusLocked {
+		return errors.New("Cage lite 已锁定，后台无法停止环境，已取消本次更新。")
 	}
 	if status != http.StatusOK || requested.ID == "" {
 		return errors.New("后台未接受停止请求，已取消本次更新。")
