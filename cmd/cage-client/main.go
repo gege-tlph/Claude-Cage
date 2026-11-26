@@ -106,12 +106,17 @@ func run(args []string) error {
 	case "diagnostic-event":
 		var event struct {
 			Source  string `json:"source"`
+			Level   string `json:"level"`
 			Message string `json:"message"`
 		}
 		if json.NewDecoder(io.LimitReader(os.Stdin, 32<<10)).Decode(&event) != nil || event.Source != "native" {
 			return errors.New("invalid diagnostic event")
 		}
-		return diagnostics.New(filepath.Dir(config)).Record("error", event.Source, event.Message)
+		level := "error"
+		if event.Level == "info" {
+			level = "info"
+		}
+		return diagnostics.New(filepath.Dir(config)).Record(level, event.Source, event.Message)
 	case "diagnostics":
 		connection := ""
 		if len(args) == 5 && args[1] == "--json" && args[2] == "--connection" {

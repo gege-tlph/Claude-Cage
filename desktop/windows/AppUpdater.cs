@@ -14,13 +14,14 @@ internal sealed class AppUpdater : IDisposable
     private readonly Action quit, reconnect;
     private readonly Func<string> readPublisher;
     private readonly Func<bool> canUpgradeUnsigned;
-    private readonly Action<string>? report;
+    // A message for the event log, and whether it reports an error.
+    private readonly Action<string, bool>? report;
     private readonly Dictionary<string, object?> state = new() { ["phase"] = "idle", ["currentVersion"] = Version, ["message"] = "" };
     private CancellationTokenSource? cancellation;
     private InstallPlan? prepared;
     private bool committed;
 
-    public AppUpdater(Action<Dictionary<string, object?>> changed, Action quit, Action reconnect, Func<string>? readPublisher = null, Action<string>? report = null, Func<bool>? canUpgradeUnsigned = null)
+    public AppUpdater(Action<Dictionary<string, object?>> changed, Action quit, Action reconnect, Func<string>? readPublisher = null, Action<string, bool>? report = null, Func<bool>? canUpgradeUnsigned = null)
     {
         this.changed = changed; this.quit = quit; this.reconnect = reconnect;
         this.readPublisher = readPublisher ?? Authenticode.OwnPublisher;
@@ -37,7 +38,7 @@ internal sealed class AppUpdater : IDisposable
                 if (failed) { state["phase"] = "failed"; state["retryable"] = true; }
                 // Shown once, kept for diagnosis: an update that failed was
                 // otherwise known only from this file (customer report, 0.2.2).
-                report?.Invoke((failed ? "Update failed: " : "Update result: ") + value.Text("message"));
+                report?.Invoke((failed ? "Update failed: " : "Update result: ") + value.Text("message"), failed);
                 KeepResult(result);
             }
         }
@@ -175,7 +176,7 @@ internal sealed class AppUpdater : IDisposable
             try { publisher = await Task.Run(readPublisher, token); }
             catch (Exception error) when (error is IOException or CryptographicException or UnauthorizedAccessException)
             {
-                report?.Invoke("Windows publisher check failed: " + error.Message);
+                report?.Invoke("Windows publisher check failed: " + error.Message, true);
                 if (await Task.Run(canUpgradeUnsigned, token))
                 {
                     publisher = Authenticode.OfficialPublisherKey;

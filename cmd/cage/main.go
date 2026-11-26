@@ -296,6 +296,7 @@ func run() int {
 	if args[0] == "diagnostic-event" {
 		var event struct {
 			Source  string `json:"source"`
+			Level   string `json:"level"`
 			Message string `json:"message"`
 		}
 		if json.NewDecoder(io.LimitReader(os.Stdin, 32<<10)).Decode(&event) != nil {
@@ -304,7 +305,12 @@ func run() int {
 		if event.Source != "native" {
 			return 2
 		}
-		if err := store.Record("error", event.Source, event.Message); err != nil {
+		// The App marks records, such as a successful update, as info.
+		level := "error"
+		if event.Level == "info" {
+			level = "info"
+		}
+		if err := store.Record(level, event.Source, event.Message); err != nil {
 			return 1
 		}
 		return 0

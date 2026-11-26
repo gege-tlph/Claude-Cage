@@ -118,14 +118,16 @@ internal static class Backend
         var buffer = new char[4096];
         while (await reader.ReadAsync(buffer.AsMemory(), token) > 0) { }
     }
-    public static async Task Report(string message)
+    // An error unless error is false: a native event that is only a record,
+    // such as a successful update, is logged as info.
+    public static async Task Report(string message, bool error = true)
     {
         try
         {
             using var process = new Process { StartInfo = StartInfo(Executable, "diagnostic-event") };
             process.StartInfo.RedirectStandardInput = true;
             if (!process.Start()) return;
-            await process.StandardInput.WriteAsync(JsonSerializer.Serialize(new { source = "native", message = message[..Math.Min(message.Length, 4096)] }));
+            await process.StandardInput.WriteAsync(JsonSerializer.Serialize(new { source = "native", level = error ? "error" : "info", message = message[..Math.Min(message.Length, 4096)] }));
             process.StandardInput.Close();
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             await process.WaitForExitAsync(timeout.Token);

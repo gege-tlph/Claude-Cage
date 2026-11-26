@@ -147,16 +147,21 @@ internal static class UpdateWaitTests
         for (var i = 0; i < 12; i++) File.WriteAllText(Path.Combine(kept, $"20200101-0000{i:00}-000.json"), "{}");
         File.WriteAllText(Path.Combine(AppUpdater.Root, "last-result.json"), "{\"success\":false,\"message\":\"更新未完成：fixture\"}");
         var reported = new List<string>();
-        using (var updater = new AppUpdater(_ => { }, () => { }, () => { }, () => "fixture-publisher", reported.Add))
+        using (var updater = new AppUpdater(_ => { }, () => { }, () => { }, () => "fixture-publisher", (message, error) => reported.Add((error ? "error " : "info ") + message)))
         {
             var state = updater.Handle("status");
             Check(state.GetValueOrDefault("phase") as string == "failed" && state.GetValueOrDefault("message") as string == "更新未完成：fixture", "the failed update was not shown");
         }
-        Check(reported.Count == 1 && reported[0] == "Update failed: 更新未完成：fixture", "the failed update did not reach the event log: " + string.Join("|", reported));
+        Check(reported.Count == 1 && reported[0] == "error Update failed: 更新未完成：fixture", "the failed update did not reach the event log: " + string.Join("|", reported));
         Check(!File.Exists(Path.Combine(AppUpdater.Root, "last-result.json")), "the result was shown again at the next start");
         var files = Directory.GetFiles(kept, "*.json").Select(Path.GetFileName).Order(StringComparer.Ordinal).ToArray();
         Check(files.Length == 10 && !files.Contains("20200101-000000-000.json") && !files[^1]!.StartsWith("2020", StringComparison.Ordinal), "kept results: " + string.Join(",", files));
         Check(File.ReadAllText(Path.Combine(kept, files[^1]!)).Contains("fixture"), "the kept result lost its message");
+        // A successful update is a record, not an error.
+        File.WriteAllText(Path.Combine(AppUpdater.Root, "last-result.json"), "{\"success\":true,\"message\":\"已更新至 fixture\"}");
+        reported.Clear();
+        using (new AppUpdater(_ => { }, () => { }, () => { }, () => "fixture-publisher", (message, error) => reported.Add((error ? "error " : "info ") + message))) { }
+        Check(reported.Count == 1 && reported[0] == "info Update result: 已更新至 fixture", "the successful update was logged as: " + string.Join("|", reported));
     }
 
     private static readonly System.Reflection.BindingFlags Private = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static;
