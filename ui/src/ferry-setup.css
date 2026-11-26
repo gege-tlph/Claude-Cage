@@ -142,3 +142,5 @@
 .ferry-relay-line { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 14px; overflow-wrap: anywhere; }
 .ferry-relay-line .text-button { margin-left: auto; }
 @media (max-width: 500px) { .ferry-import { padding: 14px; } }
+.ferry-import-tools button { display: inline-flex; align-items: center; gap: 6px; }
+.ferry-import-error { margin-top: 10px; }

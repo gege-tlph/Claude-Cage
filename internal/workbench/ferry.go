@@ -84,18 +84,129 @@ func (s *Server) ferrySaveExits(input proxyInput, pauseVersion *uint64) error {
 				return err
 			}
 		}
-		return s.changeProxy("refresh", proxyInput{ID: src.ID}, pauseVersion)
+		err := s.changeProxy("refresh", proxyInput{ID: src.ID}, pauseVersion)
+		s.ferryRememberSource(src.ID)
+		return err
 	}
-	return s.changeProxy("import", input, pauseVersion)
+	if err := s.changeProxy("import", input, pauseVersion); err != nil {
+		return err
+	}
+	if p, err := managedproxy.Load(s.profile); err == nil {
+		for i := len(p.Sources) - 1; i >= 0; i-- {
+			if p.Sources[i].Name == input.Name && p.Sources[i].URL == input.URL {
+				s.ferryRememberSource(p.Sources[i].ID)
+				break
+			}
+		}
+	}
+	return nil
+}
+
+func (s *Server) ferryRememberSource(id string) {
+	state := loadFerryState(s.profile)
+	if state.Source == id {
+		return
+	}
+	state.Source = id
+	if err := saveFerryState(s.profile, state); err != nil {
+		diagnostics.Log("warn", "ferry", "Ferry 状态未能保存："+err.Error())
+	}
+}
+
+// ferryFollowExit handles an update of the Ferry source that drops the exit
+// the route uses: the organisation renamed it or moved the user to another
+// exit. Instead of the update being refused while the old exit may stop
+// working, the route moves to Ferry's new exit (same region, then same
+// protocol, then Ferry's order) and keeps its relay hops. A route whose exit
+// is not Ferry's is the user's choice and is left alone.
+func (s *Server) ferryFollowExitOn(action string, p managedproxy.Store, index int, in proxyInput, data []byte, usage string) (managedproxy.Store, bool) {
+	if action != "refresh" {
+		return p, false
+	}
+	return s.ferryFollowExit(p, index, in, data, usage)
+}
+
+func (s *Server) ferryFollowExit(p managedproxy.Store, index int, in proxyInput, data []byte, usage string) (managedproxy.Store, bool) {
+	if index < 0 || p.Selected == "" {
+		return p, false
+	}
+	src := p.Sources[index]
+	if state := loadFerryState(s.profile); state.Source == "" || state.Source != src.ID {
+		return p, false
+	}
+	var old managedproxy.Node
+	found := false
+	for _, n := range src.Nodes {
+		if n.ID == p.Selected {
+			old, found = n, true
+		}
+	}
+	if !found {
+		return p, false
+	}
+	next := p
+	next.Sources = append([]managedproxy.Source(nil), p.Sources...)
+	chain := append([]string(nil), p.Chain...)
+	next.Selected, next.Chain = "", nil
+	if err := next.Import(in.Name, in.URL, data, in.ID, in.Interval, usage); err != nil {
+		return p, false
+	}
+	if _, kept := next.Find(old.ID); kept {
+		return p, false
+	}
+	blocked := next.BlockedNodes()
+	region := flagRegion(old.Name)
+	exit, best := "", -1
+	for _, n := range next.Sources[index].Nodes {
+		if blocked[n.ID] != "" {
+			continue
+		}
+		score := 0
+		if region != "" && flagRegion(n.Name) == region {
+			score += 2
+		}
+		if n.Type == old.Type {
+			score++
+		}
+		if score > best {
+			exit, best = n.ID, score
+		}
+	}
+	if exit == "" {
+		return p, false
+	}
+	if len(chain) > 0 {
+		chain[len(chain)-1] = exit
+	}
+	next.Selected, next.Chain = exit, chain
+	if _, err := next.Route(); err != nil {
+		return p, false
+	}
+	diagnostics.Log("info", "ferry", "Ferry 的出口已变更，代理链改用新出口")
+	return next, true
+}
+
+// flagRegion reads the flag a Ferry node name starts with ("🇦🇺 悉尼") as
+// its region code.
+func flagRegion(name string) string {
+	r := []rune(strings.TrimSpace(name))
+	const a, z = 0x1F1E6, 0x1F1FF
+	if len(r) >= 2 && r[0] >= a && r[0] <= z && r[1] >= a && r[1] <= z {
+		return string([]rune{'A' + r[0] - a, 'A' + r[1] - a})
+	}
+	return ""
 }
 
 // ferryState is what the profile keeps of Ferry (ferry.json): the address and
-// user last signed in with, and which recovery key Ferry holds, as the
-// fingerprint of the account's recovery record when it was handed over.
+// user last signed in with, their exits, the source the exits were imported
+// as, and which recovery key Ferry holds, as the fingerprint of the account's
+// recovery record when it was handed over.
 type ferryState struct {
-	Server   string `json:"server,omitempty"`
-	User     string `json:"user,omitempty"`
-	Recovery string `json:"recovery,omitempty"`
+	Server   string      `json:"server,omitempty"`
+	User     string      `json:"user,omitempty"`
+	Exits    []ferryExit `json:"exits,omitempty"`
+	Source   string      `json:"source,omitempty"`
+	Recovery string      `json:"recovery,omitempty"`
 }
 
 func loadFerryState(profile string) ferryState {
@@ -136,7 +247,11 @@ func (a *localAccount) recoveryFingerprint() string {
 func (s *Server) ferryStatus(w http.ResponseWriter, r *http.Request) {
 	state := loadFerryState(s.profile)
 	current := s.account.recoveryFingerprint()
-	jsonReply(w, map[string]any{"server": state.Server, "user": state.User, "escrowed": current != "" && state.Recovery == current})
+	exits := state.Exits
+	if exits == nil {
+		exits = []ferryExit{}
+	}
+	jsonReply(w, map[string]any{"server": state.Server, "user": state.User, "exits": exits, "source": state.Source, "escrowed": current != "" && state.Recovery == current})
 }
 
 type ferryExit struct {
@@ -268,7 +383,7 @@ func (s *Server) ferrySignIn(ctx context.Context, server, username, password, re
 	}
 	session := ferrySession{reply: reply, escrow: "none"}
 	state := loadFerryState(s.profile)
-	state.Server, state.User = strings.TrimSpace(server), username
+	state.Server, state.User, state.Exits = strings.TrimSpace(server), username, reply.Exits
 	if reply.EscrowKey != "" {
 		current := s.account.recoveryFingerprint()
 		if recoveryKey == "" && s.account != nil && current != state.Recovery {

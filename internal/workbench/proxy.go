@@ -454,7 +454,9 @@ func (s *Server) changeProxy(action string, in proxyInput, resumeVersion *uint64
 				return err
 			}
 		}
-		if err = p.Import(in.Name, in.URL, data, in.ID, in.Interval, usage); err != nil {
+		if next, followed := s.ferryFollowExitOn(action, p, index, in, data, usage); followed {
+			p = next
+		} else if err = p.Import(in.Name, in.URL, data, in.ID, in.Interval, usage); err != nil {
 			s.proxySourceFailure(in.ID, err)
 			return err
 		}

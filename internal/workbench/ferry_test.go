@@ -14,6 +14,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/sylvinus/agent-vm/internal/managedproxy"
 )
 
 const ferryTestSub = "https://ferry.example.com/sub/private-token?f=cage"
@@ -328,4 +330,101 @@ func TestFerryEscrowTriesALostConnectionAgain(t *testing.T) {
 	if err != nil || session.escrow != "failed" || f.escrows != 3 {
 		t.Fatalf("%+v %v escrows=%d", session, err, f.escrows)
 	}
+}
+
+// An update of the Ferry source that drops the exit in use moves the route to
+// Ferry's new exit and keeps the relay; any other route is left alone.
+func TestFerryUpdateMovesTheRouteToFerrysNewExit(t *testing.T) {
+	nodes := func(names ...string) []byte {
+		var b strings.Builder
+		b.WriteString("proxies:\n")
+		for i, name := range names {
+			b.WriteString("  - {name: \"" + name + "\", type: socks5, server: 192.0.2." + strconv.Itoa(10+i) + ", port: 1080}\n")
+		}
+		return []byte(b.String())
+	}
+	setup := func(t *testing.T, ferrySource string) (*Server, managedproxy.Store) {
+		t.Helper()
+		profile := t.TempDir()
+		p, err := managedproxy.Load(profile)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = p.Import("前置订阅", "", nodes("🇦🇺 悉尼 01", "🇯🇵 东京 01"), "relay", 0, ""); err != nil {
+			t.Fatal(err)
+		}
+		if err = p.Import(ferrySourceName, ferryTestSub, nodes("🇦🇺 AU", "🇦🇺 AU · SS"), "ferry", ferryRefreshHours, ""); err != nil {
+			t.Fatal(err)
+		}
+		p.Chain = []string{ferryNodeID(t, p, "relay", "🇦🇺 悉尼 01"), ferryNodeID(t, p, "ferry", "🇦🇺 AU")}
+		p.Selected = p.Chain[1]
+		if _, err = p.Route(); err != nil {
+			t.Fatal(err)
+		}
+		if err = saveFerryState(profile, ferryState{Source: ferrySource}); err != nil {
+			t.Fatal(err)
+		}
+		return &Server{profile: profile}, p
+	}
+	update := proxyInput{ID: "ferry", Name: ferrySourceName, URL: ferryTestSub, Interval: ferryRefreshHours}
+	index := func(p managedproxy.Store) int {
+		for i, src := range p.Sources {
+			if src.ID == "ferry" {
+				return i
+			}
+		}
+		return -1
+	}
+
+	// Renamed, with another region listed first: the same region wins.
+	s, p := setup(t, "ferry")
+	renamed := nodes("🇯🇵 JP", "🇦🇺 悉尼")
+	if probe := p; probe.Import(update.Name, update.URL, renamed, update.ID, update.Interval, "") == nil {
+		t.Fatal("a plain update should refuse to drop the exit in use")
+	}
+	next, followed := s.ferryFollowExit(p, index(p), update, renamed, "")
+	if !followed || next.Selected != ferryNodeID(t, next, "ferry", "🇦🇺 悉尼") || len(next.Chain) != 2 || next.Chain[0] != p.Chain[0] || next.Chain[1] != next.Selected {
+		t.Fatalf("followed=%v selected=%q chain=%q", followed, next.Selected, next.Chain)
+	}
+	if len(p.Sources[index(p)].Nodes) != 2 || p.Sources[index(p)].Nodes[0].Name != "🇦🇺 AU" {
+		t.Fatal("the store given was changed")
+	}
+	// Moved to another region: Ferry's exit there.
+	next, followed = s.ferryFollowExit(p, index(p), update, nodes("🇯🇵 JP"), "")
+	if !followed || next.Selected != ferryNodeID(t, next, "ferry", "🇯🇵 JP") {
+		t.Fatalf("followed=%v selected=%q", followed, next.Selected)
+	}
+	// The exit stays: the normal update.
+	if _, followed = s.ferryFollowExit(p, index(p), update, nodes("🇦🇺 AU", "🇯🇵 JP"), ""); followed {
+		t.Fatal("followed an update that keeps the exit")
+	}
+	// The user's own exit, or a source that is not Ferry's: left alone.
+	own := p
+	own.Chain, own.Selected = nil, ferryNodeID(t, p, "relay", "🇯🇵 东京 01")
+	if _, followed = s.ferryFollowExit(own, index(own), update, renamed, ""); followed {
+		t.Fatal("moved the user's own exit")
+	}
+	s, p = setup(t, "other")
+	if _, followed = s.ferryFollowExit(p, index(p), update, renamed, ""); followed {
+		t.Fatal("followed a source that is not Ferry's")
+	}
+	if flagRegion("🇦🇺 AU · SS") != "AU" || flagRegion("AU") != "" || flagRegion(" 🇯🇵 东京") != "JP" {
+		t.Fatal("flagRegion")
+	}
+}
+
+func ferryNodeID(t *testing.T, p managedproxy.Store, source, name string) string {
+	t.Helper()
+	for _, src := range p.Sources {
+		if src.ID != source {
+			continue
+		}
+		for _, n := range src.Nodes {
+			if n.Name == name {
+				return n.ID
+			}
+		}
+	}
+	t.Fatalf("no node %q in %s", name, source)
+	return ""
 }
