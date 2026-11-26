@@ -253,8 +253,22 @@ internal sealed class UpdateWindow : Form
     protected override void OnShown(EventArgs e)
     {
         base.OnShown(e);
+        Lift();
         UpdateTaskbar();
         Wake();
+    }
+
+    [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+
+    // In front of the other windows. A process started from the background
+    // may not take the foreground: the window then rises without the focus
+    // instead of opening behind the active window.
+    public void Lift()
+    {
+        if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal;
+        Activate();
+        if (GetForegroundWindow() == Handle) return;
+        TopMost = true; TopMost = false;
     }
 
     protected override void OnResize(EventArgs e)

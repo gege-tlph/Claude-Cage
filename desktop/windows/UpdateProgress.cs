@@ -136,8 +136,7 @@ internal sealed class UpdateProgress : IUpdateProgressView
 
     private void Restore()
     {
-        if (window.WindowState == FormWindowState.Minimized) window.WindowState = FormWindowState.Normal;
-        window.Show(); window.Activate(); SetForegroundWindow(window.Handle);
+        window.Show(); SetForegroundWindow(window.Handle); window.Lift();
     }
 
     private void Post(Action action)
