@@ -3254,5 +3254,9 @@
   "在工作台上打开一个可拖动的半透明浮窗。浮窗在隔离的框架中运行，只能使用这个插件自己的工具。它不能打开网页。": "Opens a movable, translucent floating window over the workbench. It runs in an isolated frame and can only use this plugin's own tools. It can't open web pages.",
   "在工作台上打开一个可拖动的半透明浮窗。浮窗在隔离的框架中运行，只能使用这个插件自己的工具。它可以在内置浏览器中打开：{0}。": "Opens a movable, translucent floating window over the workbench. It runs in an isolated frame and can only use this plugin's own tools. It can open in the built-in browser: {0}.",
   "已是最新版本": "Up to date",
-  "发行版更新": "Release updates"
+  "发行版更新": "Release updates",
+  "代理节点无法连通：{0}。{1}": "Can't connect to the proxy node: {0}. {1}",
+  "{0} 个出口检测服务均失败（{1}）": "All {0} exit check services failed ({1})",
+  "通过所选代理访问连通性检查地址也未成功，节点可能无法连通；请检查节点地址、端口、账号密码以及本机到节点的网络，或切换节点；外网保持关闭。": "The connectivity check through the selected proxy also failed, so the node may be unreachable. Check the node address, port, account and password, and this computer's network to the node, or switch nodes. Internet access stays off.",
+  "展开": "Show more"
 }

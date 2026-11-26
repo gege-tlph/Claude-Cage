@@ -73,7 +73,7 @@ import {
   shouldShowBrowserError,
 } from "./workspace-state.mjs";
 import { SafetyPanel } from "./safety";
-import { SafetyChecklistButton, SafetyChecklistContext, SafetyMessage, withoutRepeatedLead } from "./safety-message";
+import { FoldedText, SafetyChecklistButton, SafetyChecklistContext, SafetyMessage, withoutRepeatedLead } from "./safety-message";
 import { networkState, isGuestLocalURL } from "./safety-state.mjs";
 import { needsProxySetup } from "./onboarding-state.mjs";
 import { statusExitText } from "./status-exit.mjs";
@@ -2260,7 +2260,7 @@ function App() {
                     const heading = status.job.message ? localizeBackendMessage(status.job.message, tr) : tr("本次操作未完成");
                     return <div className="start-error" role="alert">
                       <strong>{heading}</strong>
-                      <p className="start-error-detail">{withoutRepeatedLead(localizeBackendMessage(status.job.error, tr), heading)}</p>
+                      <FoldedText className="start-error-detail" text={withoutRepeatedLead(localizeBackendMessage(status.job.error, tr), heading)} />
                       <div className="start-error-actions">
                         <SafetyChecklistButton message={status.job.error} />
                         {status.can_restore && <button className="text-button" onClick={() => openSettings("project")}>{tr("查看恢复选项")}</button>}

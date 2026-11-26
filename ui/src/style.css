@@ -2619,6 +2619,11 @@ svg {
 .start-error-actions .text-button {
   font-size: 0.8571rem;
 }
+.start-error .folded-text-toggle {
+  font-size: 0.8571rem;
+  min-height: 0;
+  padding: 0;
+}
 .details-link {
   margin-top: 12px;
   font-size: 0.8571rem;

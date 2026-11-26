@@ -139,7 +139,7 @@ func probeExitIPServices(ctx context.Context, client *http.Client, services []ex
 			results <- exitProbeResult{index: index, ip: ip, err: err, duration: time.Since(started), timing: timing}
 		}()
 	}
-	failures := make([]string, len(services))
+	failures := make([]probeFailure, len(services))
 	allTimedOut := true
 	allProxyConnectFailed := true
 	allTLSHandshakeFailed := true
@@ -171,7 +171,7 @@ func probeExitIPServices(ctx context.Context, client *http.Client, services []ex
 		service := services[result.index]
 		// Fixed service IDs survive URL redaction in exported diagnostics.
 		diagnostics.Log("warn", "exit-probe", fmt.Sprintf("service=%s stage=%s dial_ms=%d tls_ms=%d ttfb_ms=%d duration_ms=%d error=%v cause=%v", service.id, result.timing.stage, result.timing.dialMS, result.timing.tlsMS, result.timing.ttfbMS, result.duration.Milliseconds(), result.err, errors.Unwrap(result.err)))
-		failures[result.index] = service.name + "：" + result.err.Error()
+		failures[result.index] = probeFailure{service: service.name, reason: probeReason(result.err)}
 		var networkError net.Error
 		if !errors.Is(result.err, context.DeadlineExceeded) && !(errors.As(result.err, &networkError) && networkError.Timeout()) {
 			allTimedOut = false
@@ -188,12 +188,7 @@ func probeExitIPServices(ctx context.Context, client *http.Client, services []ex
 			timer.Reset(stagger)
 		}
 	}
-	var reported []string
-	for _, failure := range failures {
-		if failure != "" {
-			reported = append(reported, failure)
-		}
-	}
+	reported := summarizeProbeFailures(failures)
 	if errors.Is(ctx.Err(), context.Canceled) {
 		return "", usererror.Wrap("通过所选代理查询出口 IP", ctx.Err(), "外网保持关闭。")
 	}
@@ -204,10 +199,10 @@ func probeExitIPServices(ctx context.Context, client *http.Client, services []ex
 		// connectivity address has a handshake problem.
 		if reachability != "" && ctx.Err() == nil {
 			if reached, _ := proxyReaches(ctx, client, reachability); !reached {
-				return "", usererror.Titled("代理节点无法连通", strings.Join(reported, "；"), "通过所选代理访问连通性检查地址也未成功，节点可能无法连通；请检查节点地址、端口、账号密码以及本机到节点的网络，或切换节点；外网保持关闭。", ErrProxyConnectFailed)
+				return "", usererror.Titled("代理节点无法连通", reported, "通过所选代理访问连通性检查地址也未成功，节点可能无法连通；请检查节点地址、端口、账号密码以及本机到节点的网络，或切换节点；外网保持关闭。", ErrProxyConnectFailed)
 			}
 		}
-		return "", usererror.Titled("TLS 握手失败", strings.Join(reported, "；"), "所选代理链路在 TLS 握手阶段中断（如返回 EOF），可尝试在“设置 → 网络与代理”开启“TLS ClientHello 分段传输兼容模式”；若使用未设置 client-fingerprint 的 VMess/VLESS/Trojan 等 TLS/gRPC 节点，也可尝试在节点 YAML 中添加 client-fingerprint: safari 或 firefox 后重新导入并应用，或切换代理节点；外网保持关闭。", ErrTLSHandshakeFailed)
+		return "", usererror.Titled("TLS 握手失败", reported, "所选代理链路在 TLS 握手阶段中断（如返回 EOF），可尝试在“设置 → 网络与代理”开启“TLS ClientHello 分段传输兼容模式”；若使用未设置 client-fingerprint 的 VMess/VLESS/Trojan 等 TLS/gRPC 节点，也可尝试在节点 YAML 中添加 client-fingerprint: safari 或 firefox 后重新导入并应用，或切换代理节点；外网保持关闭。", ErrTLSHandshakeFailed)
 	}
 	if allTimedOut {
 		title := "实时出口采样超时"
@@ -231,12 +226,12 @@ func probeExitIPServices(ctx context.Context, client *http.Client, services []ex
 				next = "通过所选代理访问连通性检查地址同样超时，节点可能无法连通；请检查节点地址、端口、账号密码以及本机到节点的网络，或切换节点；若节点使用 TLS/gRPC 且未设置 client-fingerprint（如 VMess+gRPC+TLS），可尝试在节点 YAML 中添加 client-fingerprint: safari 或 firefox 后重新导入并应用，或尝试在“设置 → 网络与代理”开启“TLS ClientHello 分段传输兼容模式”；外网保持关闭。"
 			}
 		}
-		return "", usererror.Titled(title, strings.Join(reported, "；"), next, cause)
+		return "", usererror.Titled(title, reported, next, cause)
 	}
 	if allProxyConnectFailed {
-		return "", usererror.Titled("代理连接失败", strings.Join(reported, "；"), "未能通过所选代理建立连接，请检查代理核心与节点状态；外网保持关闭。", ErrProxyConnectFailed)
+		return "", usererror.Titled("代理连接失败", reported, "未能通过所选代理建立连接，请检查代理核心与节点状态；外网保持关闭。", ErrProxyConnectFailed)
 	}
-	return "", errors.New("通过所选代理查询出口 IP 失败：" + strings.Join(reported, "；") + "。未能确认出口时，外网保持关闭。")
+	return "", errors.New("通过所选代理查询出口 IP 失败：" + reported + "。未能确认出口时，外网保持关闭。")
 }
 
 // proxyReaches reports whether one GET to endpoint returned HTTP 204 through
@@ -559,4 +554,40 @@ func writeDiagnosticResponse(conn net.Conn, status int, contentType string, body
 		Header: http.Header{"Content-Type": {contentType}, "X-Content-Type-Options": {"nosniff"}, "Referrer-Policy": {"no-referrer"}, "Cache-Control": {"no-store"}, "Access-Control-Allow-Origin": {"*"}, "Connection": {"close"}},
 		Body:   io.NopCloser(bytes.NewReader(body)), ContentLength: int64(len(body)), Close: true}
 	_ = resp.Write(conn)
+}
+
+type probeFailure struct{ service, reason string }
+
+// probeReason is a failure's cause without the action and next step every
+// service's message repeats.
+func probeReason(err error) string {
+	if reason := usererror.Reason(err); reason != "" {
+		return reason
+	}
+	return strings.TrimRight(err.Error(), "。；;")
+}
+
+// summarizeProbeFailures names each distinct cause once. Six services that
+// all broke off the same way made one paragraph of six identical sentences
+// (customer report, 0.2.2); the log keeps each service's own line.
+func summarizeProbeFailures(failures []probeFailure) string {
+	var order []string
+	services := map[string][]string{}
+	for _, failure := range failures {
+		if failure.service == "" {
+			continue
+		}
+		if _, seen := services[failure.reason]; !seen {
+			order = append(order, failure.reason)
+		}
+		services[failure.reason] = append(services[failure.reason], failure.service)
+	}
+	if len(order) == 1 && len(services[order[0]]) > 1 {
+		return fmt.Sprintf("%d 个出口检测服务均失败（%s）", len(services[order[0]]), order[0])
+	}
+	parts := make([]string, 0, len(order))
+	for _, reason := range order {
+		parts = append(parts, strings.Join(services[reason], "、")+"："+reason)
+	}
+	return strings.Join(parts, "；")
 }

@@ -602,7 +602,7 @@ func TestExitProbeTimeoutChecksWhetherTheProxyReachesTheInternet(t *testing.T) {
 	services := []exitProbeService{{id: "a", name: "主检测服务", endpoint: stalled.URL}, {id: "b", name: "备用检测服务", endpoint: stalled.URL}}
 	probe := func(reachability string) error {
 		ip, err := probeExitIPServices(context.Background(), &http.Client{Timeout: 80 * time.Millisecond}, services, time.Minute, reachability)
-		if ip != "" || !errors.Is(err, ErrExitProbeTimeout) || !errors.Is(err, context.DeadlineExceeded) || !strings.Contains(err.Error(), "实时出口采样超时") || !strings.Contains(err.Error(), "备用检测服务") {
+		if ip != "" || !errors.Is(err, ErrExitProbeTimeout) || !errors.Is(err, context.DeadlineExceeded) || !strings.Contains(err.Error(), "实时出口采样超时") || !strings.Contains(err.Error(), "2 个出口检测服务均失败（等待响应超时）") {
 			t.Fatalf("all timed out services must keep the timeout error: ip=%q err=%v", ip, err)
 		}
 		return err
@@ -737,5 +737,20 @@ func TestDiagnosticProbeReasonAnd503Contract(t *testing.T) {
 	}
 	if resp.StatusCode != 503 || payload.Error != "proxy_unavailable" || payload.Reason != "proxy_connect" {
 		t.Fatalf("unexpected 503 payload: status=%d payload=%+v", resp.StatusCode, payload)
+	}
+}
+
+// One sentence per distinct cause, not one per service.
+func TestSummarizeProbeFailures(t *testing.T) {
+	same := []probeFailure{{"主检测服务", "连接在返回完整结果前中断"}, {}, {"AWS 备用服务", "连接在返回完整结果前中断"}, {"GeoJS 备用服务", "连接在返回完整结果前中断"}}
+	if got := summarizeProbeFailures(same); got != "3 个出口检测服务均失败（连接在返回完整结果前中断）" {
+		t.Fatal(got)
+	}
+	mixed := []probeFailure{{"主检测服务", "等待响应超时"}, {"AWS 备用服务", "连接在返回完整结果前中断"}, {"ipify 备用服务", "等待响应超时"}}
+	if got := summarizeProbeFailures(mixed); got != "主检测服务、ipify 备用服务：等待响应超时；AWS 备用服务：连接在返回完整结果前中断" {
+		t.Fatal(got)
+	}
+	if got := summarizeProbeFailures([]probeFailure{{"主检测服务", "等待响应超时"}}); got != "主检测服务：等待响应超时" {
+		t.Fatal(got)
 	}
 }
