@@ -288,6 +288,8 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
     [preparing, setPreparing] = useState(Boolean(session.cli_session_id && !session.closed));
   const revealStartup = useRef();
   const reconnectNow = useRef();
+  const hostInput = useRef(false);
+  hostInput.current = Boolean(session.host_input);
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
   const focusedRef = useRef(focused);
@@ -374,7 +376,7 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
       if (!visibleRef.current) return;
       try {
         fitter.fit();
-        if (ws?.readyState === WebSocket.OPEN)
+        if (!hostInput.current && ws?.readyState === WebSocket.OPEN)
           ws.send(
             JSON.stringify({
               type: "resize",
@@ -501,6 +503,7 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
     connect();
     let inputTimer = null, pendingInput = [];
     const send = (data) => {
+      if (hostInput.current) return;
       if (disposed || ws?.readyState !== WebSocket.OPEN) throw new Error("终端已断开，请重新连接后重试");
       // A redraw can produce several synchronous device replies. Preserve
       // byte order but send each event-loop batch as one PTY input message.
@@ -521,6 +524,7 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
       else void enqueue(() => send(data)).catch(() => {});
     });
     const receiveClipboard = (content) => {
+      if (hostInput.current) return;
       // Attach rejection immediately, even while another image is in flight.
       const ready = Promise.resolve(content).then(value => ({ value }), error => ({ error }));
       onStatus("正在传递剪贴板内容…");
@@ -694,10 +698,10 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
       if (focused && !preparing) instance.current?.focus();
       const ws = socket.current,
         t = instance.current;
-      if (ws?.readyState === WebSocket.OPEN && t)
+      if (!session.host_input && ws?.readyState === WebSocket.OPEN && t)
         ws.send(JSON.stringify({ type: "resize", cols: t.cols, rows: t.rows }));
     }
-  }, [visible, focused, preparing]);
+  }, [visible, focused, preparing, session.host_input]);
   useEffect(() => {
     if (!instance.current) return;
     instance.current.options.theme = terminalTheme(theme, variant);
@@ -708,6 +712,7 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
   return (
     <div className={`terminal-view ${visible ? "" : "concealed"}`}>
       {session.workspace_notice && <p className="connection-banner" role="status">{session.workspace_notice}</p>}
+      {session.host_input && <p className="connection-banner" role="status">{tr("正在本机终端输入。关闭本机终端后可在这里继续。")}</p>}
       {visible && session.cli_session_id && <SessionAccount id={session.cli_session_id} request={terminalAccountRequest} compact
         onChanged={onAccountChanged} />}
       <div className={`terminal-host ${preparing ? "terminal-preparing" : ""}`} ref={box} aria-hidden={preparing || undefined} />

@@ -45,6 +45,7 @@
     "缩放": "Zoom",
     "缺少 Microsoft Edge WebView2 Runtime。请运行 Cage lite 安装程序安装随附运行时后重试。": "Microsoft Edge WebView2 Runtime is missing. Run the Cage lite installer to install the bundled runtime, then try again.",
     "设置": "Settings",
+    "安装终端命令…": "Install Terminal Command…",
     "设置…": "Settings…",
     "请先保存文件。继续后将停止环境并完成后台更新，终端任务会结束，项目和登录状态会保留。": "Save your files first. Continuing stops the environment and finishes the backend update; terminal tasks end, while projects and sign-ins are kept.",
     "环境会停止，终端任务会结束。": "The environment stops and terminal tasks end.",

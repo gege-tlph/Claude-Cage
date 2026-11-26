@@ -144,6 +144,12 @@ func (s *Server) terminalStream(w http.ResponseWriter, r *http.Request) {
 		if json.Unmarshal(data, &input) != nil {
 			continue
 		}
+		session.mu.Lock()
+		hostInput := session.hostInput
+		session.mu.Unlock()
+		if hostInput {
+			continue
+		}
 		switch input.Type {
 		case "ping":
 			select {

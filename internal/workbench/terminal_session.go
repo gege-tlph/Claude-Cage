@@ -43,6 +43,8 @@ type terminalSession struct {
 	loginNotice           string
 	dismissed             bool
 	exitOK                bool
+	exitCode              int
+	hostInput             bool
 	closed                bool
 	clients               map[*terminalViewer]bool
 	done                  chan struct{}
@@ -104,7 +106,7 @@ func (t *terminalSession) summary() map[string]any {
 	}
 	return map[string]any{"id": t.id, "title": t.title, "closed": closed, "workspace": t.workspace, "kind": t.kind,
 		"claude_account_id": t.claudeAccountID, "claude_account_source": t.claudeAccountSource, "cli_session_id": t.sharedID,
-		"background_login": t.backgroundLogin, "login_notice": t.loginNotice, "cli_starting": t.cliStartupPendingLocked()}
+		"background_login": t.backgroundLogin, "login_notice": t.loginNotice, "cli_starting": t.cliStartupPendingLocked(), "host_input": t.hostInput}
 }
 
 func (t *terminalSession) cliStartupPendingLocked() bool {
@@ -408,6 +410,7 @@ func (t *terminalSession) run() {
 	}
 	t.mu.Lock()
 	t.exitOK = waitErr == nil
+	t.exitCode = hostCLIExitCode(waitErr)
 	for viewer := range t.clients {
 		viewer.closed = true
 		viewer.signal()
