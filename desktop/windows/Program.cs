@@ -13,7 +13,18 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
-        if (args is ["--install-update"]) return UpdateInstaller.Run().GetAwaiter().GetResult();
+        if (args is ["--install-update"])
+        {
+            ApplicationConfiguration.Initialize();
+            var updateKey = InstanceKey();
+            // The helper runs from a copy in the updates folder: the installed
+            // backend gives the interface language, before anything changes.
+            return UpdateInstaller.Run(openProgress: (versions, target) =>
+            {
+                InterfaceLanguage.Refresh(Path.Combine(target, "resources", "cage.exe")).GetAwaiter().GetResult();
+                return UpdateProgress.Open(versions, updateKey);
+            }).GetAwaiter().GetResult();
+        }
         if (args is ["--smoke-test", var output] && Path.IsPathFullyQualified(output))
         {
             SmokeOutput = output;
@@ -23,8 +34,8 @@ internal static class Program
         // The update helper's own start carries its token. Any other start
         // during its rollback must not run from the folder that it moves.
         var confirmation = AppUpdater.PendingConfirmation();
-        var updateRunning = confirmation == null && SmokeOutput == null && UpdateWait.HelperRunning();
-        if (updateRunning && UpdateWait.RollingBack(UpdateWait.InstallPath)) return 0;
+        var helper = confirmation == null && SmokeOutput == null ? UpdateWait.RunningHelper() : null;
+        if (helper != null && (UpdateProgress.BringForward(InstanceKey()) || UpdateWait.RollingBack(UpdateWait.InstallPath))) return 0;
         AppDomain.CurrentDomain.UnhandledException += (_, e) => Backend.Report(e.ExceptionObject is Exception error ? error.ToString() : "Unhandled native exception").GetAwaiter().GetResult();
         Application.ThreadException += (_, e) => {
             Backend.Report(e.Exception.ToString()).GetAwaiter().GetResult();
@@ -39,12 +50,12 @@ internal static class Program
             MessageBox.Show(InterfaceLanguage.Text("Cage lite 需要 Windows 10 22H2（19045）、Windows 10 LTSC 2021 或 Windows 11，x64（Intel/AMD）系统。"), "Cage lite");
             return 1;
         }
-        var sid = WindowsIdentity.GetCurrent().User?.Value ?? Environment.UserName;
-        var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sid + "\0" + Path.GetFullPath(Backend.Root).TrimEnd(Path.DirectorySeparatorChar).ToUpperInvariant())))[..24];
+        var key = InstanceKey();
         var instanceMutex = @"Local\Cage-" + key;
-        // Until the App that the update starts is there; then this start
-        // hands over to it below, as to any App already running.
-        if (updateRunning && !UpdateWait.Wait(UpdateWait.InstallPath, instanceMutex, TimeSpan.FromMinutes(5))) return 0;
+        // Helpers before 0.2.3 show no window: show that an update runs until
+        // the App it starts is there; this start then hands over to it below,
+        // as to any App already running.
+        if (helper != null && UpdateWait.Legacy(helper) && !UpdateWait.Wait(UpdateWait.InstallPath, instanceMutex, TimeSpan.FromMinutes(5))) return 0;
         using var mutex = new Mutex(true, instanceMutex, out var owner);
         if (!owner)
         {
@@ -89,6 +100,13 @@ internal static class Program
             return report.RootElement.TryGetProperty("success", out var success) && success.ValueKind == JsonValueKind.True ? 0 : 1;
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException) { return 1; }
+    }
+
+    // One App per user and profile; its update helper uses the same key.
+    internal static string InstanceKey()
+    {
+        var sid = WindowsIdentity.GetCurrent().User?.Value ?? Environment.UserName;
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sid + "\0" + Path.GetFullPath(Backend.Root).TrimEnd(Path.DirectorySeparatorChar).ToUpperInvariant())))[..24];
     }
 
     // Keep in step with host.WindowsBuildSupported: Windows 10 22H2 (19045)

@@ -37,6 +37,8 @@ internal static class UpdateWaitTests
         RollingBack();
         Confirmation();
         Results();
+        await HelperRecovery();
+        InstallerPhases();
         Exception? failure = null;
         var thread = new Thread(() =>
         {
@@ -157,6 +159,91 @@ internal static class UpdateWaitTests
         Check(File.ReadAllText(Path.Combine(kept, files[^1]!)).Contains("fixture"), "the kept result lost its message");
     }
 
+    private static readonly System.Reflection.BindingFlags Private = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static;
+
+    private static Task Preserve(string operation, string source, string target, string receipt, string? backup = null) =>
+        (Task)typeof(UpdateInstaller).GetMethod("PreserveFiles", Private)!.Invoke(null, [operation, source, target, receipt, backup])!;
+
+    // The rollback of the customer report: the previous App copied beside the
+    // installation, the receipt written, detach failing on a held file.
+    private static async Task HelperRecovery()
+    {
+        var parent = Path.Combine(Path.GetTempPath(), "cage-helper-recovery-" + Guid.NewGuid().ToString("N"));
+        var target = Path.Combine(parent, "Cage");
+        var id = Guid.NewGuid().ToString();
+        var restored = target + ".restore-" + id; var failed = target + ".failed-" + id; var receipt = target + ".cage-installation.json";
+        void App(string path, string version)
+        {
+            Directory.CreateDirectory(Path.Combine(path, "resources"));
+            File.WriteAllText(Path.Combine(path, "Cage.install-id"), "io.github.lee-xeo.claude-cage");
+            File.WriteAllText(Path.Combine(path, "program.txt"), version);
+            File.WriteAllText(Path.Combine(path, "resources", "tool.txt"), version);
+            File.WriteAllText(Path.Combine(path, "Uninstall.exe"), "uninstaller " + version);
+            var files = Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories).Select(file => new {
+                path = Path.GetRelativePath(path, file).Replace('\\', '/'),
+                sha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(file))).ToLowerInvariant(),
+            }).ToArray();
+            File.WriteAllText(Path.Combine(path, "Cage.install-files.json"), System.Text.Json.JsonSerializer.Serialize(new { version = 1, files }));
+        }
+        App(target, "candidate"); App(restored, "previous");
+        Directory.CreateDirectory(Path.Combine(target, "CageData"));
+        File.WriteAllText(Path.Combine(target, "CageData", "disk"), "vm disk");
+        var backup = Path.Combine(parent, "previous-backup");
+        Directory.CreateDirectory(backup);
+        var detach = typeof(UpdateInstaller).GetMethod("Detach", Private)!;
+        try
+        {
+            await Preserve("prepare", target, restored, receipt, failed);
+            bool detached;
+            using (new FileStream(Path.Combine(target, "program.txt"), FileMode.Open, FileAccess.Read, FileShare.Read))
+                detached = await (Task<bool>)detach.Invoke(null, [target, backup, failed, receipt])!;
+            Check(!detached, "a held program file let detach succeed");
+            Check(File.Exists(receipt) && !Directory.Exists(failed) && File.ReadAllText(Path.Combine(target, "program.txt")) == "candidate", "a failed detach did not put every entry back");
+            // A new start of the helper finds the receipt that moved nothing
+            // and archives it, as the installer does.
+            await UpdateInstaller.HealPendingTransaction(target);
+            Check(!File.Exists(receipt) && Directory.GetFiles(parent, "Cage.cage-installation-archived-*.json").Length == 1, "the unmoved rollback receipt was not archived");
+            Check(Directory.Exists(restored), "healing removed the restore copy");
+            // The same failure inside a rollback: completing the receipt keeps
+            // the new version and blocks nothing.
+            File.Delete(Directory.GetFiles(parent, "Cage.cage-installation-archived-*.json")[0]);
+            await Preserve("prepare", target, restored, receipt, failed);
+            using (new FileStream(Path.Combine(target, "program.txt"), FileMode.Open, FileAccess.Read, FileShare.Read))
+                Check(!await (Task<bool>)detach.Invoke(null, [target, backup, failed, receipt])!, "a held program file let detach succeed");
+            await Preserve("complete", "", target, receipt);
+            Check(!File.Exists(receipt), "completing after failed detaches kept the receipt");
+            // Nothing held: detach moves the program and leaves CageData.
+            await Preserve("prepare", target, restored, receipt, failed);
+            Check(await (Task<bool>)detach.Invoke(null, [target, backup, failed, receipt])!, "detach failed without a held file");
+            Check(Directory.GetFileSystemEntries(target).Select(Path.GetFileName).SequenceEqual(["CageData"]), "detach left program entries or moved CageData");
+            // A receipt that moved entries stays: the update refuses to start.
+            var moved = target + "-moved";
+            App(moved, "candidate");
+            var movedReceipt = moved + ".cage-installation.json";
+            File.WriteAllText(movedReceipt, System.Text.Json.JsonSerializer.Serialize(new {
+                kind = "cage-installation", version = 1, installPath = moved, stagePath = moved + ".restore-" + id, backupPath = "",
+                files = Array.Empty<object>(), directories = Array.Empty<string>(), keepInPlace = new[] { "CageData" },
+                moves = new[] { new { path = "my-project", destination = "my-project", directory = true, state = "moved" } },
+            }));
+            try { await UpdateInstaller.HealPendingTransaction(moved); Check(false, "a receipt with moved entries was released"); }
+            catch (IOException) { }
+            Check(File.Exists(movedReceipt), "a receipt with moved entries was archived");
+        }
+        finally { Directory.Delete(parent, true); }
+    }
+
+    // The window follows the installer's phases in their order.
+    private static void InstallerPhases()
+    {
+        var phases = new[] { "acquiring_installation_lock", "healing_transaction_record", "checking_destination", "unpacking_application", "detecting_webview_runtime",
+            "installing_webview_runtime", "preparing_file_transaction", "moving_previous_application", "moving_personal_files", "publishing_application",
+            "cleaning_previous_application", "registering_installation", "trusting_publisher", "adding_user_path", "completed" };
+        var percents = phases.Select(UpdateInstaller.InstallPercent).ToArray();
+        Check(percents.All(percent => percent is >= 0 and <= 100), "an installer phase has no percent: " + string.Join(",", percents));
+        Check(percents.Zip(percents.Skip(1)).All(pair => pair.First <= pair.Second), "installer percents go back: " + string.Join(",", percents));
+        Check(UpdateInstaller.InstallPercent("unknown_phase") == null && percents[^1] == 100, "unknown or final phase misread");
+    }
+
     private static void Waiting()
     {
         ApplicationConfiguration();
@@ -182,6 +269,32 @@ internal static class UpdateWaitTests
             Check(clock.Elapsed < TimeSpan.FromSeconds(5), "start stayed during a rollback");
         }
         finally { Directory.Delete(parent, true); }
+    }
+
+    // For a look at the window: each state drawn to a PNG in directory.
+    public static void Render(string directory)
+    {
+        ApplicationConfiguration();
+        Directory.CreateDirectory(directory);
+        void Save(UpdateWindow window, string name)
+        {
+            window.StartPosition = FormStartPosition.Manual; window.Location = new Point(-4000, -4000);
+            window.Show(); window.PerformLayout(); Application.DoEvents();
+            using var image = new Bitmap(window.Width, window.Height);
+            window.DrawToBitmap(image, new Rectangle(Point.Empty, window.Size));
+            image.Save(Path.Combine(directory, name + ".png"), System.Drawing.Imaging.ImageFormat.Png);
+            window.Close();
+        }
+        string[] steps = ["备份", "停止环境", "安装", "启动新版"];
+        using (var running = new UpdateWindow("0.2.3  →  0.2.4", steps)) { running.SetStep(2, 62); Save(running, "1-installing"); }
+        using (var restoring = new UpdateWindow("0.2.3  →  0.2.4", steps)) { restoring.SetStep(3, null); restoring.SetStatus("正在恢复 0.2.3"); Save(restoring, "2-restoring"); }
+        using (var failed = new UpdateWindow("0.2.3  →  0.2.4", steps))
+        {
+            failed.SetStep(3, null);
+            failed.Fail(3, "已恢复 0.2.3", ("打开 Cage lite", _ => { }), ("导出诊断包", _ => { }));
+            Save(failed, "3-restored");
+        }
+        using (var waiting = new UpdateWindow(null, ["正在更新"])) { waiting.SetStep(0, null); Save(waiting, "4-waiting"); }
     }
 
     private static void ApplicationConfiguration()

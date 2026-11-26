@@ -92,6 +92,16 @@
     "选择本机文件": "Choose Local Files",
     "打开 Cage lite": "Open Cage lite",
     "Cage lite 更新": "Cage lite Update",
-    "正在更新": "Updating"
+    "正在更新": "Updating",
+    "备份": "Back Up",
+    "停止环境": "Stop Environment",
+    "安装": "Install",
+    "启动新版": "Start New Version",
+    "正在恢复 {0}": "Restoring {0}",
+    "已恢复 {0}": "Restored {0}",
+    "已保留 {0}": "Kept {0}",
+    "恢复未完成": "Recovery Incomplete",
+    "已导出诊断包": "Diagnostics Exported",
+    "导出失败": "Export Failed"
   }
 }

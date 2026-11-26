@@ -29,6 +29,7 @@
     <Compile Include="../windows/InterfaceLanguage.cs" Link="InterfaceLanguage.cs" />
     <Compile Include="../windows/UpdateWindow.cs" Link="UpdateWindow.cs" />
     <Compile Include="../windows/UpdateWait.cs" Link="UpdateWait.cs" />
+    <Compile Include="../windows/UpdateProgress.cs" Link="UpdateProgress.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(WindowsNativeInputTests)' != 'true'">
     <Compile Remove="NativeInputTests.cs" />

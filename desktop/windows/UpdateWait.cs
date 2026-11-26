@@ -11,12 +11,13 @@ internal static class UpdateWait
 {
     public static string InstallPath => AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
 
-    // The helper runs from a copy in the private updates folder.
-    public static bool HelperRunning()
+    // The helper runs from a copy in the private updates folder: its path,
+    // null when none runs.
+    public static string? RunningHelper()
     {
         try
         {
-            if (!Directory.Exists(AppUpdater.Root) || !Directory.EnumerateFiles(AppUpdater.Root, "helper-*.exe").Any()) return false;
+            if (!Directory.Exists(AppUpdater.Root) || !Directory.EnumerateFiles(AppUpdater.Root, "helper-*.exe").Any()) return null;
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
         var prefix = Path.GetFullPath(AppUpdater.Root).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
@@ -26,11 +27,18 @@ internal static class UpdateWait
                 if (!process.ProcessName.StartsWith("helper-", StringComparison.OrdinalIgnoreCase)) continue;
                 try
                 {
-                    if (process.MainModule?.FileName is { } path && path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return true;
+                    if (process.MainModule?.FileName is { } path && path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return path;
                 }
                 catch (Exception error) when (error is Win32Exception or InvalidOperationException or NotSupportedException) { }
             }
-        return false;
+        return null;
+    }
+
+    // A helper before 0.2.3: no window of its own to bring forward.
+    public static bool Legacy(string helper)
+    {
+        try { return !UpdatePolicy.IsNewer(FileVersionInfo.GetVersionInfo(helper).ProductVersion ?? "", "0.2.2"); }
+        catch (Exception error) when (error is IOException or FileNotFoundException) { return true; }
     }
 
     // A rollback copies the previous App beside the installation, then writes
@@ -70,7 +78,7 @@ internal static class UpdateWait
             if (DateTime.UtcNow >= deadline) { Finish(true); return; }
             if (DateTime.UtcNow < nextHelperCheck) return;
             nextHelperCheck = DateTime.UtcNow.AddSeconds(1);
-            if (!HelperRunning()) Finish(true);
+            if (RunningHelper() == null) Finish(true);
         };
         // Closing the window ends this start; the update continues.
         window.FormClosing += (_, _) => { if (!finished) { proceed = false; timer.Stop(); } };

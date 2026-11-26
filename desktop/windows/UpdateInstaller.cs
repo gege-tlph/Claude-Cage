@@ -4,6 +4,23 @@ using System.Text.Json;
 
 namespace Cage.Windows;
 
+// The window of an update, as the helper drives it; see UpdateProgress.
+// Texts are native keys with {0} for a version, so the window translates.
+internal interface IUpdateProgressView : IDisposable
+{
+    void Step(int index, int? percent = null);
+    void Status(string format, string version);
+    // The update ended without the new version; the window keeps the result
+    // until it is closed. canOpen: the installation may be started.
+    void Fail(string format, string version, string? detail, string target, bool canOpen);
+    Task Closed { get; }
+}
+
+internal static class UpdateSteps
+{
+    public const int Backup = 0, StopEnvironment = 1, Install = 2, StartNew = 3;
+}
+
 internal static class UpdateInstaller
 {
     [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
@@ -23,7 +40,9 @@ internal static class UpdateInstaller
             throw new IOException("安装包产品身份或版本不匹配");
     }
 
-    public static async Task<int> Run(string? installerDiagnostics = null)
+    // openProgress gets the versions and the installation folder, and may
+    // give no window: the update then runs without one, as before 0.2.3.
+    public static async Task<int> Run(string? installerDiagnostics = null, Func<string, string, IUpdateProgressView?>? openProgress = null)
     {
         InstallPlan? plan = null;
         string? backup = null;
@@ -31,6 +50,10 @@ internal static class UpdateInstaller
         var committed = false;
         var succeeded = false;
         Process? launched = null;
+        IUpdateProgressView? progress = null;
+        var previousVersion = "";
+        // A failure shown in the window stays until it is closed.
+        var keepWindow = false;
         try
         {
             using var inputTimeout = new CancellationTokenSource(TimeSpan.FromMinutes(5));
@@ -47,7 +70,7 @@ internal static class UpdateInstaller
             Directory.SetCurrentDirectory(AppUpdater.Root);
             if (File.ReadAllText(Path.Combine(plan.Target, "Cage.install-id")).Trim() != "io.github.lee-xeo.claude-cage")
                 throw new IOException("请先使用 Cage lite 安装程序安装应用，再自动更新");
-            UpdateRecovery.EnsureNoPendingTransaction(plan.Target);
+            await HealPendingTransaction(plan.Target);
             var original = Path.Combine(plan.Target, "Cage.exe");
             string targetPublisher;
             if (plan.UnsignedSource)
@@ -63,7 +86,8 @@ internal static class UpdateInstaller
                 Authenticode.SamePublisher(original, ownPublisher);
                 targetPublisher = ownPublisher;
             }
-            if (!UpdatePolicy.IsNewer(plan.Version, FileVersionInfo.GetVersionInfo(original).ProductVersion ?? ""))
+            previousVersion = FileVersionInfo.GetVersionInfo(original).ProductVersion ?? "";
+            if (!UpdatePolicy.IsNewer(plan.Version, previousVersion))
                 throw new IOException("更新版本必须高于当前安装版本");
             VerifyArchive(plan.Archive, plan.Digest, plan.Version, targetPublisher);
             // Hold the verified file open without write/delete sharing until the
@@ -76,6 +100,12 @@ internal static class UpdateInstaller
                 throw new IOException("更新请求进程身份不匹配");
             backup = Path.Combine(AppUpdater.Root, "previous-" + plan.Confirmation);
             if (Directory.Exists(backup)) throw new IOException("更新备份目录已存在");
+            // From here to the new version's confirmation. Before the commit the
+            // App still shows its own state; a start of it meanwhile brings
+            // this window forward instead of holding the program folder.
+            try { progress = openProgress?.Invoke(previousVersion + "  →  " + plan.Version, plan.Target); }
+            catch (Exception error) when (error is IOException or InvalidOperationException or UnauthorizedAccessException) { }
+            progress?.Step(UpdateSteps.Backup);
             // Preparation is reversible and completes before the controller stops.
             CopyTree(plan.Target, backup);
             if (plan.UnsignedSource)
@@ -88,29 +118,46 @@ internal static class UpdateInstaller
             {
                 Authenticode.SamePublisher(UpdateRecovery.BackendPath(backup), targetPublisher);
             }
+            progress?.Step(UpdateSteps.StopEnvironment);
             Console.WriteLine("READY"); await Console.Out.FlushAsync();
             if (await Console.In.ReadLineAsync(inputTimeout.Token) != "COMMIT") return 1;
             committed = true;
+            progress?.Step(UpdateSteps.Install, 0);
             await parent.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(45));
             VerifyArchive(plan.Archive, plan.Digest, plan.Version, targetPublisher);
             // NSIS requires /D= to be the final, unquoted argument; the executable
             // path is passed separately and no command shell is involved.
-            var diagnosticOption = installerDiagnostics == null ? "" : $"/DIAGNOSTICS=\"{installerDiagnostics}\" ";
+            // The installer writes its phase there, which the window follows.
+            var diagnostics = installerDiagnostics ?? Path.Combine(AppUpdater.Root, "install-" + plan.Confirmation + ".json");
             using (var installer = Process.Start(new ProcessStartInfo(plan.Archive) {
                 UseShellExecute = false, CreateNoWindow = true,
-                Arguments = "/S /UPDATE " + diagnosticOption + "/D=" + plan.Target,
+                Arguments = "/S /UPDATE " + $"/DIAGNOSTICS=\"{diagnostics}\" " + "/D=" + plan.Target,
                 WorkingDirectory = Path.GetDirectoryName(plan.Archive),
             }) ?? throw new IOException("无法启动 Windows 安装器"))
             {
                 installerStarted = true;
-                try { await installer.WaitForExitAsync().WaitAsync(TimeSpan.FromMinutes(10)); }
-                catch (TimeoutException) { if (!installer.HasExited) installer.Kill(true); await installer.WaitForExitAsync(); throw; }
-                if (installer.ExitCode != 0) throw new IOException($"Windows 安装程序未完成安装（退出码 {installer.ExitCode}）");
+                var installDeadline = DateTime.UtcNow.AddMinutes(10);
+                var exited = installer.WaitForExitAsync();
+                while (!exited.IsCompleted)
+                {
+                    if (DateTime.UtcNow >= installDeadline)
+                    {
+                        if (!installer.HasExited) installer.Kill(true);
+                        await installer.WaitForExitAsync();
+                        throw new TimeoutException("Windows 安装程序超过 10 分钟未完成");
+                    }
+                    progress?.Step(UpdateSteps.Install, InstallPercent(InstallerPhase(diagnostics)));
+                    await Task.WhenAny(exited, Task.Delay(500));
+                }
+                if (installer.ExitCode != 0)
+                    throw new IOException($"Windows 安装程序未完成安装（退出码 {installer.ExitCode}，阶段 {InstallerPhase(diagnostics) ?? "未知"}）");
             }
+            progress?.Step(UpdateSteps.Install, 100);
             EnsureInstallationComplete(plan.Target);
             Authenticode.SamePublisher(original, targetPublisher);
             if (FileVersionInfo.GetVersionInfo(original).ProductVersion != plan.Version)
                 throw new IOException("安装后版本不匹配");
+            progress?.Step(UpdateSteps.StartNew);
             var marker = Path.Combine(AppUpdater.Root, "launch-" + plan.Confirmation + ".json");
             if (File.Exists(marker)) File.Delete(marker);
             var launch = new ProcessStartInfo(original) { UseShellExecute = false, WorkingDirectory = plan.Target };
@@ -136,6 +183,7 @@ internal static class UpdateInstaller
             if (!ready) throw new IOException("新版工作台未能完成启动确认");
             succeeded = true;
             Result(true, "Cage lite 已更新至 " + plan.Version);
+            // The new version's window shows now.
             // The currently executing helper cannot delete itself on Windows.
             // Keep this small signed file; the next successful update may remove it.
             return 0;
@@ -147,6 +195,7 @@ internal static class UpdateInstaller
             var recoveryIncomplete = false;
             if (committed && plan != null && backup != null)
             {
+                progress?.Status("正在恢复 {0}", previousVersion);
                 try
                 {
                     // NSIS and this helper both require a newly created named
@@ -158,8 +207,8 @@ internal static class UpdateInstaller
                     {
                         if (!plan.UnsignedSource) Authenticode.SamePublisher(Path.Combine(plan.Target, "Cage.exe"), plan.Publisher);
                         Result(false, "更新未完成，原应用已保留：" + detail);
-                        Process.Start(new ProcessStartInfo(Path.Combine(plan.Target, "Cage.exe")) { UseShellExecute = false, WorkingDirectory = plan.Target });
                         UpdateRecovery.CleanupDirectory(backup); backup = null;
+                        keepWindow = Finish(progress, plan.Target, "已保留 {0}", previousVersion, detail);
                         return 1;
                     }
                     if (!installerStarted) throw new IOException("原应用在安装前发生变化，备份已保留，请核对安装目录后重试。");
@@ -180,7 +229,20 @@ internal static class UpdateInstaller
                     await PreserveFiles("prepare", plan.Target, restored, receipt, failed);
                     // The installation folder and its CageData stay in place,
                     // as in NSIS: only the other top-level entries move.
-                    await PreserveFiles("detach", plan.Target, failed, receipt);
+                    if (!await Detach(plan.Target, backup, failed, receipt))
+                    {
+                        // Each failed detach put every entry back: the folder holds
+                        // the new version as installed. Finishing the receipt keeps
+                        // later installations from stopping at it (customer report,
+                        // 0.2.2); the previous App stays in the backup.
+                        await PreserveFiles("complete", "", plan.Target, receipt);
+                        UpdateRecovery.CleanupDirectory(restored);
+                        detail += "。原应用无法恢复，已保留新版，程序备份保留在 " + backup;
+                        Result(false, "更新未完成：" + detail);
+                        backup = null;
+                        keepWindow = Finish(progress, plan.Target, "已保留 {0}", plan.Version, detail);
+                        return 1;
+                    }
                     try
                     {
                         await PreserveFiles("move", failed, restored, receipt);
@@ -198,7 +260,7 @@ internal static class UpdateInstaller
                     EnsureInstallationComplete(plan.Target);
                     UpdateRecovery.CleanupDirectory(backup); backup = null;
                     Result(false, "更新未完成，已恢复原应用：" + detail);
-                    Process.Start(new ProcessStartInfo(Path.Combine(plan.Target, "Cage.exe")) { UseShellExecute = false, WorkingDirectory = plan.Target });
+                    keepWindow = Finish(progress, plan.Target, "已恢复 {0}", previousVersion, detail);
                     return 1;
                 }
                 catch (Exception recovery)
@@ -211,7 +273,12 @@ internal static class UpdateInstaller
                 }
             }
             Result(false, "更新未完成：" + detail);
-            if (recoveryIncomplete && OperatingSystem.IsWindows()) MessageBoxW(IntPtr.Zero, detail, "Cage lite 更新需要恢复", 0x00010010);
+            if (recoveryIncomplete && progress != null && plan != null)
+            {
+                progress.Fail("恢复未完成", "", detail, plan.Target, false);
+                keepWindow = true;
+            }
+            else if (recoveryIncomplete && OperatingSystem.IsWindows()) MessageBoxW(IntPtr.Zero, detail, "Cage lite 更新需要恢复", 0x00010010);
             return 1;
         }
         finally
@@ -220,8 +287,95 @@ internal static class UpdateInstaller
             if (succeeded && plan != null && backup != null)
                 UpdateRecovery.CleanupAfterSuccess(backup, Path.GetDirectoryName(plan.Archive)!, Path.Combine(AppUpdater.Root, "launch-" + plan.Confirmation + ".json"));
             else if (!committed) UpdateRecovery.CleanupDirectory(backup);
+            if (progress != null)
+            {
+                if (keepWindow) await progress.Closed;
+                progress.Dispose();
+            }
         }
     }
+
+    // The result is shown in the window, which offers to start the App;
+    // without a window the App starts at once, as before. True when the
+    // window shows it.
+    private static bool Finish(IUpdateProgressView? progress, string target, string format, string version, string detail)
+    {
+        if (progress != null)
+        {
+            progress.Fail(format, version, detail, target, true);
+            return true;
+        }
+        Process.Start(new ProcessStartInfo(Path.Combine(target, "Cage.exe")) { UseShellExecute = false, WorkingDirectory = target });
+        return false;
+    }
+
+    // A start of the App since its processes were stopped holds the program
+    // folder (customer report, 0.2.2). Stop it and try again; false when
+    // the entries still cannot move.
+    private static async Task<bool> Detach(string target, string backup, string failed, string receipt)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await PreserveFiles("detach", target, failed, receipt);
+                return true;
+            }
+            catch (IOException) when (attempt < 3)
+            {
+                try
+                {
+                    if (await UpdateRecovery.StopInstalledApps(target)) await UpdateRecovery.PrepareRollback(backup);
+                    await UpdateRecovery.WaitForInstalledProcesses(target, TimeSpan.FromSeconds(30));
+                }
+                catch (IOException) { return false; }
+            }
+            catch (IOException) { return false; }
+        }
+    }
+
+    // An earlier rollback that moved nothing left its receipt: archive it,
+    // as the installer does, before refusing a receipt that still needs one.
+    public static async Task HealPendingTransaction(string target)
+    {
+        var receipt = target + ".cage-installation.json";
+        if (!File.Exists(receipt)) return;
+        try { await PreserveFiles("heal", "", target, receipt); }
+        catch (IOException) { }
+        UpdateRecovery.EnsureNoPendingTransaction(target);
+    }
+
+    private static string? InstallerPhase(string diagnostics)
+    {
+        try
+        {
+            if (!File.Exists(diagnostics) || new FileInfo(diagnostics).Length > 4096) return null;
+            using var stream = new FileStream(diagnostics, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var document = JsonDocument.Parse(stream);
+            return document.RootElement.Text("phase") is { Length: > 0 } phase ? phase : null;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException) { return null; }
+    }
+
+    // The installer's phases (Cage.nsi InstallPhase) in their order; unpacking
+    // the payload takes most of the time.
+    internal static int? InstallPercent(string? phase) => phase switch
+    {
+        null or "initializing" or "acquiring_installation_lock" or "healing_transaction_record" => 2,
+        "checking_destination" => 5,
+        "unpacking_application" => 10,
+        "detecting_webview_runtime" => 45,
+        "installing_webview_runtime" => 50,
+        "preparing_file_transaction" => 60,
+        "moving_previous_application" => 70,
+        "moving_personal_files" => 75,
+        "publishing_application" => 80,
+        "cleaning_previous_application" or "completing_file_transaction" => 88,
+        "registering_installation" => 94,
+        "trusting_publisher" or "adding_user_path" => 97,
+        "completed" => 100,
+        _ => null,
+    };
 
     private static void Result(bool success, string message)
     {
@@ -270,6 +424,9 @@ internal static class UpdateInstaller
             var arguments = new List<string> { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script,
                 "-Operation", operation, "-Source", source, "-Target", target, "-Receipt", receipt, "-LegacyTarget", "-KeepInPlace", "CageData" };
             if (backupPath != null) { arguments.Add("-Backup"); arguments.Add(backupPath); }
+            // Which step and kind of entry stopped it, never a path or name.
+            var diagnostic = Path.Combine(directory, "diagnostic.json");
+            arguments.Add("-Diagnostics"); arguments.Add(diagnostic);
             using var process = new Process { StartInfo = Backend.StartInfo(executable, arguments.ToArray()) };
             if (!process.Start()) throw new IOException("无法启动安装文件保留组件");
             using var abort = deadline.Token.Register(() => { try { if (!process.HasExited) process.Kill(); } catch (InvalidOperationException) { } });
@@ -278,7 +435,13 @@ internal static class UpdateInstaller
             await process.WaitForExitAsync(deadline.Token);
             await outputText;
             var error = await errorText;
-            if (process.ExitCode != 0) throw new IOException("安装文件保留未完成：" + error.Trim());
+            if (process.ExitCode != 0)
+            {
+                var reason = "";
+                try { if (File.Exists(diagnostic) && new FileInfo(diagnostic).Length <= 8192) reason = " " + File.ReadAllText(diagnostic).Trim(); }
+                catch (Exception readError) when (readError is IOException or UnauthorizedAccessException) { }
+                throw new IOException("安装文件保留未完成：" + error.Trim() + reason);
+            }
         }
         finally
         {

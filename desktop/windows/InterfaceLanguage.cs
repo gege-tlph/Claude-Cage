@@ -6,11 +6,12 @@ internal static class InterfaceLanguage
 {
     private static Dictionary<string, string> messages = new();
 
-    public static async Task Refresh()
+    // executable: a backend other than this App's own, for the update helper.
+    public static async Task Refresh(string? executable = null)
     {
         try
         {
-            var (exit, data) = await Backend.Json(["interface-language", "--json"], deadline: TimeSpan.FromSeconds(3)).ConfigureAwait(false);
+            var (exit, data) = await Backend.JsonAt(executable ?? Backend.Executable, ["interface-language", "--json"], deadline: TimeSpan.FromSeconds(3)).ConfigureAwait(false);
             if (exit == 0 && data.TryGetProperty("messages", out var value))
                 messages = value.Deserialize<Dictionary<string, string>>() ?? new();
         }

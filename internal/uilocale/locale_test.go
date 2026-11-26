@@ -53,6 +53,7 @@ func TestNativeCatalogMatchesSourceKeys(t *testing.T) {
 		filepath.Join("..", "..", "desktop", "windows", "Program.cs"),
 		filepath.Join("..", "..", "desktop", "windows", "UpdateWindow.cs"),
 		filepath.Join("..", "..", "desktop", "windows", "UpdateWait.cs"),
+		filepath.Join("..", "..", "desktop", "windows", "UpdateProgress.cs"),
 		filepath.Join("..", "..", "desktop", "linux", "cage-desktop.c"),
 	}
 	for _, path := range shellFiles {

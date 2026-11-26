@@ -30,6 +30,14 @@ if (args is ["prepare-update", "--json", "--stop"])
     return;
 }
 
+#if WINDOWS
+if (args is ["render-update-window", var renderDirectory])
+{
+    UpdateWaitTests.Render(renderDirectory);
+    return;
+}
+#endif
+
 await AppUpdaterTests.Run();
 if (args is ["--app-updater-only"]) return;
 
