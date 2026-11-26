@@ -73,7 +73,7 @@ import {
   shouldShowBrowserError,
 } from "./workspace-state.mjs";
 import { SafetyPanel } from "./safety";
-import { SafetyChecklistContext, SafetyMessage } from "./safety-message";
+import { SafetyChecklistButton, SafetyChecklistContext, SafetyMessage, withoutRepeatedLead } from "./safety-message";
 import { networkState, isGuestLocalURL } from "./safety-state.mjs";
 import { needsProxySetup } from "./onboarding-state.mjs";
 import { statusExitText } from "./status-exit.mjs";
@@ -231,6 +231,7 @@ function App() {
     busy = Boolean(status?.job?.running),
     showHome = storageRecovery || !desktopOpen && (home || !status?.vm_running || !current);
   const setupProgress = status?.job?.setup_progress && (busy || status.job.error);
+  const failureCard = !storageRecovery && !setupProgress && Boolean(status?.job?.error);
   const cliSessions = useCLISessions(Boolean(status && !busy && !storageRecovery), windowVisible);
   useEffect(() => {
     if (storageRecovery) {
@@ -2255,21 +2256,19 @@ function App() {
                       )}
                     </div>
                   )}
-                  {!storageRecovery && !setupProgress && status.job?.error && (
-                    <div className="start-error" role="alert">
-                      <strong>{status.job.message ? localizeBackendMessage(status.job.message, tr) : tr("本次操作未完成")}</strong>
-                      <p><SafetyMessage message={status.job.error} /></p>
-                      {status.can_restore && (
-                        <button
-                          className="text-button"
-                          onClick={() => openSettings("project")}
-                        >
-                          {tr("查看恢复选项")}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                  {!setupProgress && status.job?.log && (busy || Boolean(status.job?.error) || !running || !status.ready) && (
+                  {failureCard && (() => {
+                    const heading = status.job.message ? localizeBackendMessage(status.job.message, tr) : tr("本次操作未完成");
+                    return <div className="start-error" role="alert">
+                      <strong>{heading}</strong>
+                      <p className="start-error-detail">{withoutRepeatedLead(localizeBackendMessage(status.job.error, tr), heading)}</p>
+                      <div className="start-error-actions">
+                        <SafetyChecklistButton message={status.job.error} />
+                        {status.can_restore && <button className="text-button" onClick={() => openSettings("project")}>{tr("查看恢复选项")}</button>}
+                        {status.job?.log && <button className="text-button" onClick={() => setDetails(true)}>{tr("查看操作详情")}</button>}
+                      </div>
+                    </div>;
+                  })()}
+                  {!failureCard && !setupProgress && status.job?.log && (busy || Boolean(status.job?.error) || !running || !status.ready) && (
                     <button
                       className="text-button details-link"
                       onClick={() => setDetails(true)}
