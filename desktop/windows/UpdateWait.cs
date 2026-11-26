@@ -1,5 +1,8 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Security.Principal;
+using System.Text;
 
 namespace Cage.Windows;
 
@@ -10,6 +13,13 @@ namespace Cage.Windows;
 internal static class UpdateWait
 {
     public static string InstallPath => AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
+
+    // One App per user and profile; its update helper uses the same key.
+    public static string InstanceKey()
+    {
+        var sid = WindowsIdentity.GetCurrent().User?.Value ?? Environment.UserName;
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sid + "\0" + Path.GetFullPath(Backend.Root).TrimEnd(Path.DirectorySeparatorChar).ToUpperInvariant())))[..24];
+    }
 
     // The helper runs from a copy in the private updates folder: its path,
     // null when none runs.

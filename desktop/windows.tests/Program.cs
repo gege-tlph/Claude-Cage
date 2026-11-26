@@ -36,6 +36,14 @@ if (args is ["render-update-window", var renderDirectory])
     UpdateWaitTests.Render(renderDirectory);
     return;
 }
+// Manual check: the update window through a whole update, as the helper
+// drives it, for the App installed in target (CLAUDE_CAGE_CONFIG selects the
+// profile whose starts it brings forward).
+if (args is ["update-window-demo", var demoScenario, var demoTarget])
+{
+    await UpdateWaitTests.Demo(demoScenario, demoTarget);
+    return;
+}
 #endif
 
 await AppUpdaterTests.Run();

@@ -271,6 +271,37 @@ internal static class UpdateWaitTests
         finally { Directory.Delete(parent, true); }
     }
 
+    public static async Task Demo(string scenario, string target)
+    {
+        ApplicationConfiguration();
+        using var progress = UpdateProgress.Open("0.2.2  →  0.2.3", UpdateWait.InstanceKey()) ?? throw new InvalidOperationException("no window");
+        Console.WriteLine("update window shown; scenario " + scenario);
+        progress.Step(UpdateSteps.Backup); await Task.Delay(4000);
+        progress.Step(UpdateSteps.StopEnvironment); await Task.Delay(4000);
+        foreach (var phase in new[] { "acquiring_installation_lock", "unpacking_application", "preparing_file_transaction", "moving_previous_application", "publishing_application", "cleaning_previous_application", "registering_installation", "completed" })
+        {
+            progress.Step(UpdateSteps.Install, UpdateInstaller.InstallPercent(phase)); await Task.Delay(2500);
+        }
+        progress.Step(UpdateSteps.StartNew); await Task.Delay(5000);
+        const string detail = "更新未完成：新版工作台未能完成启动确认（演示）";
+        switch (scenario)
+        {
+            case "success": Console.WriteLine("confirmed; the window closes"); return;
+            case "restored":
+                progress.Status("正在恢复 {0}", "0.2.2"); await Task.Delay(5000);
+                progress.Fail("已恢复 {0}", "0.2.2", detail, target, true); break;
+            case "kept":
+                progress.Status("正在恢复 {0}", "0.2.2"); await Task.Delay(5000);
+                progress.Fail("已保留 {0}", "0.2.3", detail + "。原应用无法恢复，已保留新版", target, true); break;
+            case "incomplete":
+                progress.Status("正在恢复 {0}", "0.2.2"); await Task.Delay(5000);
+                progress.Fail("恢复未完成", "", detail + "。自动恢复未完成。恢复目录记录在 " + target + ".cage-installation.json", target, false); break;
+            default: throw new ArgumentException("scenario: success, restored, kept or incomplete");
+        }
+        Console.WriteLine("result shown; waiting for the window to close");
+        await progress.Closed;
+    }
+
     // For a look at the window: each state drawn to a PNG in directory.
     public static void Render(string directory)
     {

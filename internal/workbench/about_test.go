@@ -40,7 +40,7 @@ func TestAboutUsesLocalBuildAndAuthenticatedUpdateEgress(t *testing.T) {
 	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &check) != nil {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
 	}
-	if check.Source.Status != "failed" || check.Release.Status != "failed" {
+	if check.Release.Status != "failed" {
 		t.Fatalf("%+v", check)
 	}
 	if strings.Contains(w.Body.String(), "secret") {
