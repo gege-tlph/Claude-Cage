@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BrowserVisibility, rememberOpener, targetAfterClose } from "./browser-visibility.mjs";
+import { BrowserVisibility, openedInNewWindow, rememberOpener, targetAfterClose } from "./browser-visibility.mjs";
 
 test("closing a popup returns to its opener rather than the oldest tab", () => {
   const unrelated = { targetId: "unrelated" }, opener = { targetId: "login" };
@@ -170,4 +170,16 @@ test("a newer browser viewer restores a hide that is already running", async () 
   release();
   await Promise.all([hidden, activated, shown]);
   assert.equal(state, "fullscreen");
+});
+
+test("a tab in a window of its own is followed, a background tab is not", async () => {
+  const windows = { active: 1, background: 1, shifted: 2 };
+  const cdp = async (method, { targetId }) => {
+    assert.equal(method, "Browser.getWindowForTarget");
+    return { windowId: windows[targetId], bounds: { windowState: "fullscreen" } };
+  };
+  assert.equal(await openedInNewWindow(cdp, "shifted", "active"), true);
+  assert.equal(await openedInNewWindow(cdp, "background", "active"), false);
+  assert.equal(await openedInNewWindow(cdp, "active", "active"), false);
+  assert.equal(await openedInNewWindow(cdp, "shifted", ""), false);
 });

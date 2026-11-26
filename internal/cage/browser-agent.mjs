@@ -13,7 +13,7 @@ import { browserCookies, AccountLoginCookies } from "./browser-cookies.mjs";
 import { BrowserExtensions, extensionUploadLimit } from "./browser-extensions.mjs";
 import { BrowserHistory } from "./browser-history.mjs";
 import { BrowserClipboard } from "./browser-clipboard.mjs";
-import { BrowserVisibility, rememberOpener, targetAfterClose } from "./browser-visibility.mjs";
+import { BrowserVisibility, openedInNewWindow, rememberOpener, targetAfterClose } from "./browser-visibility.mjs";
 import { BrowserWheel, createActivitySignal, createPointerProbe } from "./browser-wheel.mjs";
 import { nativeInput } from "./native-input.mjs";
 import { createDisplaySettings, displayDensity } from "./display-density.mjs";
@@ -240,7 +240,18 @@ function updateTargetInfo(t) {
   if (ready && fresh && t.openerId)
     void activate(t.targetId, true).catch(() => {});
   else if (ready && fresh && !openingTargets)
-    void visibility.sync().catch(() => {});
+    void followNewWindow(t.targetId).catch(() => {});
+}
+
+async function followNewWindow(id) {
+  const active = activeId;
+  try {
+    if (await openedInNewWindow(cdp, id, active) && targets.has(id) && activeId === active && !openingTargets)
+      return await activate(id, true);
+  } catch {
+    // The window lookup races the target's own creation; sync instead.
+  }
+  return visibility.sync();
 }
 
 function restoreHomepage(id) {

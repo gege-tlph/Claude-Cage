@@ -13,6 +13,18 @@ export function targetAfterClose(targets, closed) {
   return targets.keys().next().value || "";
 }
 
+// Shift+click opens a link in a new window without an opener. Chromium shows
+// that window on top, so the workbench must select it as it does a popup. A
+// background tab (Ctrl+click) opens in the current window and stays behind.
+export async function openedInNewWindow(cdp, targetId, activeId) {
+  if (!activeId || activeId === targetId) return false;
+  const [created, active] = await Promise.all([
+    cdp("Browser.getWindowForTarget", { targetId }),
+    cdp("Browser.getWindowForTarget", { targetId: activeId }),
+  ]);
+  return created.windowId !== active.windowId;
+}
+
 // Chromium must observe a minimized window to throttle its hidden pages.
 // Withdrawing an X window alone leaves document.visibilityState visible.
 // Visible guest browser windows always stay fullscreen so Chromium's own
