@@ -79,7 +79,11 @@ func Run(configPath string, args []string, output io.Writer) int {
 			emit()
 			return 0
 		}
-		_ = diagnostics.New(filepath.Dir(configPath)).Record("warn", "app-update", fmt.Sprintf("%v; cause=%v", err, errors.Unwrap(err)))
+		message := err.Error()
+		if cause := errors.Unwrap(err); cause != nil {
+			message += "; cause=" + cause.Error()
+		}
+		_ = diagnostics.New(filepath.Dir(configPath)).Record("warn", "app-update", message)
 		state.fail(err)
 		emit()
 		return 1

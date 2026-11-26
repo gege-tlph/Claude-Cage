@@ -36,6 +36,7 @@ internal static class UpdateWaitTests
         await InstanceMessages();
         RollingBack();
         Confirmation();
+        Results();
         Exception? failure = null;
         var thread = new Thread(() =>
         {
@@ -132,6 +133,28 @@ internal static class UpdateWaitTests
         clock.Restart();
         AppUpdater.AwaitConfirmation(Guid.NewGuid(), TimeSpan.FromMilliseconds(600));
         Check(clock.Elapsed < TimeSpan.FromSeconds(3), "an update that never confirmed held the start");
+    }
+
+    // The result of the last update is shown once and kept: in the customer
+    // report the next start had already deleted the only record of it.
+    private static void Results()
+    {
+        Directory.CreateDirectory(AppUpdater.Root);
+        var kept = Path.Combine(AppUpdater.Root, "results");
+        Directory.CreateDirectory(kept);
+        for (var i = 0; i < 12; i++) File.WriteAllText(Path.Combine(kept, $"20200101-0000{i:00}-000.json"), "{}");
+        File.WriteAllText(Path.Combine(AppUpdater.Root, "last-result.json"), "{\"success\":false,\"message\":\"更新未完成：fixture\"}");
+        var reported = new List<string>();
+        using (var updater = new AppUpdater(_ => { }, () => { }, () => { }, () => "fixture-publisher", reported.Add))
+        {
+            var state = updater.Handle("status");
+            Check(state.GetValueOrDefault("phase") as string == "failed" && state.GetValueOrDefault("message") as string == "更新未完成：fixture", "the failed update was not shown");
+        }
+        Check(reported.Count == 1 && reported[0] == "Update failed: 更新未完成：fixture", "the failed update did not reach the event log: " + string.Join("|", reported));
+        Check(!File.Exists(Path.Combine(AppUpdater.Root, "last-result.json")), "the result was shown again at the next start");
+        var files = Directory.GetFiles(kept, "*.json").Select(Path.GetFileName).Order(StringComparer.Ordinal).ToArray();
+        Check(files.Length == 10 && !files.Contains("20200101-000000-000.json") && !files[^1]!.StartsWith("2020", StringComparison.Ordinal), "kept results: " + string.Join(",", files));
+        Check(File.ReadAllText(Path.Combine(kept, files[^1]!)).Contains("fixture"), "the kept result lost its message");
     }
 
     private static void Waiting()

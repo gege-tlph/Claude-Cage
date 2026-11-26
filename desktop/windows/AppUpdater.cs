@@ -33,12 +33,31 @@ internal sealed class AppUpdater : IDisposable
             {
                 var value = JsonDocument.Parse(File.ReadAllText(result)).RootElement;
                 state["message"] = value.Text("message");
-                if (value.TryGetProperty("success", out var success) && !success.GetBoolean()) { state["phase"] = "failed"; state["retryable"] = true; }
-                try { File.Delete(result); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+                var failed = value.TryGetProperty("success", out var success) && !success.GetBoolean();
+                if (failed) { state["phase"] = "failed"; state["retryable"] = true; }
+                // Shown once, kept for diagnosis: an update that failed was
+                // otherwise known only from this file (customer report, 0.2.2).
+                report?.Invoke((failed ? "Update failed: " : "Update result: ") + value.Text("message"));
+                KeepResult(result);
             }
         }
         catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException) { }
         RemoveFinishedHelpers();
+    }
+
+    private static void KeepResult(string result)
+    {
+        try
+        {
+            var kept = Path.Combine(Root, "results");
+            Directory.CreateDirectory(kept); UpdatePolicy.PlainPath(kept);
+            File.Move(result, Path.Combine(kept, DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture) + ".json"), true);
+            foreach (var old in Directory.GetFiles(kept, "*.json").OrderDescending(StringComparer.Ordinal).Skip(10)) File.Delete(old);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            try { File.Delete(result); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
     }
 
     // The helper that installed an update runs from a copy of the previous App
