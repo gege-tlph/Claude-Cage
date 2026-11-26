@@ -76,5 +76,5 @@ func stopPreflightProcess(record preflightCoreRecord, core string) error {
 			return nil
 		}
 	}
-	return errors.New("Cage 代理进程未能及时停止")
+	return errors.New("Cage lite 代理进程未能及时停止")
 }
