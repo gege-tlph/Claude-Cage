@@ -87,7 +87,7 @@ export function EnvironmentVersions({ status, onConfirm }) {
       {(toolRows.length > 0 || desktop?.installed) && <table className="environment-tool-table">
         <thead><tr><th>{tr("工具")}</th><th>{tr("当前版本")}</th><th>{tr("受管版本")}</th></tr></thead>
         <tbody>
-          {toolRows.map(([key, name]) => <tr key={key}><td>{tr(name)}</td><td>{data.tools[key]?.current || "—"}</td><td>{data.tools[key]?.required || "—"}</td></tr>)}
+          {toolRows.map(([key, name]) => <tr key={key}><td>{tr(name)}</td><td>{data.tools[key]?.current || "—"}</td><td>{data.tools[key]?.required ? tr(data.tools[key].required) : "—"}</td></tr>)}
           {desktop?.installed && <tr key="claude-desktop"><td>Claude Desktop</td><td>{desktop.version ? `v${desktop.version}` : "—"}</td><td>{tr("官方软件源")}</td></tr>}
         </tbody>
       </table>}
