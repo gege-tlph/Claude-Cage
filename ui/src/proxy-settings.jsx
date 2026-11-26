@@ -25,6 +25,7 @@ import { groupNodesByRegion } from "./proxy-region.mjs";
 import { exitRegion, pickRelay } from "./relay-pick.mjs";
 import { ProxyYAMLInput } from "./proxy-yaml-input";
 import { LocalConfigImport } from "./local-config-import";
+import { FerryImport } from "./ferry-import.jsx";
 import { getClientContext } from "./client-context.mjs";
 import { useWindowVisibility } from "./window-visibility";
 import "./proxy.css";
@@ -527,6 +528,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
         </div>
       </div>
       {getClientContext().mode === "local" && <LocalConfigImport busy={busy} onImport={id => mutate("import-local", { id })} />}
+      <FerryImport proxy={proxy} busy={busy} onChanged={async () => { await reload(); await onApplied?.(); }} />
       {helpOpen && (
         <section
           id="proxy-help"

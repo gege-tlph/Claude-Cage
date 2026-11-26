@@ -27,6 +27,8 @@ type fakeFerry struct {
 	device  string
 	logins  int
 	escrows int
+	// drop is how many escrow requests to cut off without an answer.
+	drop int
 }
 
 func newFakeFerry(t *testing.T, escrowKey string, exits []ferryExit) *fakeFerry {
@@ -48,6 +50,13 @@ func newFakeFerry(t *testing.T, escrowKey string, exits []ferryExit) *fakeFerry 
 			_ = json.NewEncoder(w).Encode(map[string]any{"user": "张三", "token": "session-token", "sub_url": ferryTestSub, "exits": exits, "escrow_key": escrowKey})
 		case "/base/cage/v1/escrow":
 			f.escrows++
+			if f.drop > 0 {
+				f.drop--
+				if conn, _, err := w.(http.Hijacker).Hijack(); err == nil {
+					conn.Close()
+				}
+				return
+			}
 			if r.Header.Get("Authorization") != "Bearer session-token" {
 				w.WriteHeader(http.StatusUnauthorized)
 				return
@@ -217,5 +226,106 @@ func TestFerryLoginAPIImportsTheExitsWithoutShowingTheLink(t *testing.T) {
 	w = request(s, "POST", "/api/ferry/login", s.origin, `{"server":"`+f.URL+`/base","username":"张三","password":"wrong"}`, true)
 	if w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(), "Ferry 用户名或密码错误") {
 		t.Fatal(w.Code, w.Body.String())
+	}
+}
+
+// Ferry is to hold the account's current recovery key. When it does not (the
+// run that made the account stopped before Ferry, or a key was made since),
+// the next sign-in makes a new key with the password and hands it over; the
+// employee never sees it.
+func TestFerrySignInHandsOverANewRecoveryKeyWhenFerryLacksTheCurrentOne(t *testing.T) {
+	private, public := ferryEscrowKeyPair(t, hpke.MLKEM768X25519())
+	f := newFakeFerry(t, public, ferryTestExits)
+	profile := t.TempDir()
+	account, err := loadLocalAccount(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lost, err := account.createAccount("张三", "correct horse", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(account.lock)
+	s := &Server{profile: profile, account: account}
+	signIn := func() ferrySession {
+		t.Helper()
+		session, err := s.ferrySignIn(context.Background(), f.URL+"/base", "张三", "correct horse", "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return session
+	}
+	held := func() string {
+		t.Helper()
+		opened, err := hpke.Open(private, hpke.HKDFSHA256(), hpke.AES256GCM(), []byte(ferryEscrowInfo), f.sealed)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(opened)
+	}
+	status := func() map[string]any {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		s.ferryStatus(rec, httptest.NewRequest(http.MethodGet, "/api/ferry", nil))
+		var out map[string]any
+		_ = json.Unmarshal(rec.Body.Bytes(), &out)
+		return out
+	}
+	if got := status(); got["escrowed"] != false || got["user"] != "" {
+		t.Fatal(got)
+	}
+
+	if session := signIn(); session.escrow != "stored" || f.escrows != 1 {
+		t.Fatalf("%+v escrows=%d", session, f.escrows)
+	}
+	first := held()
+	if first == "" || first == lost {
+		t.Fatal("the key lost with the stopped run was not replaced")
+	}
+	if got := status(); got["escrowed"] != true || got["user"] != "张三" || got["server"] != f.URL+"/base" {
+		t.Fatal(got)
+	}
+	// Ferry holds the current key: nothing more is sent.
+	if session := signIn(); session.escrow != "none" || f.escrows != 1 {
+		t.Fatalf("%+v escrows=%d", session, f.escrows)
+	}
+	// A key made since (in settings) is replaced on the next sign-in.
+	if _, err := account.generateRecovery("correct horse"); err != nil {
+		t.Fatal(err)
+	}
+	if got := status(); got["escrowed"] != false {
+		t.Fatal(got)
+	}
+	if session := signIn(); session.escrow != "stored" || f.escrows != 2 || held() == first {
+		t.Fatalf("%+v escrows=%d", session, f.escrows)
+	}
+	// The key Ferry holds resets the password. With a Cage password other than
+	// the Ferry one, the key the reset made stays as it is.
+	if _, err := account.resetPassword(held(), "another horse"); err != nil {
+		t.Fatal("the key Ferry holds does not reset the password:", err)
+	}
+	if session := signIn(); session.escrow != "none" || f.escrows != 2 {
+		t.Fatalf("%+v escrows=%d", session, f.escrows)
+	}
+	if got := status(); got["escrowed"] != false {
+		t.Fatal(got)
+	}
+}
+
+func TestFerryEscrowTriesALostConnectionAgain(t *testing.T) {
+	old := ferryEscrowRetry
+	ferryEscrowRetry = []time.Duration{time.Millisecond, time.Millisecond}
+	t.Cleanup(func() { ferryEscrowRetry = old })
+	_, public := ferryEscrowKeyPair(t, hpke.DHKEM(ecdh.X25519()))
+	f := newFakeFerry(t, public, ferryTestExits)
+	f.drop = 2
+	session, err := (&Server{}).ferrySignIn(context.Background(), f.URL+"/base", "张三", "correct horse", "RECOVERY-KEY-1")
+	if err != nil || session.escrow != "stored" || f.escrows != 3 {
+		t.Fatalf("%+v %v escrows=%d", session, err, f.escrows)
+	}
+	f.drop, f.escrows = 3, 0
+	session, err = (&Server{}).ferrySignIn(context.Background(), f.URL+"/base", "张三", "correct horse", "RECOVERY-KEY-1")
+	if err != nil || session.escrow != "failed" || f.escrows != 3 {
+		t.Fatalf("%+v %v escrows=%d", session, err, f.escrows)
 	}
 }

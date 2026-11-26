@@ -125,3 +125,20 @@
 .setup-gear:focus-visible { outline: 2px solid var(--focus, var(--accent)); outline-offset: 1px; }
 /* Centred like the Ferry mark, clear of the back button in the corner. */
 .account-entry > .account-welcome-logo { margin-left: auto; margin-right: auto; }
+
+/* 「从 Ferry 导入」 in the proxy settings: a card like the local import above
+   it, which opens into the Ferry steps. */
+.ferry-import { position: relative; padding: 20px; border: 1px solid var(--line); border-radius: 12px; margin: 20px 0; }
+.ferry-import-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.ferry-import-heading h4 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 16px; color: var(--strong); font-weight: 550; }
+.ferry-import-tools { display: flex; align-items: center; gap: 4px; }
+.ferry-import-state { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
+.ferry-import form { max-width: 420px; margin-top: 16px; }
+.ferry-import fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.ferry-import .account-field { font-size: 14px; font-weight: 550; }
+.ferry-import .ferry-summary { max-width: 420px; margin: 16px 0 18px; }
+.ferry-import > .account-submit { max-width: 420px; }
+.ferry-import .ferry-link { align-self: flex-start; }
+.ferry-relay-line { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+.ferry-relay-line .text-button { margin-left: auto; }
+@media (max-width: 500px) { .ferry-import { padding: 14px; } }

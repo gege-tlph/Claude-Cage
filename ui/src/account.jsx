@@ -203,8 +203,10 @@ export function AccountGate({ children }) {
   const [error, setError] = useState("");
   const [recovering, setRecovering] = useState(false);
   // First run: null (choose), "cage" (the form below), "ferry" (FerrySetup),
-  // "done" (Ferry finished or left). Then the official first run continues:
-  // the recovery key screen, unless Ferry holds the key, and initialization.
+  // "done" (Ferry finished or left). Then the official first run continues
+  // with initialization. The recovery key of a Ferry account is never shown:
+  // Ferry holds it, and a key Ferry lacks is replaced and handed over on the
+  // next Ferry sign-in (「从 Ferry 导入」 in the proxy settings).
   const [setupMode, setSetupMode] = useState(null);
   const automaticAttempt = useRef("");
   const gateAcknowledged = useRef(false);
@@ -267,8 +269,8 @@ export function AccountGate({ children }) {
         act={act}
         rememberLogin={rememberAfterCreate}
         onBack={() => setSetupMode(null)}
-        onManual={() => setSetupMode("done")}
-        onDone={(escrow) => { if (escrow === "stored") dismissRecovery(); setSetupMode("done"); }}
+        onManual={() => { dismissRecovery(); setSetupMode("done"); }}
+        onDone={() => { dismissRecovery(); setSetupMode("done"); }}
       />
     </main>
   );

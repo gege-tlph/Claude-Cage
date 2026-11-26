@@ -3255,6 +3255,8 @@
   "在工作台上打开一个可拖动的半透明浮窗。浮窗在隔离的框架中运行，只能使用这个插件自己的工具。它可以在内置浏览器中打开：{0}。": "Opens a movable, translucent floating window over the workbench. It runs in an isolated frame and can only use this plugin's own tools. It can open in the built-in browser: {0}.",
   "从 Cage 配置": "Set up in Cage",
   "从 Ferry 配置": "Set up from Ferry",
+  "从 Ferry 导入": "Import from Ferry",
+  "更换": "Change",
   "创建账户": "Create account",
   "导入前置订阅": "Import relay subscription",
   "连接前置": "Connect relay",

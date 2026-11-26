@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { Check, ChevronLeft, CircleAlert, LoaderCircle, Settings } from "lucide-react";
+import { Check, ChevronLeft, CircleAlert, LoaderCircle, Settings, X } from "lucide-react";
 import { api } from "./api";
 import { CageLogo } from "./cage-logo.jsx";
 import { useTranslation } from "./interface-language.mjs";
@@ -56,7 +56,8 @@ const STEPS = [
   ["exit", "导入出口"],
   ["chain", "组成代理链"],
 ];
-const RELAY_SOURCE = "前置订阅";
+export const RELAY_SOURCE = "前置订阅";
+const FERRY_SOURCE = "Ferry";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const httpsAddress = (value) => {
   try { const u = new URL(value.trim()); return u.protocol === "https:" && Boolean(u.hostname); } catch { return false; }
@@ -70,11 +71,16 @@ const newSource = (before, after) => after.sources.find((s) => !before.sources.s
 // through it: its exits are imported, and the relay becomes the fastest node
 // in the exit's region. Finished steps are kept, so a retry continues where it
 // stopped. The Ferry address is preset; the gear shows it.
-export function FerrySetup({ account, act, rememberLogin, onBack, onManual, onDone }) {
+//
+// With an account already there (inline, the 「从 Ferry 导入」 card of the proxy
+// settings), the same steps run without creating the account: a relay
+// subscription imported before is used again unless replaced, and the Ferry
+// source is updated in place. The recovery key is the backend's business.
+export function FerrySetup({ account, act, rememberLogin, onBack, onManual, onDone, inline = false, known = {}, relaySource = null }) {
   const tr = useTranslation();
-  const [page, setPage] = useState("relay");
-  const [form, setForm] = useState({ server: FERRY_SERVER, username: "", password: "", relay: "" });
-  const [showServer, setShowServer] = useState(!httpsAddress(FERRY_SERVER));
+  const [page, setPage] = useState(inline && relaySource ? "login" : "relay");
+  const [form, setForm] = useState({ server: known.server || FERRY_SERVER, username: inline ? known.user || account?.username || "" : "", password: "", relay: "" });
+  const [showServer, setShowServer] = useState(!httpsAddress(known.server || FERRY_SERVER));
   const [remember, setRemember] = useState(true);
   const [states, setStates] = useState({});
   const [running, setRunning] = useState(false);
@@ -85,7 +91,9 @@ export function FerrySetup({ account, act, rememberLogin, onBack, onManual, onDo
   const accountMade = run.current.done.has("account");
   const field = (key) => ({ value: form[key], onChange: (event) => setForm({ ...form, [key]: event.target.value }) });
   const serverValid = httpsAddress(form.server);
-  const relayValid = httpsAddress(form.relay);
+  // Inline, an empty field keeps the relay subscription imported before.
+  const relayValid = httpsAddress(form.relay) || inline && Boolean(relaySource) && !form.relay.trim();
+  const stepList = inline ? STEPS.filter(([key]) => key !== "account") : STEPS;
   const loginValid = form.username.trim() && [...form.username.trim()].length <= 40 && [...form.password].length >= 8;
 
   const mark = (key, state) => setStates((current) => ({ ...current, [key]: state }));
@@ -113,9 +121,19 @@ export function FerrySetup({ account, act, rememberLogin, onBack, onManual, onDo
       await rememberLogin(remember, form.password);
     },
     relay: async (ctx) => {
-      const before = await api("/proxy");
-      await proxyJob("import", { name: RELAY_SOURCE, url: form.relay.trim(), interval_hours: 24, host_download: true });
-      ctx.relaySource = newSource(before, await api("/proxy"));
+      const url = form.relay.trim();
+      if (inline && relaySource) {
+        // Replace the link of the relay imported before, keeping its place.
+        if (url) {
+          await proxyJob("edit", { id: relaySource.id, name: relaySource.name, url, interval_hours: relaySource.interval_hours || 24 });
+          await proxyJob("refresh", { id: relaySource.id, host_download: true });
+        }
+        ctx.relaySource = (await api("/proxy")).sources.find((s) => s.id === relaySource.id) || null;
+      } else {
+        const before = await api("/proxy");
+        await proxyJob("import", { name: RELAY_SOURCE, url, interval_hours: 24, host_download: true });
+        ctx.relaySource = newSource(before, await api("/proxy"));
+      }
       if (!ctx.relaySource?.nodes.length) throw new Error(tr("前置订阅没有可用节点"));
     },
     connect: async (ctx) => {
@@ -151,8 +169,6 @@ export function FerrySetup({ account, act, rememberLogin, onBack, onManual, onDo
       setLoginFailed(false);
       ctx.recoveryKey = "";
       ctx.exits = answer.exits || [];
-      // A sign-in repeated for a failed import sends no key; keep the first answer.
-      ctx.escrow = ctx.escrow === "stored" ? "stored" : answer.escrow || "none";
       ctx.ferryJob = answer.job;
       ctx.ferryBefore = before;
     },
@@ -164,7 +180,9 @@ export function FerrySetup({ account, act, rememberLogin, onBack, onManual, onDo
         ctx.done.delete("ferry");
         throw e;
       }
-      ctx.ferrySource = newSource(ctx.ferryBefore, await api("/proxy"));
+      // A new source, or the one imported before and now updated in place.
+      const after = await api("/proxy");
+      ctx.ferrySource = newSource(ctx.ferryBefore, after) || after.sources.find((s) => s.name === FERRY_SOURCE && s.remote) || null;
       if (!ctx.ferrySource?.nodes.length) throw new Error(tr("Ferry 账号没有可用出口"));
     },
     chain: async (ctx) => {
@@ -180,7 +198,7 @@ export function FerrySetup({ account, act, rememberLogin, onBack, onManual, onDo
       const pick = pickRelay({ region, candidates: ctx.relaySource.nodes, results: ctx.relayResults });
       if (!pick) throw new Error(tr("前置订阅没有可用节点"));
       await proxyJob("route", { node_ids: [pick.node.id, exit.id] });
-      setSummary({ relay: pick.node.name, delay: pick.delay, sameRegion: pick.sameRegion, exit: exit.name, region, escrow: ctx.escrow });
+      setSummary({ relay: pick.node.name, delay: pick.delay, sameRegion: pick.sameRegion, exit: exit.name, region });
     },
   };
 
@@ -191,9 +209,9 @@ export function FerrySetup({ account, act, rememberLogin, onBack, onManual, onDo
     setError("");
     const ctx = run.current;
     // A retry starts again from the first step not done.
-    setStates(Object.fromEntries(STEPS.filter(([key]) => ctx.done.has(key)).map(([key]) => [key, "done"])));
+    setStates(Object.fromEntries(stepList.filter(([key]) => ctx.done.has(key)).map(([key]) => [key, "done"])));
     try {
-      for (const [key] of STEPS) {
+      for (const [key] of stepList) {
         if (ctx.done.has(key)) continue;
         mark(key, "running");
         try { await steps[key](ctx); }
@@ -208,30 +226,52 @@ export function FerrySetup({ account, act, rememberLogin, onBack, onManual, onDo
     }
   };
 
+  // The first run shows each page as a card with the Ferry mark; inline, the
+  // pages fill the card of the proxy settings.
+  const frame = ({ label, title, back, gear, children }) => inline ? (
+    <section className="ferry-import ferry-setup" aria-label={tr(label)}>
+      <div className="ferry-import-heading">
+        <h4>{tr(title)}</h4>
+        <div className="ferry-import-tools">
+          {gear}
+          {back && <button type="button" className="icon-button" aria-label={tr(back.close ? "关闭" : "返回")} title={tr(back.close ? "关闭" : "返回")} disabled={running} onClick={back.onClick}>{back.close ? <X size={16} /> : <ChevronLeft size={16} />}</button>}
+        </div>
+      </div>
+      {children}
+    </section>
+  ) : (
+    <section className="account-entry ferry-setup" aria-label={tr(label)}>
+      {back && <SetupBack onClick={back.onClick} disabled={running} />}
+      {gear}
+      <FerryMark size={58} className="ferry-card-mark" />
+      <h1>{tr(title)}</h1>
+      {children}
+    </section>
+  );
+
   if (summary) {
-    return (
-      <section className="account-entry ferry-setup" aria-label={tr("从 Ferry 配置")}>
-        <FerryMark size={58} className="ferry-card-mark" />
-        <h1>{tr("代理链已就绪")}</h1>
+    return frame({
+      label: inline ? "从 Ferry 导入" : "从 Ferry 配置",
+      title: "代理链已就绪",
+      children: <>
         <dl className="ferry-summary">
           <dt>{tr("前置")}</dt>
           <dd>{summary.relay}<span className="ferry-muted"> · {tr("{0} ms", summary.delay)}</span>{!summary.sameRegion && <span className="ferry-tag">{tr("无同地区前置")}</span>}</dd>
           <dt>{tr("出口")}</dt>
           <dd>{summary.exit}{summary.region && <span className="ferry-muted"> · {regionLabel(summary.region)}</span>}</dd>
         </dl>
-        <button className="primary account-submit" onClick={() => onDone(summary.escrow)}>{tr("继续")}</button>
-      </section>
-    );
+        <button className="primary account-submit" onClick={() => onDone()}>{tr(inline ? "完成" : "继续")}</button>
+      </>,
+    });
   }
 
-  const back = page === "relay" ? onBack : page === "login" ? () => setPage("relay") : null;
   // The address can change until Ferry has answered.
   const serverEditable = !running && !run.current.done.has("ferry");
-  if (showServer && serverEditable) return (
-    <section className="account-entry ferry-setup" aria-label={tr("Ferry 地址")}>
-      {serverValid && <SetupBack onClick={() => setShowServer(false)} />}
-      <FerryMark size={58} className="ferry-card-mark" />
-      <h1>{tr("Ferry 地址")}</h1>
+  if (showServer && serverEditable) return frame({
+    label: "Ferry 地址",
+    title: "Ferry 地址",
+    back: serverValid ? { onClick: () => setShowServer(false) } : inline ? { close: true, onClick: onBack } : null,
+    children: (
       <form onSubmit={(event) => { event.preventDefault(); if (serverValid) setShowServer(false); }}>
         <fieldset>
           <label className="account-field">{tr("Ferry 地址")}
@@ -241,31 +281,41 @@ export function FerrySetup({ account, act, rememberLogin, onBack, onManual, onDo
           {form.server !== FERRY_SERVER && <button type="button" className="text-button ferry-link" onClick={() => setForm({ ...form, server: FERRY_SERVER })}>{tr("恢复默认")}</button>}
         </fieldset>
       </form>
-    </section>
+    ),
+  });
+
+  // Back: the relay page leaves (the first screen, or closes the card); the
+  // login page returns to the relay page unless the relay is kept from before.
+  let back = null;
+  if (page === "relay") back = inline && relaySource ? { onClick: () => setPage("login") } : onBack && { close: inline, onClick: onBack };
+  else if (page === "login") back = inline && relaySource ? { close: true, onClick: onBack } : { onClick: () => setPage("relay") };
+  else if (inline && !running) back = { close: true, onClick: onBack };
+  if (!inline && accountMade) back = null;
+  const gear = serverEditable && (
+    <button type="button" className={inline ? "icon-button" : "setup-gear"} aria-label={tr("Ferry 地址")} title={tr("Ferry 地址")} onClick={() => setShowServer(true)}>
+      <Settings size={inline ? 16 : 17} />
+    </button>
   );
   const credentials = <>
     <label className="account-field">{tr("用户名")}
-      <input autoFocus autoComplete="username" maxLength={40} required {...field("username")} />
+      <input autoFocus={!inline || !form.username} autoComplete="username" maxLength={40} required {...field("username")} />
     </label>
     <label className="account-field">{tr("密码")}
-      <input type="password" autoComplete="current-password" required {...field("password")} />
+      <input type="password" autoFocus={inline && Boolean(form.username)} autoComplete="current-password" required {...field("password")} />
     </label>
   </>;
-  return (
-    <section className="account-entry ferry-setup" aria-label={tr("从 Ferry 配置")}>
-      {back && !accountMade && <SetupBack onClick={back} disabled={running} />}
-      {serverEditable && (
-        <button type="button" className="setup-gear" aria-label={tr("Ferry 地址")} title={tr("Ferry 地址")} onClick={() => setShowServer(true)}>
-          <Settings size={17} />
-        </button>
-      )}
-      <FerryMark size={58} className="ferry-card-mark" />
-      <h1>{tr("从 Ferry 配置")}</h1>
+  const relayHost = () => { try { return new URL(form.relay.trim()).hostname; } catch { return ""; } };
+  return frame({
+    label: inline ? "从 Ferry 导入" : "从 Ferry 配置",
+    title: inline ? "从 Ferry 导入" : "从 Ferry 配置",
+    back,
+    gear,
+    children: <>
       {page === "relay" && (
         <form onSubmit={(event) => { event.preventDefault(); if (relayValid && serverValid) setPage("login"); }}>
           <fieldset>
             <label className="account-field">{tr("前置订阅")}
-              <input autoFocus type="url" inputMode="url" spellCheck={false} placeholder="https://" {...field("relay")} />
+              <input autoFocus type="url" inputMode="url" spellCheck={false} placeholder={inline && relaySource?.host ? relaySource.host : "https://"} {...field("relay")} />
             </label>
             <button className="primary account-submit" disabled={!relayValid || !serverValid}>{tr("下一步")}</button>
           </fieldset>
@@ -274,11 +324,20 @@ export function FerrySetup({ account, act, rememberLogin, onBack, onManual, onDo
       {page === "login" && (
         <form onSubmit={(event) => { event.preventDefault(); start(); }}>
           <fieldset>
+            {inline && relaySource && (
+              <p className="ferry-relay-line">
+                <span className="ferry-muted">{tr("前置订阅")}</span>
+                <span>{relayHost() || relaySource.host || relaySource.name}</span>
+                <button type="button" className="text-button" onClick={() => setPage("relay")}>{tr("更换")}</button>
+              </p>
+            )}
             {credentials}
-            <label className="account-device-option check-line">
-              <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
-              <span><strong>{tr("记住我")}</strong></span>
-            </label>
+            {!inline && (
+              <label className="account-device-option check-line">
+                <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+                <span><strong>{tr("记住我")}</strong></span>
+              </label>
+            )}
             <button className="primary account-submit" disabled={!loginValid || !serverValid}>{tr("开始")}</button>
           </fieldset>
         </form>
@@ -288,7 +347,7 @@ export function FerrySetup({ account, act, rememberLogin, onBack, onManual, onDo
           <fieldset disabled={running}>
             {loginFailed && !running && credentials}
             <ol className="ferry-steps" aria-label={tr("配置步骤")}>
-              {STEPS.map(([key, label]) => {
+              {stepList.map(([key, label]) => {
                 const state = states[key] || "waiting";
                 return (
                   <li key={key} data-state={state}>
@@ -303,11 +362,11 @@ export function FerrySetup({ account, act, rememberLogin, onBack, onManual, onDo
             {error && <p className="account-error" role="alert">{localizeBackendMessage(error, tr)}</p>}
             {!running && error && <button className="primary account-submit" disabled={!loginValid || !serverValid}>{tr("重试")}</button>}
             {running && <button className="primary account-submit" disabled>{tr("正在配置…")}</button>}
-            {!running && error && !accountMade && <button type="button" className="text-button ferry-link" onClick={() => { setError(""); setPage("login"); }}>{tr("修改")}</button>}
-            {!running && error && accountMade && <button type="button" className="text-button ferry-link" onClick={onManual}>{tr("手动配置")}</button>}
+            {!running && error && (inline || !accountMade) && <button type="button" className="text-button ferry-link" onClick={() => { setError(""); setPage("login"); }}>{tr("修改")}</button>}
+            {!running && error && !inline && accountMade && <button type="button" className="text-button ferry-link" onClick={onManual}>{tr("手动配置")}</button>}
           </fieldset>
         </form>
       )}
-    </section>
-  );
+    </>,
+  });
 }

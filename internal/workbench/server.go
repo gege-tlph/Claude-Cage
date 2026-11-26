@@ -490,6 +490,7 @@ func (s *Server) handler() http.Handler {
 	mux.HandleFunc("GET /api/proxy/connections", s.proxyConnections)
 	mux.HandleFunc("GET /api/proxy/logs", s.proxyLogs)
 	mux.HandleFunc("POST /api/proxy/{action}", s.proxyMutation)
+	mux.HandleFunc("GET /api/ferry", s.ferryStatus)
 	mux.HandleFunc("POST /api/ferry/login", s.ferryLogin)
 	mux.HandleFunc("POST /api/settings", s.saveSettings)
 	mux.HandleFunc("POST /api/restore", s.restore)
