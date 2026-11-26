@@ -306,7 +306,7 @@ function ProfileCard({ proxySources, desktopNetwork, profile, environment, usage
             onClick={() => { setLabel(profile.label === profile.email ? "" : profile.label || ""); setRenaming(true); }}><Pencil size={13} /></button>
         </div>}
         <div className="claude-profile-meta">
-          <span className="claude-status-pill" data-ready={!profile.code_unlinked && profile.status === "ready"} title={codeStatusTitle}>Code</span>
+          <span className="claude-status-pill" data-ready={!profile.code_unlinked && profile.status === "ready"} title={codeStatusTitle}>{profile.code_unlinked ? codeStatusTitle : "Code"}</span>
           <span className="claude-status-pill" data-ready={profile.desktop_status === "ready"} title={desktopStatusTitle}>Desktop</span>
           {!masked && profile.email && (profile.email !== displayName || profile.organization) && <span className="claude-profile-email" title={[profile.email, profile.organization].filter(Boolean).join(" · ")}>
             {[profile.email !== displayName && profile.email, profile.organization].filter(Boolean).join(" · ")}
