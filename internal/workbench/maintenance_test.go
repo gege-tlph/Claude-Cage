@@ -217,3 +217,12 @@ func TestMaintenanceInstallersInheritNoProductIdentity(t *testing.T) {
 		t.Fatalf("installers lost the proxy:\n%s", inherited)
 	}
 }
+
+func TestMaintenanceScriptRetriesStalledDownloads(t *testing.T) {
+	script := maintenanceScript(":", "fixture-token", false)
+	for _, want := range []string{`Acquire::Retries "3"`, `Acquire::http::Timeout "30"`, `Acquire::https::Timeout "30"`} {
+		if !strings.Contains(script, want) {
+			t.Fatalf("maintenance APT configuration lacks %s:\n%s", want, script)
+		}
+	}
+}
