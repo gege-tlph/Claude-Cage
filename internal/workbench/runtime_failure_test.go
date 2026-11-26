@@ -1,11 +1,41 @@
 package workbench
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/sylvinus/agent-vm/internal/cage"
+	"github.com/sylvinus/agent-vm/internal/managedproxy"
 )
+
+func TestFirstStartReportsUnreachableProxyBeforeImageSetup(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Setenv("TMPDIR", "/tmp") // Leave room for Lima's Unix socket under the test profile.
+	}
+	s := testServer(t)
+	if err := writePrivate(filepath.Join(s.profile, "environment.json"), cage.EnvironmentRecord{Directory: t.TempDir()}); err != nil {
+		t.Fatal(err)
+	}
+	setupUnreachableManagedProxy(t, s)
+	physical, validate, start := physicalProxyInterface, validateProxyCore, startProxyCore
+	t.Cleanup(func() { physicalProxyInterface, validateProxyCore, startProxyCore = physical, validate, start })
+	physicalProxyInterface = func(context.Context) (string, error) { return "test-uplink", nil }
+	validateProxyCore = func(context.Context, string, managedproxy.Store) error { return nil }
+	startProxyCore = func(context.Context, string, managedproxy.Store) error { return nil }
+	if _, err := s.submitJob("start", func() error { return s.startEnvironment(false) }); err != nil {
+		t.Fatal(err)
+	}
+	s.jobs.workers.Wait()
+	job := s.jobs.snapshot()
+	if job.SetupProgress != nil || !strings.Contains(job.Error, "代理出口预检未通过") || !strings.Contains(job.Error, "首跳状态未确定") || !strings.Contains(job.Error, "代理连接失败") {
+		t.Fatalf("expected a proxy preflight failure before image preparation, got %+v", job)
+	}
+}
 
 func TestRunCagePreservesOriginalVMError(t *testing.T) {
 	if os.Getenv("CAGE_TEST_START_FAILURE_HELPER") == "1" {
