@@ -3253,5 +3253,13 @@
   "浮窗「{0}」": "Floating window \"{0}\"",
   "在工作台上打开一个可拖动的半透明浮窗。浮窗在隔离的框架中运行，只能使用这个插件自己的工具。它不能打开网页。": "Opens a movable, translucent floating window over the workbench. It runs in an isolated frame and can only use this plugin's own tools. It can't open web pages.",
   "在工作台上打开一个可拖动的半透明浮窗。浮窗在隔离的框架中运行，只能使用这个插件自己的工具。它可以在内置浏览器中打开：{0}。": "Opens a movable, translucent floating window over the workbench. It runs in an isolated frame and can only use this plugin's own tools. It can open in the built-in browser: {0}.",
-  "移除 {0}": "Remove {0}"
+  "移除 {0}": "Remove {0}",
+  "Shadowrocket 分享链接含有暂不支持的参数；请改用 Clash/Mihomo YAML": "The Shadowrocket share link has unsupported parameters; use Clash/Mihomo YAML instead",
+  "请检查宿主机到镜像站的网络连接，或稍后继续安装。": "Check this computer's connection to the mirror, or continue the installation later.",
+  "请检查宿主机到镜像站的网络连接，或稍后继续安装；已下载的部分会保留，继续安装时从断点续传。": "Check this computer's connection to the mirror, or continue the installation later. Downloaded parts are kept and resume when you continue.",
+  "启动前的代理出口检查未通过": "Proxy exit check before start failed",
+  "代理出口预检未通过，首跳状态未确定，请检查宿主机经物理网卡到首跳节点端口的连接": "Proxy exit preflight failed and the first hop is unknown. Check this computer's connection through its network adapter to the first-hop node port",
+  "服务器在加密连接上返回了明文 HTTP 响应，协议或端口可能不匹配": "The server answered the encrypted connection with plain HTTP; the protocol or port may not match",
+  "重命名项目": "Rename project",
+  "移除项目": "Remove project"
 }
