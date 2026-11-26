@@ -107,6 +107,7 @@ func AgentOperations() []AgentOperation {
 	post("settings.dns_check", "Query each encrypted DNS endpoint of a complete settings draft for deb.debian.org through the selected proxy", "/api/settings/dns-check", from(Settings{}))
 	get("proxy.connections", "Inspect live proxy connections", "/api/proxy/connections")
 	get("proxy.logs", "Inspect proxy logs", "/api/proxy/logs")
+	post("ferry.login", "Sign in to the organisation's Ferry panel through the applied route; returns its exit nodes with regions and the job importing them as the source Ferry (wait for it like proxy jobs). With recovery_key the account's recovery key is sealed to the organisation's escrow key and left with Ferry", "/api/ferry/login", object(map[string]string{"server": "string", "username": "string", "password": "string", "recovery_key": "string"}))
 	post("proxy.delay", "Measure one node (node_id) or up to 300 nodes four at a time (node_ids); returns per-node results and the fastest working node as best without changing the selection", "/api/proxy/delay", object(map[string]string{"node_id": "string", "node_ids": "array"}))
 	add("guest.reselect", "Clear only the same unstarted installation the UI can reselect", "DELETE", "/api/environment/guest-systems", object(map[string]string{"id": "string"}))
 	get("claude-accounts.get", "Read account roster, quotas, scheduling and per-account setup notices", "/api/claude-accounts")
