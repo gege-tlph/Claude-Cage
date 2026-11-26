@@ -201,7 +201,7 @@ func probeExitIPServices(ctx context.Context, client *http.Client, services []ex
 		// connectivity check and the ClientHello hints would not help. Trojan
 		// and similar servers hand unauthenticated or unparsable streams to a
 		// fallback web server, which produces exactly this answer.
-		return "", usererror.New("通过所选代理建立 TLS 连接", strings.Join(reported, "；"), "节点没有按代理协议转发请求，而是直接返回了网页响应，常见于节点的密码、协议、端口或传输设置与服务端不一致，或代理核心与该节点不兼容；请核对节点配置后重新导入并应用，或切换代理节点；外网保持关闭。", errors.Join(ErrTLSHandshakeFailed, http.ErrSchemeMismatch))
+		return "", usererror.New("通过所选代理建立 TLS 连接", reported, "节点没有按代理协议转发请求，而是直接返回了网页响应，常见于节点的密码、协议、端口或传输设置与服务端不一致，或代理核心与该节点不兼容；请核对节点配置后重新导入并应用，或切换代理节点；外网保持关闭。", errors.Join(ErrTLSHandshakeFailed, http.ErrSchemeMismatch))
 	}
 	if allTLSHandshakeFailed && !allTimedOut {
 		// The bundled core grants a SOCKS5 CONNECT before it dials the node,

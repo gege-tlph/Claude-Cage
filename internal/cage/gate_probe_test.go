@@ -600,7 +600,7 @@ func TestExitProbeReportsPlainHTTPAnswerToTLS(t *testing.T) {
 		t.Fatalf("plain HTTP answer expected ErrTLSHandshakeFailed + ErrSchemeMismatch, got ip=%q err=%v", ip, err)
 	}
 	message := err.Error()
-	if !strings.Contains(message, "明文 HTTP 响应") || !strings.Contains(message, "备用检测服务") || !strings.Contains(message, "核对节点配置") || strings.Contains(message, "未能取得可识别的错误原因") || strings.Contains(message, "client-fingerprint") || strings.Contains(message, "分段传输") {
+	if !strings.Contains(message, "明文 HTTP 响应") || !strings.Contains(message, "2 个出口检测服务均失败（服务器在加密连接上返回了明文 HTTP 响应") || !strings.Contains(message, "核对节点配置") || strings.Contains(message, "未能取得可识别的错误原因") || strings.Contains(message, "client-fingerprint") || strings.Contains(message, "分段传输") {
 		t.Fatalf("plain HTTP answer must keep its reason and node advice: %s", message)
 	}
 	if checks.Load() != 0 {
