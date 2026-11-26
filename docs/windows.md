@@ -151,3 +151,7 @@ $env:Path = "$(Join-Path $tools 'nsis-3.13');$env:Path"
 ## 静默安装选项
 
 静默安装可同时传入 `/DESKTOPSHORTCUT=0|1` 和 `/STARTMENUSHORTCUT=0|1`。若指定安装目录，`/D=` 必须是最后一项，只出现一次。目录要用绝对盘符和反斜杠，路径中有空格也无需加引号。未提供快捷方式参数的静默更新沿用上次选择。
+
+`/DIAGNOSTICS=<文件>` 让安装程序把当前阶段（`phase`）和结果（`status`）写进这个 JSON 文件，每进入一个阶段更新一次。解压程序文件失败时（`phase` 为 `unpacking_application`），文件里还有 `unpack`：`file` 是第一个大小不对（`state` 为 `size`）或缺失（`state` 为 `missing`）的文件，路径相对于程序目录；`written` 和 `total` 是完整写入的文件数和文件总数；`freeBytes` 是安装目录所在盘的剩余空间。
+
+在部分受限的自动化环境或沙箱里，`/S` 静默安装会在 NSIS 初始化之前退出：退出码为 2，诊断文件也没有生成。同样的环境里最小的 NSIS 安装包也会这样退出，与 Cage 的安装脚本无关。这种环境可以用 7-Zip 解开安装包（`7z x Cage-<版本>-windows-amd64-setup.exe -o<目录>`），解出的 `$_<数字>_` 目录就是程序目录，直接运行其中的 `Cage.exe` 即可。这样得到的副本没有登记为安装，不能在应用内更新，也不会出现在“应用和功能”里；换版本时重新解包，删除时直接删除目录。电脑上没有 WebView2 运行时的话，先运行目录中的 `resources\runtime\MicrosoftEdgeWebView2RuntimeInstallerX64.exe`。

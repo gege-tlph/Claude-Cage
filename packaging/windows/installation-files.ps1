@@ -1,7 +1,7 @@
 ﻿#requires -Version 5.1
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('prepare', 'move', 'restore', 'cleanup', 'complete', 'abandon', 'uninstall', 'detach', 'attach', 'heal', 'close-app')][string]$Operation,
+    [Parameter(Mandatory)][ValidateSet('prepare', 'move', 'restore', 'cleanup', 'complete', 'abandon', 'uninstall', 'detach', 'attach', 'heal', 'close-app', 'inspect-stage')][string]$Operation,
     [Parameter(Mandatory)][string]$Target,
     [string]$Source,
     [string]$Receipt,
@@ -547,6 +547,40 @@ if ($Operation -eq 'prepare') {
     }
     foreach ($id in $closed) { Wait-Process -Id $id -Timeout 10 -ErrorAction SilentlyContinue }
     Write-Output ('closed ' + $closed.Count)
+} elseif ($Operation -eq 'inspect-stage') {
+    # The installer could not unpack its payload into the staged folder
+    # (#488). Facts for its diagnostics, compared with its embedded build
+    # manifest: the first program file that is short (being written when
+    # unpacking stopped) or else missing, how many files arrived complete and
+    # the free space left on that drive. Older manifests have no sizes; then
+    # only presence counts. NSIS reads stdout in the ANSI code page and puts
+    # it into its diagnostics as is, so the JSON is ASCII only.
+    $diagnosticStep = 'inspecting_unpacked_files'
+    $value = Get-Content -LiteralPath $Manifest -Raw -Encoding UTF8 | ConvertFrom-Json
+    $expected = @($value.files | ForEach-Object { @{path = [string]$_.path; size = $_.size} })
+    if (!@($expected | Where-Object { $_.path -eq 'Uninstall.exe' }).Count) { $expected += @{path = 'Uninstall.exe'; size = $null} }
+    $written = 0; $short = $null; $missing = $null
+    foreach ($entry in $expected) {
+        $length = $null
+        try {
+            $info = [IO.FileInfo]::new([IO.Path]::Combine($Target, $entry.path))
+            if ($info.Exists) { $length = $info.Length }
+        } catch { }
+        if ($null -eq $length) { if ($null -eq $missing) { $missing = $entry.path }; continue }
+        if ($null -ne $entry.size -and $length -ne [long]$entry.size) { if ($null -eq $short) { $short = $entry.path }; continue }
+        $written++
+    }
+    $free = $null
+    try { $free = ([IO.DriveInfo]::new([IO.Path]::GetPathRoot([IO.Path]::GetFullPath($Target)))).AvailableFreeSpace } catch { }
+    $report = [ordered]@{
+        file = if ($null -ne $short) { $short } else { $missing }
+        state = if ($null -ne $short) { 'size' } elseif ($null -ne $missing) { 'missing' } else { $null }
+        written = $written
+        total = $expected.Count
+        freeBytes = $free
+    }
+    $json = $report | ConvertTo-Json -Compress
+    [Console]::Out.Write([regex]::Replace($json, '[^\x20-\x7e]', { param($match) '\u{0:x4}' -f [int][char]$match.Value }))
 } elseif ($Operation -eq 'abandon') {
     # A first installation that could not publish its staged folder has no
     # previous installation, backup or moved entry to recover. Only then is

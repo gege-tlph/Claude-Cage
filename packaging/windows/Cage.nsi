@@ -81,6 +81,9 @@ Var InstallOutcome
 Var HelperExit
 Var DiagnosticArguments
 Var InstallerSystemLanguage
+; ',"unpack":{...}' after a payload that did not unpack, else empty.
+Var UnpackReport
+Var UnpackInspected
 
 !include "CageInstallerLanguages.nsh"
 !include "CageInstallerLanguageSelection.nsh"
@@ -95,7 +98,7 @@ Function WriteInstallDiagnostic
     ClearErrors
     FileOpen $2 "$DiagnosticFile" w
     ${IfNot} ${Errors}
-      FileWrite $2 '{"phase":"$InstallPhase","status":"$InstallOutcome","helperExit":"$HelperExit"}$\r$\n'
+      FileWrite $2 '{"phase":"$InstallPhase","status":"$InstallOutcome","helperExit":"$HelperExit"$UnpackReport}$\r$\n'
       FileClose $2
     ${EndIf}
     ${If} $3 == 1
@@ -106,6 +109,46 @@ Function WriteInstallDiagnostic
     Pop $3
     Pop $2
   ${EndIf}
+FunctionEnd
+
+; The payload did not unpack into $StageDir (#488): with diagnostics, record
+; the first short or missing file, files written of all and the free space
+; (installation-files.ps1 inspect-stage, against the embedded manifest).
+; Then the staged folder goes. File aborts the section by itself when it
+; cannot write, so .onInstFailed calls this too; it runs once.
+Function UnpackFailed
+  ${If} $UnpackInspected == "1"
+  ${OrIf} $StageDir == ""
+    Return
+  ${EndIf}
+  StrCpy $UnpackInspected "1"
+  Push $0
+  Push $1
+  Push $2
+  Push $3
+  ${If} $DiagnosticFile != ""
+    InitPluginsDir
+    SetOutPath "$PLUGINSDIR"
+    File /oname=installation-files.ps1 "installation-files.ps1"
+    File /oname=install-files.json "${FILE_MANIFEST}"
+    SetOutPath "$TEMP"
+    nsExec::ExecToStack '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\installation-files.ps1" -Operation inspect-stage -Target "$StageDir" -Manifest "$PLUGINSDIR\install-files.json"'
+    Pop $0
+    Pop $1
+    StrCpy $2 $1 1
+    StrCpy $3 $1 "" -1
+    ${If} $0 == 0
+    ${AndIf} $2 == "{"
+    ${AndIf} $3 == "}"
+      StrCpy $UnpackReport ',"unpack":$1'
+    ${EndIf}
+  ${EndIf}
+  SetOutPath "$TEMP"
+  RMDir /r "$StageDir"
+  Pop $3
+  Pop $2
+  Pop $1
+  Pop $0
 FunctionEnd
 
 !macro InstallPhase NAME
@@ -152,6 +195,9 @@ Function un.onUninstSuccess
 FunctionEnd
 
 Function .onInstFailed
+  ${If} $InstallPhase == "unpacking_application"
+    Call UnpackFailed
+  ${EndIf}
   StrCpy $InstallOutcome "failed"
   Call WriteInstallDiagnostic
 FunctionEnd
@@ -555,8 +601,7 @@ Section "Cage" Main
 !endif
   WriteUninstaller "$StageDir\Uninstall.exe"
   ${If} ${Errors}
-    SetOutPath "$TEMP"
-    RMDir /r "$StageDir"
+    Call UnpackFailed
     SetErrorLevel 2
     Abort "$(CageSetupUnpack)"
   ${EndIf}

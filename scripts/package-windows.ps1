@@ -78,7 +78,8 @@ $files = @(Get-ChildItem -LiteralPath $AppDirectory -File -Recurse -Force | Wher
 $ownership = [Collections.Generic.List[object]]::new()
 foreach ($file in $files) {
     $relative = [IO.Path]::GetRelativePath($AppDirectory, $file.FullName).Replace('\', '/')
-    $ownership.Add(@{ path = $relative; sha256 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant() })
+    # The size lets a failed installer name the file it could not finish (#488).
+    $ownership.Add(@{ path = $relative; sha256 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant(); size = $file.Length })
 }
 @{ version = 1; files = @($ownership | Sort-Object path) } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $manifest -Encoding utf8
 $numericVersion = ($version -split '-')[0] + '.0'

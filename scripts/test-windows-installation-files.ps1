@@ -177,6 +177,25 @@ function Test-InstallerTransaction {
 }
 try {
     if ($InstallerSmoke) { Test-InstallerTransaction }
+    # A payload that did not unpack (#488): the first short, else missing,
+    # program file, files written of all and the free space, as ASCII JSON.
+    $scenario = Join-Path $root 'unpack-report'
+    $stage = Join-Path $scenario 'staged'; $manifest = Join-Path $scenario 'embedded.json'
+    App $stage 'unpacked'
+    $entries = @((Get-Content -LiteralPath (Join-Path $stage 'Cage.install-files.json') -Raw | ConvertFrom-Json).files | ForEach-Object {
+        @{path = $_.path; sha256 = $_.sha256; size = (Get-Item -LiteralPath (Join-Path $stage $_.path)).Length}
+    })
+    $entries += @{path = 'resources/' + [char]0x8D44 + '.txt'; sha256 = ('0' * 64); size = 1}
+    @{version = 1; files = $entries} | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $manifest -Encoding UTF8
+    Write-File (Join-Path $stage 'resources/customizable.txt') 'cut'
+    foreach ($expected in @(@{file = 'resources/customizable.txt'; state = 'size'; written = 3}, @{file = 'resources/' + [char]0x8D44 + '.txt'; state = 'missing'; written = 4})) {
+        $report = (& $HelperShell -NoProfile -File $helper -Operation inspect-stage -Target $stage -Manifest $manifest | Out-String).Trim()
+        Check ($LASTEXITCODE -eq 0 -and $report -cmatch '^[\x20-\x7e]+$') "The unpack report is not ASCII: $report"
+        $value = $report | ConvertFrom-Json
+        Check ($value.file -eq $expected.file -and $value.state -eq $expected.state -and $value.written -eq $expected.written -and $value.total -eq 5 -and $value.freeBytes -gt 0) "Unexpected unpack report: $report"
+        Write-File (Join-Path $stage 'resources/customizable.txt') 'default-unpacked'
+    }
+
     # A new install has no backup path or existing ownership manifest.
     $scenario = Join-Path $root 'first-install'
     $old = Join-Path $scenario 'empty-destination'; $stage = Join-Path $scenario 'staged'; $receipt = Join-Path $scenario 'receipt.json'
