@@ -151,12 +151,19 @@ export function FerrySetup({ account, act, rememberLogin, onBack, onManual, onDo
       setLoginFailed(false);
       ctx.recoveryKey = "";
       ctx.exits = answer.exits || [];
-      ctx.escrow = answer.escrow || "none";
+      // A sign-in repeated for a failed import sends no key; keep the first answer.
+      ctx.escrow = ctx.escrow === "stored" ? "stored" : answer.escrow || "none";
       ctx.ferryJob = answer.job;
       ctx.ferryBefore = before;
     },
     exit: async (ctx) => {
-      await waitJob(ctx.ferryJob);
+      try {
+        await waitJob(ctx.ferryJob);
+      } catch (e) {
+        // The failed job cannot be waited for again: retry signs in anew.
+        ctx.done.delete("ferry");
+        throw e;
+      }
       ctx.ferrySource = newSource(ctx.ferryBefore, await api("/proxy"));
       if (!ctx.ferrySource?.nodes.length) throw new Error(tr("Ferry 账号没有可用出口"));
     },
@@ -183,6 +190,8 @@ export function FerrySetup({ account, act, rememberLogin, onBack, onManual, onDo
     setRunning(true);
     setError("");
     const ctx = run.current;
+    // A retry starts again from the first step not done.
+    setStates(Object.fromEntries(STEPS.filter(([key]) => ctx.done.has(key)).map(([key]) => [key, "done"])));
     try {
       for (const [key] of STEPS) {
         if (ctx.done.has(key)) continue;
@@ -200,7 +209,6 @@ export function FerrySetup({ account, act, rememberLogin, onBack, onManual, onDo
   };
 
   if (summary) {
-    const escrowState = { stored: "已交 Ferry 保管", failed: "保管失败", none: "未保管" }[summary.escrow] || "未保管";
     return (
       <section className="account-entry ferry-setup" aria-label={tr("从 Ferry 配置")}>
         <FerryMark size={58} className="ferry-card-mark" />
@@ -210,8 +218,6 @@ export function FerrySetup({ account, act, rememberLogin, onBack, onManual, onDo
           <dd>{summary.relay}<span className="ferry-muted"> · {tr("{0} ms", summary.delay)}</span>{!summary.sameRegion && <span className="ferry-tag">{tr("无同地区前置")}</span>}</dd>
           <dt>{tr("出口")}</dt>
           <dd>{summary.exit}{summary.region && <span className="ferry-muted"> · {regionLabel(summary.region)}</span>}</dd>
-          <dt>{tr("恢复密钥")}</dt>
-          <dd className={summary.escrow === "stored" ? "" : "ferry-warn"}>{tr(escrowState)}</dd>
         </dl>
         <button className="primary account-submit" onClick={() => onDone(summary.escrow)}>{tr("继续")}</button>
       </section>

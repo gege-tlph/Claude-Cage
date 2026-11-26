@@ -194,7 +194,7 @@ function PasswordField({
 
 export function AccountGate({ children }) {
   const tr = useTranslation();
-  const { account, error: connectionError, refresh, act, deviceSupport, deviceAction, setDeviceNotice, recovery } = useAccount();
+  const { account, error: connectionError, refresh, act, deviceSupport, deviceAction, setDeviceNotice, recovery, dismissRecovery } = useAccount();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -203,9 +203,9 @@ export function AccountGate({ children }) {
   const [error, setError] = useState("");
   const [recovering, setRecovering] = useState(false);
   // First run: null (choose), "cage" (the form below), "ferry" (FerrySetup),
-  // "done" (Ferry finished or left; the recovery key screen follows).
+  // "done" (Ferry finished or left). Then the official first run continues:
+  // the recovery key screen, unless Ferry holds the key, and initialization.
   const [setupMode, setSetupMode] = useState(null);
-  const [ferryEscrow, setFerryEscrow] = useState("");
   const automaticAttempt = useRef("");
   const gateAcknowledged = useRef(false);
   const trustedAttempt = useRef(false);
@@ -268,11 +268,11 @@ export function AccountGate({ children }) {
         rememberLogin={rememberAfterCreate}
         onBack={() => setSetupMode(null)}
         onManual={() => setSetupMode("done")}
-        onDone={(escrow) => { setFerryEscrow(escrow); setSetupMode("done"); }}
+        onDone={(escrow) => { if (escrow === "stored") dismissRecovery(); setSetupMode("done"); }}
       />
     </main>
   );
-  if (recovery) return <RecoveryKeyScreen escrow={ferryEscrow} />;
+  if (recovery) return <RecoveryKeyScreen />;
   if (account?.unlocked) return children;
   if (recovering) return <AccountRecovery onBack={() => setRecovering(false)} onReset={() => { setRecovering(false); setPassword(""); setConfirmation(""); setRememberLogin(false); setError(""); }} />;
   const creating = account && !account.exists;
@@ -433,7 +433,7 @@ export function AccountGate({ children }) {
   );
 }
 
-function RecoveryKeyScreen({ escrow }) {
+function RecoveryKeyScreen() {
   const tr = useTranslation();
   const { recovery, dismissRecovery } = useAccount();
   const [saved, setSaved] = useState(false);
@@ -442,7 +442,6 @@ function RecoveryKeyScreen({ escrow }) {
     <section className="account-entry account-recovery" aria-label={tr("保存恢复密钥")}>
       <h1>{recovery.reset ? tr("密码已重置") : tr("保存你的恢复密钥")}</h1>
       <p className="account-entry-intro">{recovery.reset && tr("请保存新的恢复密钥。")}{tr("账户：")}{recovery.username}</p>
-      {escrow === "stored" && <p className="account-escrow-state"><Check size={14} />{tr("已交 Ferry 保管")}</p>}
       <label className="account-field">{tr("恢复密钥")}<textarea aria-label={tr("恢复密钥")} readOnly value={recovery.key} rows={4} spellCheck={false} autoComplete="off" onFocus={(event) => event.target.select()} /></label>
       <div className="account-recovery-actions">
         <button className="quiet-button" onClick={async () => {
