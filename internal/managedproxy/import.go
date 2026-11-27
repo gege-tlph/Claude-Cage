@@ -30,6 +30,14 @@ var clientOnlyTypes = map[string]string{
 	"nexo":  "Clash Neo 专用协议，无法导入，请改用标准 Mihomo 节点",
 }
 
+// unsupportedCoreTypes are standard Mihomo types that Cage deliberately does
+// not import. masque needs an inline ECDSA private-key, which the import
+// boundary rejects as a possible local file reference, and runs its own
+// userspace network stack.
+var unsupportedCoreTypes = map[string]string{
+	"masque": "MASQUE 节点暂不支持：Cage 目前不能导入 masque 协议节点，请向服务商获取同一出口的其他协议节点后重新导入",
+}
+
 // Parse enforces Cage's import boundaries. Call Validate before committing a
 // candidate source; protocol parameters are interpreted by the bundled core.
 // Store.Import also retains skipped-node details.
@@ -123,6 +131,8 @@ func parseNodesWith(data []byte, sourceID string, relays localRelays) ([]Node, [
 			// A known client-only type is a fixed name, safe to report.
 			if known := strings.ToLower(typ); clientOnlyTypes[known] != "" {
 				issue.Type, issue.Reason = known, clientOnlyTypes[known]
+			} else if unsupportedCoreTypes[known] != "" {
+				issue.Type, issue.Reason = known, unsupportedCoreTypes[known]
 			}
 		case server == "" || len(server) > 253:
 			issue.Reason = "节点服务器缺失或过长"
