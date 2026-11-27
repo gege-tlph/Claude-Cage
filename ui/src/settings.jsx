@@ -471,9 +471,10 @@ export function SettingsPanel({
                   <h3>{tr("时区与语言")}</h3>
                 </div>
                 <div className="settings-card">
-                  <label className="settings-row settings-switch-row">
+                  {/* The label names the switch, not the button before it. */}
+                  <label className="settings-row settings-switch-row" htmlFor="settings-auto-timezone">
                     <span className="settings-row-copy">
-                      <strong>{tr("跟随出口 IP 的时区")}</strong>
+                      <strong id="settings-auto-timezone-name">{tr("跟随出口 IP 的时区")}</strong>
                     </span>
                     <span className="settings-row-inline">
                       {draft.auto_timezone && (
@@ -482,6 +483,8 @@ export function SettingsPanel({
                         </ActionButton>
                       )}
                       <input
+                        id="settings-auto-timezone"
+                        aria-labelledby="settings-auto-timezone-name"
                         role="switch"
                         type="checkbox"
                         checked={draft.auto_timezone}
@@ -508,9 +511,9 @@ export function SettingsPanel({
                   </div>
                 </div>
                 <div className="settings-card">
-                  <label className="settings-row settings-switch-row">
+                  <label className="settings-row settings-switch-row" htmlFor="settings-auto-language">
                     <span className="settings-row-copy">
-                      <strong>{tr("跟随出口地区的语言建议")}</strong>
+                      <strong id="settings-auto-language-name">{tr("跟随出口地区的语言建议")}</strong>
                       {draft.auto_language && currentLoc?.suggested_locale && (
                         <small>{`${currentLoc.suggested_locale} / ${currentLoc.suggested_browser_language}`}</small>
                       )}
@@ -522,6 +525,8 @@ export function SettingsPanel({
                         </ActionButton>
                       )}
                       <input
+                        id="settings-auto-language"
+                        aria-labelledby="settings-auto-language-name"
                         role="switch"
                         type="checkbox"
                         checked={Boolean(draft.auto_language)}
