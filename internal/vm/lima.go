@@ -793,6 +793,11 @@ func (l *Lima) Start(ctx context.Context, name string, log io.Writer) error {
 	if inst, err = l.inspect(ctx, name); err != nil {
 		return err
 	}
+	// Read while another edit replaced it, which Windows does not do in one
+	// step for a reader: no config to check, nor to start.
+	if inst.Config == nil {
+		return errors.Join(append([]error{fmt.Errorf("could not read the configuration of VM %s", name)}, inst.Errors...)...)
+	}
 	if err := Confined(fromLima(inst)); err != nil {
 		return err
 	}
