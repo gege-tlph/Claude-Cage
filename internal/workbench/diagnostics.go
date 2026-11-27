@@ -95,7 +95,7 @@ CAGE_DIAGNOSTIC_JOURNAL`)
 		}
 	}
 	var bundle bytes.Buffer
-	if err := diagnostics.New(s.profile).Export(&bundle, version.Version, guest, guestState); err != nil {
+	if err := diagnostics.New(s.profile).Export(&bundle, version.Version, guest, guestState, limaDiagnostics(s.profile)...); err != nil {
 		requestError(w, errors.New("诊断包生成失败，请检查存储权限和剩余空间"))
 		return
 	}
@@ -153,7 +153,7 @@ func exportDiagnostics(configPath, connectionID, destination string, agentLocal 
 			if e := store.ImportLegacy(profile); e != nil {
 				return e
 			}
-			return store.Export(f, version.Version, nil, "controller unavailable or invalid; host logs only")
+			return store.Export(f, version.Version, nil, "controller unavailable or invalid; host logs only", limaDiagnostics(profile)...)
 		}
 		defer c.close()
 		if !agentLocal {
@@ -218,7 +218,8 @@ func exportDiagnostics(configPath, connectionID, destination string, agentLocal 
 	return os.Rename(temp, destination)
 }
 
-// Two independently bounded 40 MiB stores plus guest logs and ZIP metadata.
+// Two independently bounded 40 MiB stores plus guest logs, the Lima logs of
+// two instances (1 MiB each) and ZIP metadata.
 const MaxDiagnosticBundle int64 = 96 << 20
 
 // Preserve streaming and WebSocket behavior while observing error statuses.

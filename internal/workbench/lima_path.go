@@ -31,10 +31,12 @@ func (s *Server) requireLimaPathFits() error {
 // custom storage the profile is resolved once and the rest stays logical
 // (CAGE_LOGICAL_LIMA_HOME). Inspecting VMs in this process must use the same
 // home, or a moved storage's VMs look missing.
-func (s *Server) commandLimaHome() (home string, logical bool) {
-	home = filepath.Join(s.profile, "state", "lima")
-	if location, err := cage.GetStorageLocation(s.profile); err == nil && location.Custom {
-		if real, err := paths.Resolve(s.profile); err == nil {
+func (s *Server) commandLimaHome() (home string, logical bool) { return limaHomeOf(s.profile) }
+
+func limaHomeOf(profile string) (home string, logical bool) {
+	home = filepath.Join(profile, "state", "lima")
+	if location, err := cage.GetStorageLocation(profile); err == nil && location.Custom {
+		if real, err := paths.Resolve(profile); err == nil {
 			return filepath.Join(real, "state", "lima"), true
 		}
 	}

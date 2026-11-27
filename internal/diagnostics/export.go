@@ -13,7 +13,7 @@ import (
 
 // Export accepts only an explicit metadata map and fixed-name supplements. It
 // never traverses the profile or includes configuration, projects or credentials.
-func (s *Store) Export(w io.Writer, version string, guest []byte, guestState string) error {
+func (s *Store) Export(w io.Writer, version string, guest []byte, guestState string, extra ...Supplement) error {
 	return s.withLock(func() error {
 		if err := s.cleanLocked(0); err != nil {
 			return err
@@ -78,6 +78,11 @@ func (s *Store) Export(w io.Writer, version string, guest []byte, guestState str
 		}
 		if len(guest) > 0 {
 			if err := add("guest/services.log", []byte(Redact(string(guest)))); err != nil {
+				return err
+			}
+		}
+		for _, supplement := range extra {
+			if err := add(supplement.Name, []byte(redactSupplement(string(supplement.Data)))); err != nil {
 				return err
 			}
 		}
