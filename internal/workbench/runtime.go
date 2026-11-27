@@ -88,6 +88,21 @@ func (s *Server) limaPrepared() bool {
 	}
 	return false
 }
+
+// limaInstanceReady reports whether a Lima instance directory holds its
+// config and a disk (upstream #1090, used before rebuilding from the base).
+func limaInstanceReady(dir string) bool {
+	yamlInfo, err := os.Stat(filepath.Join(dir, "lima.yaml"))
+	if err != nil || !yamlInfo.Mode().IsRegular() {
+		return false
+	}
+	for _, disk := range []string{"disk", "diffdisk", "basedisk"} {
+		if info, err := os.Stat(filepath.Join(dir, disk)); err == nil && info.Mode().IsRegular() {
+			return true
+		}
+	}
+	return false
+}
 func (s *Server) sshCommand(ctx context.Context, args ...string) *exec.Cmd {
 	return s.sshCommandOptions(ctx, false, args...)
 }
@@ -294,7 +309,8 @@ func (s *Server) monitor(ctx context.Context) {
 }
 
 func (s *Server) runCage(args ...string) error {
-	if len(args) > 0 && args[0] == "up" {
+	boot := len(args) > 0 && args[0] == "vm-start"
+	if boot {
 		if err := s.requireCurrentLinuxTransferMount(); err != nil {
 			return err
 		}
@@ -302,7 +318,7 @@ func (s *Server) runCage(args ...string) error {
 	ctx := s.operationContext()
 	// Setup and startup can both install dependencies. Downloads own their
 	// inactivity timeouts; the operation context still permits an explicit stop.
-	if len(args) != 1 || (args[0] != "setup" && args[0] != "up") {
+	if !boot && (len(args) != 1 || args[0] != "setup") {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, 30*time.Minute)
 		defer cancel()
@@ -332,7 +348,7 @@ func (s *Server) runCage(args ...string) error {
 	if tls12Compat {
 		cmd.Env = append(cmd.Env, cage.InstallTLS12Env+"=1")
 	}
-	if len(args) > 0 && args[0] == "up" {
+	if boot {
 		if v := resolvedGuestTheme(s.profile); v != "" {
 			cmd.Env = append(cmd.Env, cage.GuestThemeEnv+"="+v)
 		}
@@ -343,7 +359,7 @@ func (s *Server) runCage(args ...string) error {
 		if errors.Is(ctx.Err(), context.Canceled) {
 			return context.Canceled
 		}
-		action := map[string]string{"setup": "准备 Linux 环境", "up": "启动环境", "down": "停止环境", "stop": "停止环境"}[args[0]]
+		action := map[string]string{"setup": "准备 Linux 环境", "vm-start": "启动环境", "down": "停止环境", "stop": "停止环境"}[args[0]]
 		if action == "" {
 			action = "执行环境操作"
 		}
@@ -358,7 +374,12 @@ func (s *Server) runCage(args ...string) error {
 			return installFailure(stage, errors.Join(ctx.Err(), err), s.jobs.snapshot().Log, s.failureFacts())
 		}
 		// Starting and stopping say where they got stuck (environment_failure.go).
-		if failure := environmentFailure(args[0], action, errors.Join(ctx.Err(), err), s.jobs.snapshot().Log, s.failureFacts()); failure != nil {
+		// Our failure rules name the boot "up" (#1090 renamed the subprocess vm-start).
+		op := args[0]
+		if op == "vm-start" {
+			op = "up"
+		}
+		if failure := environmentFailure(op, action, errors.Join(ctx.Err(), err), s.jobs.snapshot().Log, s.failureFacts()); failure != nil {
 			diagnostics.Log("error", "environment-operation", fmt.Sprintf("operation=%s error=%v context=%v", args[0], err, ctx.Err()))
 			return failure
 		}
@@ -397,6 +418,10 @@ func setupProxyPreflightFailure(cause error) error {
 }
 
 func (s *Server) startEnvironment(syncTimezone bool) error {
+	return s.startEnvironmentDisk(syncTimezone, false)
+}
+
+func (s *Server) startEnvironmentDisk(syncTimezone, rebuild bool) error {
 	s.desktopViews.reset()
 	s.browserViews.reset()
 	s.controlSession.close()
@@ -485,25 +510,27 @@ func (s *Server) startEnvironment(syncTimezone bool) error {
 		}
 	}
 
-	attachErr := s.attach()
-	if guestComponentsUnavailable(attachErr) {
-		return s.synchronizeEnvironment()
-	}
-	if attachErr == nil {
-		client, gateErr := s.gateClient()
-		if gateErr == nil {
-			state, e := client.Status(context.Background())
-			if e == nil {
-				if state.Mode == cage.GateOpen && state.Report != nil && state.Report.Authorizes(state.RunID, cfg.Fingerprint(), time.Now()) == nil {
-					s.publishGate(state)
-					return nil
-				}
-				return s.checkNetworkIfWanted()
-			}
+	if !rebuild {
+		attachErr := s.attach()
+		if guestComponentsUnavailable(attachErr) {
+			return s.synchronizeEnvironment()
 		}
-		s.setMessage("正在重启环境以加载 VM 外网络门槛…")
-		if err := s.stopEnvironment(); err != nil {
-			return err
+		if attachErr == nil {
+			client, gateErr := s.gateClient()
+			if gateErr == nil {
+				state, e := client.Status(context.Background())
+				if e == nil {
+					if state.Mode == cage.GateOpen && state.Report != nil && state.Report.Authorizes(state.RunID, cfg.Fingerprint(), time.Now()) == nil {
+						s.publishGate(state)
+						return nil
+					}
+					return s.checkNetworkIfWanted()
+				}
+			}
+			s.setMessage("正在重启环境以加载 VM 外网络门槛…")
+			if err := s.stopEnvironment(); err != nil {
+				return err
+			}
 		}
 	}
 	s.mu.Lock()
@@ -558,12 +585,17 @@ func (s *Server) startEnvironment(syncTimezone bool) error {
 		if err = s.runCage("setup"); err != nil {
 			return err
 		}
-		job.setSetupProgress(&SetupProgress{Phase: "services", Label: "正在启动浏览器和编辑器"})
+		job.setSetupProgress(&SetupProgress{Phase: "services", Label: "正在启动本机环境"})
 		defer job.setSetupProgress(nil)
 	}
 	s.setMessage("正在启动浏览器、编辑器与共享文件…")
 	s.markApplied()
-	if err = s.runCage("up"); err != nil {
+	// Since #1090 the public "up" only opens the desktop; vm-start boots the guest.
+	boot := []string{"vm-start"}
+	if rebuild {
+		boot = append(boot, "--reset")
+	}
+	if err = s.runCage(boot...); err != nil {
 		return err
 	}
 	waited := time.Now()
@@ -689,6 +721,8 @@ func (s *Server) applyWithOptions(v savedProfile, validate, saveStaticDraft bool
 	}
 	// Network endpoints are generated by the node manager, including restore.
 	v.Config.ProxyURL, v.Config.ProxyRevision = old.ProxyURL, old.ProxyRevision
+	// The guest identity lives outside settings and is loaded anew on each read.
+	v.Config.GuestProfile = old.GuestProfile
 	s.mu.Lock()
 	oldPrefs := s.preferences
 	resumeVersion := s.safety.pauseVersion

@@ -223,8 +223,12 @@ func BindingMatches(path, physical string) bool {
 	var resolver *nodeInterfaceResolver
 	for _, proxy := range config.Proxies {
 		server, _ := proxy["server"].(string)
-		dialerProxy, _ := proxy["dialer-proxy"].(string)
-		have, _ := proxy["interface-name"].(string)
+		dialerProxy, dialerOK := routeString(proxy, "dialer-proxy")
+		have, haveOK := routeString(proxy, "interface-name")
+		// A malformed route field never matches (upstream #1090).
+		if !dialerOK || !haveOK {
+			return false
+		}
 		if local.contains(server) {
 			if !relays.relay(proxy, "interface-name") || have != loopbackInterface() {
 				return false
@@ -311,4 +315,15 @@ func checkInterfaceBindingWith(
 		return &StaleInterfaceError{Bound: bound, Current: current}
 	}
 	return nil
+}
+
+// routeString reads a node's routing field: absent is "", and anything but a
+// string is malformed.
+func routeString(proxy map[string]any, key string) (string, bool) {
+	value, present := proxy[key]
+	if !present || value == nil {
+		return "", true
+	}
+	text, ok := value.(string)
+	return text, ok
 }

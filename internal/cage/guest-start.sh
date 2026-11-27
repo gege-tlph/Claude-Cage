@@ -3,9 +3,9 @@ set -euo pipefail
 missing_tool() {
   echo "Missing $1; this environment may have been created from an older base." >&2
   case "$1" in
-    chromium|code-server) echo 'Run cage update-tools, then cage up to install the missing tool in this VM.' >&2 ;;
+    chromium|code-server) echo 'Update the environment tools from Cage lite settings or run cage update-tools, then cage start.' >&2 ;;
   esac
-  echo 'To rebuild from the base, set up the environment --preinstall=default, then cage up --reset (files and logins on its disk are lost).' >&2
+  echo 'To rebuild from the base, run cage setup --preinstall=default, then cage start --reset (files and logins on its disk are lost).' >&2
   exit 1
 }
 if [[ ! -x /usr/bin/chromium ]]; then

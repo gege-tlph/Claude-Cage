@@ -9,7 +9,7 @@ import (
 // stay a Cage command instead of reaching Claude Code.
 func TestUserPathStaysACageCommand(t *testing.T) {
 	in := []string{"user-path", "add", "C:/Program Files/Cage/resources"}
-	if got := cageArgs(in); !slices.Equal(got, in) {
-		t.Fatalf("%q -> %q", in, got)
+	if got, named, err := cageArgs(in); err != nil || named || !slices.Equal(got, in) {
+		t.Fatalf("%q -> %q named=%v err=%v", in, got, named, err)
 	}
 }

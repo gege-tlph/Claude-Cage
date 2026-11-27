@@ -197,8 +197,11 @@ function Environment({ context, refresh, children }) {
   const [stayInSSH, setStayInSSH] = useState(() =>
     sessionStorage.getItem("cage-disconnected-generation") === context.connection_id
   );
-  const defaultLocal = awaitingTarget && !stayInSSH && context.candidate?.mode !== "remote";
-  const showHosts = expanded || (!ready && !defaultLocal);
+  const mayEnterLocal = awaitingTarget && !stayInSSH && context.candidate?.mode !== "remote";
+  const windowOnlyChooser = mayEnterLocal && context.window_only && !expanded;
+  const existingLocal = localStatus?.known && localStatus.service_running && localStatus.controller_id;
+  const defaultLocal = mayEnterLocal && (!context.window_only || (windowOnlyChooser && !context.candidate && existingLocal));
+  const showHosts = expanded || (!ready && !defaultLocal && !windowOnlyChooser);
   const candidate = gateway ? context.candidate : null;
   const verifying = candidate?.connection?.state === "connecting";
   const connection =
@@ -371,10 +374,7 @@ function Environment({ context, refresh, children }) {
   // explicitly resume a verified candidate without applying another window's choice.
   async function requestTarget(
     mode,
-    item = null,
-    secret = "",
-    cancelled = false,
-    deploy = false,
+    { item = null, secret = "", cancelled = false, deploy = false, controllerID = "" } = {},
   ) {
     setPassword("");
     if (!gateway) {
@@ -395,6 +395,7 @@ function Environment({ context, refresh, children }) {
       ...route(),
       mode,
       ...(item ? { host_id: item.id, passphrase: secret, deploy } : {}),
+      ...(controllerID ? { local_controller_id: controllerID } : {}),
     });
     const request = ++serial.current;
 
@@ -441,7 +442,7 @@ function Environment({ context, refresh, children }) {
     );
     await load();
     setSelected(saved.id);
-    await requestTarget("remote", saved, secret, true);
+    await requestTarget("remote", { item: saved, secret, cancelled: true });
   };
   const disconnect = async () => {
     const next = await api(
@@ -466,14 +467,14 @@ function Environment({ context, refresh, children }) {
     setError("");
     openSidebar();
   };
-  // Enter the ordinary local account/workbench on a fresh desktop launch.
-  // Connecting this control service never invokes /start (the VM stays manual).
+  // A normal app launch may start the local workbench. A window opened by
+  // cage up can only attach to the controller the chooser has observed.
   const attemptedDefault = useRef(false);
   useEffect(() => {
     if (!defaultLocal || attemptedDefault.current) return;
     attemptedDefault.current = true;
-    void act("local", () => requestTarget("local"));
-  }, [defaultLocal]);
+    void act("local", () => requestTarget("local", { controllerID: context.window_only ? existingLocal : "" }));
+  }, [defaultLocal, existingLocal]);
   const localButton = (label) => (
     <button
       disabled={
@@ -505,7 +506,7 @@ function Environment({ context, refresh, children }) {
             return;
           }
           setExpanded(true);
-          await requestTarget("local", null, "", true);
+          await requestTarget("local", { cancelled: true });
         })
       }
     >
@@ -515,7 +516,7 @@ function Environment({ context, refresh, children }) {
   const access = {
     expanded: showHosts,
     open: openSidebar,
-    reconnectLocal: gateway ? () => act("local", () => requestTarget("local", null, "", true)) : undefined,
+    reconnectLocal: gateway ? () => act("local", () => requestTarget("local", { cancelled: true })) : undefined,
   };
   const showBackground =
     gateway &&
@@ -796,7 +797,7 @@ function Environment({ context, refresh, children }) {
                   ? tr("重新连接本机工作台")
                   : remote && !active
                     ? tr("重新连接 SSH 主机")
-                    : defaultLocal ? tr("本机工作台连接未完成") : tr("连接 SSH 主机")}
+                    : defaultLocal ? tr("本机工作台连接未完成") : windowOnlyChooser ? tr("选择工作环境") : tr("连接 SSH 主机")}
               </h1>
               {!context.client_only &&
                 localStatus?.known &&
@@ -812,7 +813,7 @@ function Environment({ context, refresh, children }) {
               <div className="environment-actions">
                 {!context.client_only &&
                   (!showHosts || localLost) &&
-                  localButton("重新连接本机")}
+                  localButton(windowOnlyChooser ? "进入本机工作台" : "重新连接本机")}
                 {!showHosts && (
                   <button disabled={Boolean(busy)} onClick={openSidebar}>
                     <Server size={16} />
