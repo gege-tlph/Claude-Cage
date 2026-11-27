@@ -38,6 +38,9 @@ type Job struct {
 	// CanceledBy names the initiator ("agent", "desktop", "setup") that
 	// canceled or superseded this job.
 	CanceledBy string `json:"canceled_by,omitempty"`
+	// Stage is the short name of the current step for the status bar; the
+	// message goes to the operation log (job_stage.go).
+	Stage string `json:"stage,omitempty"`
 }
 
 var (
@@ -57,6 +60,7 @@ type jobManager struct {
 	afterSuccess func() error
 	closed       bool
 	workers      sync.WaitGroup
+	log          jobLog
 }
 
 // prepare runs synchronously only for a new admission. Neither prepare nor
@@ -104,8 +108,9 @@ func (m *jobManager) submitWithInitiator(operation sync.Locker, kind, initiator 
 		previous.CanceledBy = m.cancelBy
 	}
 	m.cancelBy = ""
-	m.state = Job{ID: randomToken()[:12], Kind: kind, Initiator: initiator, Running: true, Message: "正在准备…"}
+	m.state = Job{ID: randomToken()[:12], Kind: kind, Initiator: initiator, Running: true, Message: "正在准备…", Stage: jobName(kind)}
 	m.previous = supersededJob(previous, m.state)
+	m.log.begin(m.previous, m.state)
 	execution := &jobExecution{owner: m, id: m.state.ID, ctx: ctx, pauseVersion: pauseVersion}
 	execution.log = diagnostics.NewStreamWithConsumer(diagnostics.Default(), "task/"+kind, "info", func(line string) {
 		if m.state.ID == execution.id {
@@ -239,6 +244,8 @@ func (m *jobManager) finishLocked(execution *jobExecution, err error) {
 		m.state.Message = "已完成"
 		diagnostics.Log("info", "task", m.state.Kind+" completed")
 	}
+	m.state.Stage = finishedStage(m.state)
+	m.log.end(m.state)
 }
 
 func jobName(kind string) string {
@@ -360,6 +367,8 @@ func (e *jobExecution) message(message string) {
 			message = "设置已保存，" + message
 		}
 		e.owner.state.Message = message
+		e.owner.state.Stage = jobStage(e.owner.state.Kind, message)
+		e.owner.log.progress(e.owner.state)
 	}
 }
 

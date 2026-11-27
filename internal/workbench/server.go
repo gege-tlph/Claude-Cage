@@ -425,6 +425,7 @@ func (s *Server) handler() http.Handler {
 	mux.HandleFunc("GET /api/projects/directories", s.projectDirectories)
 	mux.HandleFunc("POST /api/input", s.remoteInput)
 	mux.HandleFunc("GET /api/diagnostics", s.diagnosticStatus)
+	mux.HandleFunc("GET /api/jobs/log", s.jobLog)
 	mux.HandleFunc("POST /api/diagnostics/events", s.diagnosticEvent)
 	mux.HandleFunc("GET /api/diagnostics/export", s.diagnosticExport)
 	mux.HandleFunc("GET /api/claude-accounts", s.listClaudeAccounts)
