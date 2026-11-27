@@ -15,7 +15,6 @@ import {
   Clock3,
   FolderOpen,
   Check,
-  LoaderCircle,
   RotateCcw,
   ArrowLeft,
   Settings,
@@ -26,6 +25,7 @@ import {
   Info,
 } from "lucide-react";
 import { api } from "./api";
+import { ActionButton, useAction, usePhase } from "./action-button";
 import "./settings.css";
 import { SafetyMessage } from "./safety-message";
 import { AppearanceSettings } from "./appearance-settings";
@@ -87,6 +87,8 @@ export function SettingsPanel({
     [staticDraftOffer, setStaticDraftOffer] = useState(false),
     [jobId, setJobId] = useState(""),
     [submitting, setSubmitting] = useState(false);
+  const savePhase = usePhase();
+  const [saveBusyLabel, setSaveBusyLabel] = useState("");
   const changed =
     JSON.stringify({
       ...draft,
@@ -146,13 +148,17 @@ export function SettingsPanel({
     if (jobId && status.job?.id === jobId && !status.job.running) {
       setJobId("");
       if (status.job.error || status.job.canceled) {
+        savePhase.finish(false);
         if (status.job.settings_saved) onSaved();
         setStaticDraftOffer(status.job.recovery === "static-ip-draft-available");
         setError(status.job.error || status.job.message);
       } else {
         setStaticDraftOffer(false);
         onSaved();
-        if (!proxyDirty) onClose();
+        // 完成 shows on the save button before the page closes; a restore has
+        // no button result to wait for.
+        const leave = () => { if (!proxyDirty) onClose(); };
+        if (!savePhase.finish(true, leave)) leave();
       }
     }
   }, [status.job, jobId]);
@@ -171,13 +177,16 @@ export function SettingsPanel({
           locale: result.suggested_locale,
           browser_language: result.suggested_browser_language,
         }));
+      return true;
     } catch (e) {
       setError(e.message);
       setProbeFailed(true);
+      return false;
     } finally {
       setProbing(false);
     }
   };
+  const exitProbe = useAction(check), zoneProbe = useAction(check), languageProbe = useAction(check);
   const save = async ({ saveStaticDraft = false } = {}) => {
     if (busy) return;
     if (saveStaticDraft) {
@@ -202,6 +211,8 @@ export function SettingsPanel({
     setError("");
     setStaticDraftOffer(false);
     setSubmitting(true);
+    setSaveBusyLabel(environmentChanged && status.vm_running ? tr("应用中") : tr("保存中"));
+    savePhase.start();
     try {
       const payload = { ...draft };
       delete payload.browser_home_url;
@@ -209,6 +220,7 @@ export function SettingsPanel({
       const result = await api("/settings", payload);
       setJobId(result.id);
     } catch (e) {
+      savePhase.finish(false);
       setError(e.message);
     } finally {
       setSubmitting(false);
@@ -332,10 +344,9 @@ export function SettingsPanel({
                       </small>
                     </div>
                     <div className="settings-row-control">
-                      <button disabled={busy} onClick={check}>
-                        {probing ? <LoaderCircle size={15} className="spin" /> : <Globe2 size={15} />}
+                      <ActionButton phase={exitProbe.phase} busyLabel={tr("检测中")} disabled={busy} onClick={exitProbe.run}>
                         {tr("验证出口")}
-                      </button>
+                      </ActionButton>
                     </div>
                   </div>
                 </div>
@@ -466,10 +477,9 @@ export function SettingsPanel({
                     </span>
                     <span className="settings-row-inline">
                       {draft.auto_timezone && (
-                        <button type="button" className="quiet-button" onClick={check} disabled={busy}>
-                          {probing ? <LoaderCircle size={13} className="spin" /> : <Clock3 size={13} />}
+                        <ActionButton className="quiet-button" phase={zoneProbe.phase} busyLabel={tr("检测中")} onClick={zoneProbe.run} disabled={busy}>
                           {tr("现在检测")}
-                        </button>
+                        </ActionButton>
                       )}
                       <input
                         role="switch"
@@ -507,10 +517,9 @@ export function SettingsPanel({
                     </span>
                     <span className="settings-row-inline">
                       {draft.auto_language && (
-                        <button type="button" className="quiet-button" onClick={check} disabled={busy}>
-                          {probing ? <LoaderCircle size={13} className="spin" /> : <Globe2 size={13} />}
+                        <ActionButton className="quiet-button" phase={languageProbe.phase} busyLabel={tr("检测中")} onClick={languageProbe.run} disabled={busy}>
                           {tr("现在检测")}
-                        </button>
+                        </ActionButton>
                       )}
                       <input
                         role="switch"
@@ -820,7 +829,7 @@ export function SettingsPanel({
             </div>
           )}
         </div>
-        {(!["appearance", "notifications", "browser", "account", "vault", "mobile", "archived-sessions", "project", "about"].includes(section) || changed) && (
+        {(!["appearance", "notifications", "browser", "account", "vault", "mobile", "archived-sessions", "project", "about"].includes(section) || changed || savePhase.phase !== "idle") && (
           <footer className="settings-footer">
             {" "}
             <>
@@ -836,20 +845,17 @@ export function SettingsPanel({
                     : tr("没有未保存的修改")}
               </span>
               <button onClick={close}>{tr("返回工作台")}</button>
-              <button
+              <ActionButton
                 className="primary"
+                phase={savePhase.phase}
+                busyLabel={saveBusyLabel}
                 disabled={!changed || busy}
                 onClick={() => save()}
               >
-                {busy ? (
-                  <LoaderCircle size={15} className="spin" />
-                ) : (
-                  <Check size={15} />
-                )}{" "}
                 {environmentChanged && status.vm_running
                   ? tr("保存并重启")
                   : tr("保存设置")}
-              </button>
+              </ActionButton>
             </>
           </footer>
         )}

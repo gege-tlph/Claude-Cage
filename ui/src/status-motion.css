@@ -1,0 +1,79 @@
+/* One circle for every state (status-icon.jsx) and the buttons that wait for
+   an action (action-button.jsx). */
+:root {
+  --status-green: #34c759;
+  --status-blue: #007aff;
+  --status-red: #ff3b30;
+  --status-idle: #c7c7cc;
+}
+:root[data-theme="dark"] {
+  --status-green: #30d158;
+  --status-blue: #0a84ff;
+  --status-red: #ff453a;
+  --status-idle: #545458;
+}
+
+.status-icon { display: inline-block; flex: none; vertical-align: middle; }
+.status-icon svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.status-icon-spin { transform-origin: 10px 10px; }
+.status-icon-ring {
+  fill: none; stroke: var(--status-idle); stroke-width: 2; stroke-linecap: round;
+  stroke-dasharray: 51.84; stroke-dashoffset: 0;
+  transition: stroke-dashoffset 350ms cubic-bezier(0.3, 0.7, 0.2, 1), stroke 250ms;
+}
+.status-icon-dot, .status-icon-bang-dot {
+  transform-origin: 10px 10px; transform: scale(0);
+  transition: transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.status-icon-dot { fill: var(--status-blue); }
+.status-icon-bang-dot { fill: var(--status-red); }
+.status-icon-mark {
+  fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 220ms ease-out;
+}
+.status-icon-check { stroke: var(--status-green); }
+.status-icon-bang { stroke: var(--status-red); }
+
+.status-icon[data-state="busy"] .status-icon-spin,
+.status-icon.is-closing .status-icon-spin { animation: status-icon-spin 760ms linear infinite; }
+.status-icon[data-state="busy"] .status-icon-ring { stroke: var(--muted); stroke-dashoffset: 38.9; }
+.status-icon[data-state="selected"] .status-icon-ring { stroke: var(--status-blue); }
+.status-icon[data-state="selected"] .status-icon-dot { transform: scale(0.5); }
+.status-icon[data-state="done"] .status-icon-ring { stroke: var(--status-green); }
+.status-icon[data-state="fail"] .status-icon-ring { stroke: var(--status-red); }
+.status-icon[data-state="done"].is-closed .status-icon-check,
+.status-icon[data-state="fail"].is-closed .status-icon-bang { stroke-dashoffset: 0; transition-delay: 90ms; }
+.status-icon[data-state="fail"].is-closed .status-icon-bang-dot { transform: scale(1); transition-delay: 200ms; }
+.status-icon.is-pop svg { animation: status-icon-pop 300ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes status-icon-spin { to { transform: rotate(360deg); } }
+@keyframes status-icon-pop { 0% { transform: scale(1); } 45% { transform: scale(1.14); } 100% { transform: scale(1); } }
+/* Without motion the busy arc fades instead of turning, so it does not look
+   frozen. */
+@keyframes status-icon-breathe { 50% { opacity: 0.35; } }
+
+/* The button: no icon at rest; the slot opens for the spinner and the mark. */
+button.action-button { gap: 0; overflow: hidden; transition: width 200ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out); }
+.action-button-slot { display: inline-flex; width: 0; margin-right: 0; overflow: hidden; flex: none; transition: width 150ms ease-out, margin 150ms ease-out; }
+.action-button.has-icon .action-button-slot { width: 16px; margin-right: 7px; }
+.action-button.is-measuring, .action-button.is-measuring .action-button-slot { transition: none !important; }
+.action-button-label { display: inline-block; animation: action-button-label-in 130ms ease-out; }
+@keyframes action-button-label-in { from { opacity: 0; transform: translateY(4px); } }
+/* A working button keeps its colour; it only stops taking clicks. */
+button.action-button[aria-busy="true"]:disabled { opacity: 1; cursor: progress; }
+button.primary.action-button .status-icon[data-state="busy"] .status-icon-ring { stroke: var(--button-ink); }
+button.action-button.quiet-button.has-icon .action-button-slot { width: 13px; margin-right: 5px; }
+
+:root[data-reduced-motion="true"] .status-icon *, :root[data-reduced-motion="true"] .action-button,
+:root[data-reduced-motion="true"] .action-button * { transition: none !important; animation: none !important; }
+:root[data-reduced-motion="true"] .status-icon[data-state="busy"] .status-icon-ring { animation: status-icon-breathe 1.6s ease-in-out infinite !important; }
+@media (prefers-reduced-motion: reduce) {
+  .status-icon *, .action-button, .action-button * { transition: none !important; animation: none !important; }
+  .status-icon[data-state="busy"] .status-icon-ring { animation: status-icon-breathe 1.6s ease-in-out infinite !important; }
+}
+@media (forced-colors: active) {
+  .status-icon-ring, .status-icon[data-state="busy"] .status-icon-ring { stroke: CanvasText; }
+  .status-icon[data-state="selected"] .status-icon-ring, .status-icon-dot { stroke: Highlight; fill: Highlight; }
+  .status-icon-check, .status-icon-bang { stroke: CanvasText; }
+  .status-icon-bang-dot { fill: CanvasText; }
+  button.primary.action-button .status-icon[data-state="busy"] .status-icon-ring { stroke: ButtonText; }
+}

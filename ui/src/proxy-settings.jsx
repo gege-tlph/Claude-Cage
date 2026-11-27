@@ -19,6 +19,7 @@ import {
   Route,
 } from "lucide-react";
 import { api } from "./api";
+import { ActionButton, useAction, usePhase } from "./action-button";
 import { SafetyMessage } from "./safety-message";
 import { isLocalListener } from "./proxy-server.mjs";
 import { groupNodesByRegion } from "./proxy-region.mjs";
@@ -104,6 +105,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
   const [relayPort, setRelayPort] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
   const [readingFile, setReadingFile] = useState(false);
+  const routePhase = usePhase(), importPhase = usePhase();
   const alive = useRef(true),
     regionBarRef = useRef(null),
     mutating = useRef(false),
@@ -260,7 +262,8 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
       }))
     )
       return;
-    mutate("route", { node_ids: nodeIDs, port: Number(port) });
+    routePhase.start();
+    routePhase.finish(await mutate("route", { node_ids: nodeIDs, port: Number(port) }));
   };
   const measure = async (ids) => {
     if (measuring.current) return;
@@ -303,6 +306,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
       if (alive.current) setPending("");
     }
   };
+  const speedTest = useAction(measure);
   // The relay in front of the exit: the fastest working node of the other
   // sources in the exit's region (else anywhere), as a draft to apply.
   const repickRelay = async () => {
@@ -373,14 +377,15 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
         interval_hours: 0,
       };
     }
+    importPhase.start();
     if (form.id && !form.remote && form.content.trim()) {
       // A local source is updated in place from new YAML; node IDs, the
       // selection and exit rules follow unchanged node names (#507).
       const id = form.id, content = form.content;
-      if (await mutate("edit", value)) await mutate("refresh", { id, content });
+      importPhase.finish(await mutate("edit", value) && await mutate("refresh", { id, content }));
       return;
     }
-    mutate(form.id ? "edit" : "import", value);
+    importPhase.finish(await mutate(form.id ? "edit" : "import", value));
   };
   const editNodeAddress = () => {
     const port = Number(nodeEdit.port);
@@ -798,21 +803,15 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                       {tr("撤销修改")}
                     </button>
                   )}
-                  <button
-                    type="button"
-                    className={routeChanged || !active ? "primary" : ""}
+                  <ActionButton
+                    className={routeChanged || !active || routePhase.phase !== "idle" ? "primary" : ""}
+                    phase={routePhase.phase}
+                    busyLabel={tr("应用中")}
                     disabled={busy || !proxy.core_available || !routeValid}
                     onClick={() => applyRoute(route)}
                   >
-                    {pending === "route" ? (
-                      <LoaderCircle size={14} className="spin" />
-                    ) : !routeChanged && active ? (
-                      <RefreshCw size={14} />
-                    ) : (
-                      <Check size={14} />
-                    )}
                     {routeChanged || !active ? tr("应用代理") : tr("重新应用")}
-                  </button>
+                  </ActionButton>
                 </div>
               </div>
               {proxy.route_error && !needsMigration && (
@@ -864,21 +863,21 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                 </option>
               ))}
             </InlineSelect>
-            <button
+            <ActionButton
+              phase={speedTest.phase}
+              busyLabel={tr("测速中")}
               disabled={busy || !proxy.running || !measurable.length}
               title={tr("检测 HTTP 往返延迟，通常不含建连开销，不代表网页首开耗时")}
-              onClick={() => measure(measurable.map((n) => n.id))}
+              onClick={() => speedTest.run(measurable.map((n) => n.id))}
             >
-              <Activity size={14} />
               {tr("测速")}
-            </button>
+            </ActionButton>
             {fastest && fastest !== route.at(-1) && allNodes.some((n) => n.id === fastest) && (
               <button
                 disabled={busy}
                 title={tr("把测速最快的节点设为待应用的出口；点击「应用代理」后才会切换并重新检查网络")}
                 onClick={() => setRouteDraft([fastest])}
               >
-                <Check size={14} />
                 {tr("选用最快：{0}", routeName(fastest))}
               </button>
             )}
@@ -1437,8 +1436,10 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                 <button disabled={busy} onClick={() => { setForm(null); setManual(emptyManual); }}>
                   {tr("取消")}
                 </button>
-                <button
+                <ActionButton
                   className="primary"
+                  phase={importPhase.phase}
+                  busyLabel={form.id ? tr("保存中") : tr("导入中")}
                   disabled={
                     busy ||
                     readingFile ||
@@ -1452,7 +1453,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                   onClick={submit}
                 >
                   {form.id ? tr("保存订阅") : tr("导入并验证")}
-                </button>
+                </ActionButton>
               </div>
             </div>
           )}

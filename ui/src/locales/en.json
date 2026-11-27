@@ -5732,5 +5732,9 @@
   "更新窗口无法打开": "The update window can't open",
   "旧版后台无法确认环境已停止，原应用备份已保留": "The old background service can't confirm the environment stopped; the original app backup is kept",
   "新版 Cage lite 的 {0} 仍在运行，安装目录尚未改动。请退出 Cage lite 后重试恢复": "{0} of the new Cage lite is still running; the install folder hasn't been changed. Quit Cage lite and retry the restore",
-  "上一次安装或更新尚未完成恢复，本次更新未开始，原应用未改动。请先处理 {0} 中记录的目录": "The last installation or update hasn't finished restoring, so this update didn't start and the original app is unchanged. First handle the folders recorded in {0}"
+  "上一次安装或更新尚未完成恢复，本次更新未开始，原应用未改动。请先处理 {0} 中记录的目录": "The last installation or update hasn't finished restoring, so this update didn't start and the original app is unchanged. First handle the folders recorded in {0}",
+  "失败": "Failed",
+  "保存中": "Saving",
+  "导入中": "Importing",
+  "测速中": "Testing"
 }
