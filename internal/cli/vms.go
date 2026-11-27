@@ -71,10 +71,11 @@ func (e *app) stopCmd(ctx context.Context, args []string) int {
 // startVM starts name on b. Lima's hostagent outlives the command, so a start
 // that fails (the VM never came up) would leave it running, cut off: it is
 // stopped. Not after an interrupt: that start goes on in the background, as
-// limactl's does, and the next command finds the VM up.
+// limactl's does, and the next command finds the VM up. Nor when the start
+// found the VM's hostagent running: that start never began, and the VM runs.
 func (e *app) startVM(ctx context.Context, b vm.Backend, name string, log io.Writer) error {
 	err := b.Start(ctx, name, log)
-	if err != nil && ctx.Err() == nil {
+	if err != nil && ctx.Err() == nil && !errors.Is(err, vm.ErrHostAgentRunning) {
 		if stopErr := b.Stop(ctx, name); stopErr != nil {
 			err = errors.Join(err, fmt.Errorf("stopping VM '%s' failed, it may still be running: %w", name, stopErr))
 		}

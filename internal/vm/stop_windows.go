@@ -40,6 +40,11 @@ func stopInstance(ctx context.Context, inst *limatype.Instance) error {
 		case <-ctx.Done():
 			return fmt.Errorf("等待环境保存并停止超时: %w", ctx.Err())
 		case <-ticker.C:
+			// Until the hostagent has exited, whatever its PID file says: it
+			// is still shutting its QEMU down, which is no orphan to kill.
+			if host.InstanceHostagentRunning(inst.Dir) {
+				continue
+			}
 			current, err := store.Inspect(ctx, inst.Name)
 			if err != nil {
 				return err

@@ -612,6 +612,9 @@ func (l *Lima) Edit(ctx context.Context, name string, s Settings) error {
 	if inst.Status == limatype.StatusRunning {
 		return fmt.Errorf("cannot edit the running VM %s", name)
 	}
+	if host.InstanceHostagentRunning(inst.Dir) {
+		return ErrHostAgentRunning
+	}
 	e, err := exprs(s)
 	if err != nil || len(e) == 0 {
 		return err
@@ -768,6 +771,12 @@ func (l *Lima) Start(ctx context.Context, name string, log io.Writer) error {
 	if inst.Config == nil {
 		return errors.Join(inst.Errors...)
 	}
+	// Not running for Lima, yet its hostagent runs: the display port chosen
+	// below would be held by that hostagent's own forward and replaced in
+	// lima.yaml, while the running forward stays where it was.
+	if host.InstanceHostagentRunning(inst.Dir) {
+		return ErrHostAgentRunning
+	}
 	// Here, so that VMs made before it get it too; nothing is written when
 	// it is there already.
 	settings := Settings{noEphemeralPorts: true}
@@ -832,13 +841,22 @@ func (l *Lima) Start(ctx context.Context, name string, log io.Writer) error {
 	})
 }
 
+// hostagentRunning reports a hostagent of inst that runs although Lima does
+// not read inst as running.
+func hostagentRunning(inst *limatype.Instance) bool {
+	return inst.Status != limatype.StatusRunning && host.InstanceHostagentRunning(inst.Dir)
+}
+
 func (l *Lima) Stop(ctx context.Context, name string) error {
 	inst, err := l.inspect(ctx, name)
 	if err != nil {
 		return err
 	}
 	switch {
-	case inst.Status == limatype.StatusRunning:
+	// A hostagent that runs is asked to stop, whatever Lima reads: one with
+	// its PID file lost or slow to answer would otherwise be left running,
+	// and a start after this stop would find its forwards still held.
+	case inst.Status == limatype.StatusRunning, hostagentRunning(inst):
 		return withLog(io.Discard, func() error {
 			return errors.Join(stopInstance(ctx, inst), reconcile.Reconcile(ctx, ""))
 		})
@@ -859,7 +877,7 @@ func (l *Lima) Delete(ctx context.Context, name string) error {
 		return err
 	}
 	return withLog(io.Discard, func() error {
-		if inst.Status == limatype.StatusRunning {
+		if inst.Status == limatype.StatusRunning || hostagentRunning(inst) {
 			if err := stopInstance(ctx, inst); err != nil {
 				return err
 			}

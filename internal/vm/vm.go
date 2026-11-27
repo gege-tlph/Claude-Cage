@@ -31,6 +31,12 @@ var ErrLimaOverrides = errors.New("agent-vm does not use Lima's default.yaml or 
 // reach the rest of the host through (see Confined).
 var ErrUnconfined = errors.New("agent-vm starts no VM with a share not confined to its folder")
 
+// ErrHostAgentRunning is returned by Start and Edit for a VM whose hostagent
+// still runs while Lima reads it as not running (its PID files lost, or the
+// hostagent slow to answer): starting it again, or changing what it runs
+// with, would leave its config naming what the running VM does not have.
+var ErrHostAgentRunning = errors.New("环境的宿主代理仍在运行")
+
 // Status of a VM.
 type Status string
 

@@ -19,6 +19,10 @@ func TestMain(m *testing.M) {
 	if runtime.GOOS == "darwin" {
 		os.Setenv("TMPDIR", "/tmp")
 	}
+	if role := os.Getenv(standInEnv); role != "" {
+		runStandIn(role)
+		return
+	}
 	if limaembed.Run(os.Args[1:]) {
 		return
 	}

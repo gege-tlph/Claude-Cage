@@ -70,6 +70,23 @@ func ListenInstanceStop(instanceDir string, onStop func()) (func(), error) {
 	return stop, nil
 }
 
+// InstanceHostagentRunning reports whether a Cage hostagent of the instance
+// in instanceDir runs: it holds the stop event from its start until it has
+// exited. Unlike Lima's status, it does not depend on the PID files or on the
+// hostagent answering.
+func InstanceHostagentRunning(instanceDir string) bool {
+	name, err := stopEventName(instanceDir)
+	if err != nil {
+		return false
+	}
+	event, err := windows.OpenEvent(windows.SYNCHRONIZE, false, name)
+	if err != nil {
+		return false
+	}
+	windows.CloseHandle(event)
+	return true
+}
+
 // RequestInstanceStop returns false when no Cage hostagent owns the event.
 func RequestInstanceStop(instanceDir string) (bool, error) {
 	name, err := stopEventName(instanceDir)

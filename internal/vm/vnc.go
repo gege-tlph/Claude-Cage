@@ -21,9 +21,14 @@ import (
 // can hold the port. Either left the display unreachable.
 const vncGuestPort = 15900
 
+// vncDefaultPort is the host port of Lima's default forward of the display,
+// the guest's own, which a start tries after the previous one. Tests replace
+// it with DefaultVNCAddress: a developer's running environment holds 15900.
+var vncDefaultPort = vncGuestPort
+
 // DefaultVNCAddress is where the display of a VM started without the rule is
 // served: Lima's default forward, to the same port on the host.
-var DefaultVNCAddress = net.JoinHostPort("127.0.0.1", strconv.Itoa(vncGuestPort))
+var DefaultVNCAddress = net.JoinHostPort("127.0.0.1", strconv.Itoa(vncDefaultPort))
 
 // vncRule is the host port of the display forward among rules, 0 for none.
 func vncRule(rules []limatype.PortForward) int {
@@ -48,8 +53,8 @@ func vncHostPort(ctx context.Context, rules []limatype.PortForward) (int, error)
 	if previous := vncRule(rules); free(previous) {
 		return previous, nil
 	}
-	if free(vncGuestPort) {
-		return vncGuestPort, nil
+	if free(vncDefaultPort) {
+		return vncDefaultPort, nil
 	}
 	for range 8 {
 		listener, err := net.Listen("tcp", "127.0.0.1:0")
