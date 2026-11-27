@@ -97,3 +97,12 @@
 .mirror-error { color: var(--danger, #c0392b); }
 .mirror-option { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
 .mirror-option em { font-style: normal; font-size: 12px; padding: 1px 6px; border-radius: 6px; background: var(--accent-soft, rgba(0, 120, 212, 0.12)); }
+/* The proxy step shows the settings page's proxy manager, whose label and
+   field styles are scoped to .settings-page .settings-content: the same
+   values here. :where keeps the rules below proxy.css's own ones. */
+.initialization .proxy-manager label:where(:not(.check-line, .choice, .toggle-row, .settings-switch-row)) { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; font-size: 1rem; font-weight: 560; color: var(--strong); }
+.initialization .proxy-manager input:where(:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], .proxy-search-input)) { width: 100%; height: 40px; box-sizing: border-box; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--input); color: var(--strong); font: inherit; font-size: 1.0714rem; font-weight: 400; transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out); }
+.initialization .proxy-manager input:where(:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], .proxy-search-input)):focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+.initialization .proxy-manager input:where(:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], .proxy-search-input)):disabled { background: var(--chrome); color: var(--muted); }
+.initialization .proxy-manager input::placeholder { color: color-mix(in srgb, var(--muted) 75%, transparent); }
+.initialization .proxy-manager label .inline-select-trigger { height: 40px; font-weight: 400; }
