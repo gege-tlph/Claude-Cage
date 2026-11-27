@@ -6,7 +6,12 @@
 
 import { supportsCursorURIs, isTouchDevice } from './browser.js';
 
-const useFallback = !supportsCursorURIs || isTouchDevice;
+// Cage: the cursor is drawn here only where the system shows none: no cursor
+// URIs, or a device whose main pointer is a finger. A laptop with a touch
+// screen reports touch, yet its touchpad or mouse moves the system cursor,
+// which the drawn one then trailed.
+const finePointer = typeof matchMedia === 'function' && matchMedia('(pointer: fine)').matches;
+const useFallback = !supportsCursorURIs || (isTouchDevice && !finePointer);
 
 export default class Cursor {
     constructor(fallback = 'none') {
@@ -99,6 +104,9 @@ export default class Cursor {
         ctx.putImageData(img, 0, 0);
 
         if (useFallback) {
+            // The canvas shows the cursor: the system one goes, as the
+            // fallback of an empty cursor may have shown it.
+            this._target.style.cursor = 'none';
             this._updatePosition();
         } else {
             let url = this._canvas.toDataURL();
