@@ -2071,6 +2071,7 @@ function App() {
                 refreshSignal={defaultDesktopSignal}
                 autoStart={!defaultDesktopStopped}
                 onRunningChange={handleDefaultDesktopRunning}
+                onTool={failureTool}
               />}
             />}
             {status.environment_update_required && !busy && (

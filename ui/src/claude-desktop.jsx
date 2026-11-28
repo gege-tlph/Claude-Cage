@@ -15,6 +15,8 @@ import "./claude-desktop.css";
 import { useTranslation } from "./interface-language.mjs";
 import { DESKTOP_MIN_WIDTH } from "./remote-display.mjs";
 import { localizeBackendMessage } from "./backend-message.mjs";
+import { FailureCard } from "./failure-card";
+import { desktopFlow } from "./failure-flows.mjs";
 
 export function ClaudeDesktop({
   uploads = [],
@@ -32,6 +34,7 @@ export function ClaudeDesktop({
   refreshSignal = 0,
   autoStart = true,
   onRunningChange,
+  onTool,
 }) {
   const tr = useTranslation();
   const [closedChooser, setClosedChooser] = useState("");
@@ -41,6 +44,7 @@ export function ClaudeDesktop({
   const screenVisible = visible && windowVisible;
   const [desktop, setDesktop] = useState(null);
   const [error, setError] = useState("");
+  const [failure, setFailure] = useState(null);
   const [statusError, setStatusError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [jobID, setJobID] = useState("");
@@ -66,11 +70,25 @@ export function ClaudeDesktop({
       if (statusRequest.current === request) statusRequest.current = null;
     }
   };
+  // The failure card's tools here: each ends with the window open (the
+  // restart and settings tools belong to the workbench, onTool).
+  const desktopTool = async (name) => {
+    const flows = { "open-desktop": ["start"], "reopen-desktop": ["stop", "start"], "install-desktop": ["install", "start"], "update-desktop": ["update", "start"] };
+    if (!flows[name]) return onTool?.(name);
+    setError("");
+    setFailure(null);
+    try {
+      await desktopFlow(api, ...flows[name]);
+    } finally {
+      await refresh();
+    }
+  };
   const run = async (action) => {
     statusRevision.current++;
     statusRequest.current = null;
     setSubmitting(true);
     setError("");
+    setFailure(null);
     try {
       const job = await api(`/claude-desktop/${action}`, {});
       setJobID(job.id);
@@ -117,6 +135,7 @@ export function ClaudeDesktop({
     setJobID("");
     if (status.job.error) {
       setError(status.job.error);
+      setFailure(status.job.failure || null);
       return;
     }
     if (["claude-desktop-install", "claude-desktop-update"].includes(status.job.kind)) run("start");
@@ -151,7 +170,8 @@ export function ClaudeDesktop({
           await onProjectOpened(workspace);
         }}
       />}
-      {(error || statusError || desktop?.failed) && (
+      {error && failure && <div className="desktop-failure"><FailureCard compact failure={failure} onTool={desktopTool} /></div>}
+      {!failure && (error || statusError || desktop?.failed) && (
         <div className="connection-banner" role="alert">
           <SafetyMessage message={error || statusError || (desktop?.failure_reason === "oom-kill"
             ? "环境内存不足，Claude Desktop 已被系统关闭。请在设置中检查计算资源后重新打开。"

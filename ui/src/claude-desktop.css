@@ -122,3 +122,6 @@
 .desktop-create-actions {display:flex;gap:6px;align-items:stretch;}
 .desktop-create-actions > button {min-height:32px;padding:6px 10px;font-size:.85rem;}
 .desktop-create-actions > .primary {flex:1;}
+
+/* A failure of opening or installing, in three lines (failure-card.jsx). */
+.desktop-failure { padding: 0 16px; }
