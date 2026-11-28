@@ -57,9 +57,7 @@ sudo tee /etc/profile.d/workbench.sh >/dev/null <<'SCRIPT'
 if [ -r /etc/workbench/environment ]; then
   while IFS='=' read -r env_key env_value || [ -n "$env_key" ]; do
     case $env_key in
-      # An account command keeps the zone of its proxy node (#909).
-      TZ) export "TZ=${ACCOUNT_TZ:-$env_value}" ;;
-      LANG|LC_ALL) export "$env_key=$env_value" ;;
+      TZ|LANG|LC_ALL) export "$env_key=$env_value" ;;
     esac
   done < /etc/workbench/environment
   unset env_key env_value
