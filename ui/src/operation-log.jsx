@@ -10,6 +10,7 @@ import { useTranslation } from "./interface-language.mjs";
 import { HOLD_MS } from "./status-phase.mjs";
 import { eventLog, jobNames, logGroups, logTime, rawLog, simpleLog } from "./status-message.mjs";
 import { useLogLevel } from "./log-level";
+import { useLogTail } from "./operation-log-tail";
 
 const viewKey = "cage-operation-log-view";
 
@@ -107,6 +108,7 @@ export function OperationLog({ job, exportAlways = false, anchor, onClose }) {
   // Until the advanced view's first read answers, the simple lines stay, so
   // the window does not empty and shrink in between.
   const shownRaw = raw && Boolean(log?.raw);
+  const tail = useLogTail(shownRaw ? events : null, body);
   // Follow new lines while the view is scrolled to the end.
   useLayoutEffect(() => {
     const element = body.current;
@@ -115,11 +117,13 @@ export function OperationLog({ job, exportAlways = false, anchor, onClose }) {
   const scrolled = () => {
     const element = body.current;
     if (element) stick.current = element.scrollHeight - element.scrollTop - element.clientHeight < 24;
+    tail.scrolled(stick.current);
   };
 
   const choose = (next) => {
     setView(next);
     stick.current = true;
+    tail.reset();
     try { localStorage.setItem(viewKey, next); } catch { /* the choice is only for this window */ }
   };
   const save = async () => {
@@ -162,8 +166,8 @@ export function OperationLog({ job, exportAlways = false, anchor, onClose }) {
           )) : log && empty}
         </div>
         : <div ref={body} className="operation-log-body operation-log-raw" onScroll={scrolled}>
-          {events?.length ? <pre>{events.map((event, index) => (
-            <span key={index} className={`operation-log-event is-${event.level}`}>
+          {events?.length ? <pre>{tail.shown.map((event, index) => (
+            <span key={tail.offset + index} className={`operation-log-event is-${event.level}`}>
               <time dateTime={event.time}>{logTime(event.time, true)}</time>
               {" "}<b>{String(event.level).toUpperCase().padEnd(5)}</b>
               {" "}<i>{event.source}</i>
