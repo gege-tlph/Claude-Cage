@@ -192,7 +192,7 @@ export const backendMessageKeys = [
   "自动切换中转组不能包含最终出口或其他固定跳节点",
   "订阅更新移除了当前自动切换中转组中的全部可用节点；原配置已保留，请先调整代理链再更新",
   "订阅更新后当前自动切换中转组无可用节点；原配置已保留，请先调整代理链再更新",
-  "已更新订阅，并从中转组自动移除 {0} 个已下线候选节点",
+  "已更新订阅，并从自动前置移除 {0} 个已下线节点",
   "node_ids 与 hops 只能填写一个",
   "订阅节点会在更新订阅时被覆盖，请在服务商处修改；只能编辑本地导入的节点",
   "服务器地址无效，请填写 IP 地址或域名",
@@ -523,8 +523,8 @@ function localizeComposed(trimmed, localize) {
   if ((m = trimmed.match(/^自动切换中转组最多包含 (\d+) 个候选节点；请改用自选节点缩小范围$/))) {
     return translateTemplate(localize, "自动切换中转组最多包含 {0} 个候选节点；请改用自选节点缩小范围", m[1]) ?? trimmed;
   }
-  if ((m = trimmed.match(/^已更新订阅，并从中转组自动移除 (\d+) 个已下线候选节点$/))) {
-    return translateTemplate(localize, "已更新订阅，并从中转组自动移除 {0} 个已下线候选节点", m[1]) ?? trimmed;
+  if ((m = trimmed.match(/^已更新订阅，并从自动前置移除 (\d+) 个已下线节点$/))) {
+    return translateTemplate(localize, "已更新订阅，并从自动前置移除 {0} 个已下线节点", m[1]) ?? trimmed;
   }
   if ((m = trimmed.match(/^Cage 代理核心操作失败（([^）]+)）$/))) {
     return translateTemplate(localize, "代理核心操作失败（{0}）", m[1]) ?? trimmed;

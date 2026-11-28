@@ -88,6 +88,9 @@ func knownFailure(kind string, err error) error {
 	if f := proxyRequirementFailure(err); f != nil {
 		return f
 	}
+	if f := relayFailure(kind, err); f != nil {
+		return f
+	}
 	if f := coreFailure(err); f != nil {
 		return f
 	}

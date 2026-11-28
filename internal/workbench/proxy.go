@@ -408,7 +408,7 @@ func (s *Server) changeProxy(action string, in proxyInput, resumeVersion *uint64
 		}
 		if p.UsesSource(p.Sources[index].ID) {
 			if p.HasRelayGroups() {
-				return errors.New("该来源正用于当前代理链或自动切换中转组，请先选择并应用其他路由")
+				return errSourceInUse
 			}
 			return errors.New("该来源包含当前代理链中的节点，请先选择并应用其他来源的节点")
 		}
@@ -595,7 +595,7 @@ func (s *Server) changeProxy(action string, in proxyInput, resumeVersion *uint64
 			return err
 		}
 		if prunedRelayNodes > 0 {
-			s.setMessage(fmt.Sprintf("已更新订阅，并从中转组自动移除 %d 个已下线候选节点", prunedRelayNodes))
+			s.setMessage(fmt.Sprintf("已更新订阅，并从自动前置移除 %d 个已下线节点", prunedRelayNodes))
 		}
 		return nil
 	}
@@ -603,7 +603,7 @@ func (s *Server) changeProxy(action string, in proxyInput, resumeVersion *uint64
 		return err
 	}
 	if prunedRelayNodes > 0 {
-		s.setMessage(fmt.Sprintf("已更新订阅，并从中转组自动移除 %d 个已下线候选节点", prunedRelayNodes))
+		s.setMessage(fmt.Sprintf("已更新订阅，并从自动前置移除 %d 个已下线节点", prunedRelayNodes))
 	}
 	return nil
 }
@@ -906,7 +906,7 @@ func (s *Server) proxyLogs(w http.ResponseWriter, r *http.Request) {
 	if proxyInterfaceCoreRunning(r.Context(), s.profile, p) {
 		lines = append(lines, "内置核心运行中；已读回当前节点选择")
 		if p.HasRelayGroups() {
-			lines = append(lines, "中转自动切换：已启用（最终出口保持固定）")
+			lines = append(lines, "自动前置：已启用")
 		}
 		if cfg, cfgErr := loadConfig(s.configPath); cfgErr == nil && s.proxyStore.Applied(s.profile, cfg.ProxyURL, cfg.ProxyRevision) == nil {
 			if bindErr := s.checkProxyInterfaceBinding(r.Context()); bindErr != nil && !os.IsNotExist(bindErr) {

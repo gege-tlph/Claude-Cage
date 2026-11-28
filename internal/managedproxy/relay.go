@@ -19,6 +19,19 @@ const (
 	relayURLTestTolerance = 50
 )
 
+// Refusals of an auto-switch relay group (an auto 前置 in the interface)
+// that the workbench names in three lines (workbench/proxy_failure.go).
+var (
+	ErrRelaySourceReused   = errors.New("多跳代理链不能重复使用同一个中转来源")
+	ErrRelayPoolOverlap    = errors.New("多跳代理链的中转节点池存在重叠，请调整各跳范围")
+	ErrRelayTooMany        = fmt.Errorf("自动切换中转组最多包含 %d 个候选节点；请改用自选节点缩小范围", MaxRelayGroupNodes)
+	ErrRelaySourceGone     = errors.New("自动切换中转组引用的来源已被移除，请重新选择；原配置已保留")
+	ErrRelayNodeGone       = errors.New("自动切换中转组中的节点已被移除，请重新选择；原配置已保留")
+	ErrRelayNoNodes        = errors.New("自动切换中转组没有可用的中转节点，请重新选择；原配置已保留")
+	ErrRelayRefreshEmptied = errors.New("订阅更新移除了当前自动切换中转组中的全部可用节点；原配置已保留，请先调整代理链再更新")
+	ErrRelayRefreshNoNodes = errors.New("订阅更新后当前自动切换中转组无可用节点；原配置已保留，请先调整代理链再更新")
+)
+
 // RelayGroup defines an automatic relay pool for a non-exit hop.
 // Exactly one of SourceID (dynamic source pool) or NodeIDs (explicit ordered
 // node pool) is set.
@@ -183,12 +196,12 @@ func (s Store) resolveRoute(blocked map[string]string, minRelayNodes int) ([]Res
 		var candidates []string
 		if hasSource {
 			if usedSources[relay.SourceID] {
-				return nil, errors.New("多跳代理链不能重复使用同一个中转来源")
+				return nil, ErrRelaySourceReused
 			}
 			usedSources[relay.SourceID] = true
 			src, ok := s.findSource(relay.SourceID)
 			if !ok {
-				return nil, errors.New("自动切换中转组引用的来源已被移除，请重新选择；原配置已保留")
+				return nil, ErrRelaySourceGone
 			}
 			for _, n := range src.Nodes {
 				// A local relay is never switched to: it only goes first, fixed.
@@ -196,25 +209,25 @@ func (s Store) resolveRoute(blocked map[string]string, minRelayNodes int) ([]Res
 					continue
 				}
 				if relayClaimed[n.ID] {
-					return nil, errors.New("多跳代理链的中转节点池存在重叠，请调整各跳范围")
+					return nil, ErrRelayPoolOverlap
 				}
 				candidates = append(candidates, n.ID)
 			}
 			if len(candidates) > MaxRelayGroupNodes {
-				return nil, fmt.Errorf("自动切换中转组最多包含 %d 个候选节点；请改用自选节点缩小范围", MaxRelayGroupNodes)
+				return nil, ErrRelayTooMany
 			}
 			if len(candidates) < minRelayNodes {
 				if minRelayNodes >= 2 {
 					return nil, errors.New("自动切换中转组至少需要 2 个可用中转节点")
 				}
-				return nil, errors.New("自动切换中转组没有可用的中转节点，请重新选择；原配置已保留")
+				return nil, ErrRelayNoNodes
 			}
 			for _, id := range candidates {
 				relayClaimed[id] = true
 			}
 		} else {
 			if len(relay.NodeIDs) > MaxRelayGroupNodes {
-				return nil, fmt.Errorf("自动切换中转组最多包含 %d 个候选节点；请改用自选节点缩小范围", MaxRelayGroupNodes)
+				return nil, ErrRelayTooMany
 			}
 			seen := map[string]bool{}
 			for _, id := range relay.NodeIDs {
@@ -226,7 +239,7 @@ func (s Store) resolveRoute(blocked map[string]string, minRelayNodes int) ([]Res
 				}
 				seen[id] = true
 				if _, ok := s.Find(id); !ok {
-					return nil, errors.New("自动切换中转组中的节点已被移除，请重新选择；原配置已保留")
+					return nil, ErrRelayNodeGone
 				}
 				if _, err := s.checkRouteNodes([]string{id}, blocked); err != nil {
 					return nil, err
@@ -235,7 +248,7 @@ func (s Store) resolveRoute(blocked map[string]string, minRelayNodes int) ([]Res
 					return nil, errors.New("自动切换中转组不能包含最终出口或其他固定跳节点")
 				}
 				if relayClaimed[id] {
-					return nil, errors.New("多跳代理链的中转节点池存在重叠，请调整各跳范围")
+					return nil, ErrRelayPoolOverlap
 				}
 				candidates = append(candidates, id)
 			}
@@ -243,7 +256,7 @@ func (s Store) resolveRoute(blocked map[string]string, minRelayNodes int) ([]Res
 				if minRelayNodes >= 2 {
 					return nil, errors.New("自动切换中转组至少需要 2 个可用中转节点")
 				}
-				return nil, errors.New("自动切换中转组没有可用的中转节点，请重新选择；原配置已保留")
+				return nil, ErrRelayNoNodes
 			}
 			for _, id := range candidates {
 				relayClaimed[id] = true
@@ -455,7 +468,7 @@ func (s *Store) refreshRouteHopsForSource(sourceIndex int, updated Source) ([]Ro
 			kept = append(kept, id)
 		}
 		if len(kept) == 0 {
-			return nil, 0, errors.New("订阅更新移除了当前自动切换中转组中的全部可用节点；原配置已保留，请先调整代理链再更新")
+			return nil, 0, ErrRelayRefreshEmptied
 		}
 		relay.NodeIDs = kept
 	}
@@ -464,10 +477,10 @@ func (s *Store) refreshRouteHopsForSource(sourceIndex int, updated Source) ([]Ro
 	trial.Sources[sourceIndex] = updated
 	trial.RouteHops = nextHops
 	if _, err := trial.resolveRoute(trial.BlockedNodes(), 1); err != nil {
-		if errors.Is(err, ErrLocalProxyNode) {
-			return nil, 0, err
+		if errors.Is(err, ErrRelayNoNodes) || errors.Is(err, ErrRelayNodeGone) {
+			return nil, 0, ErrRelayRefreshNoNodes
 		}
-		return nil, 0, errors.New("订阅更新后当前自动切换中转组无可用节点；原配置已保留，请先调整代理链再更新")
+		return nil, 0, err
 	}
 	return nextHops, pruned, nil
 }

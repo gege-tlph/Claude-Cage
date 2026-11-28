@@ -65,6 +65,42 @@ func proxyRequirementFailure(err error) *usererror.Failure {
 	return nil
 }
 
+// relayFailure: an auto 前置 (#1063) the backend refuses, or a saved one it
+// can no longer use. Outside a proxy action the environment was starting.
+func relayFailure(kind string, err error) *usererror.Failure {
+	switch {
+	case errors.Is(err, managedproxy.ErrRelaySourceReused):
+		return usererror.Because("原因是两个自动前置用了同一个订阅", "给其中一个前置换订阅或改成自选节点", err, usererror.ToolSettingsNetwork)
+	case errors.Is(err, managedproxy.ErrRelayPoolOverlap):
+		return usererror.Because("原因是两个自动前置有相同的节点", "调整其中一个前置的范围", err, usererror.ToolSettingsNetwork)
+	case errors.Is(err, managedproxy.ErrRelayTooMany):
+		return usererror.Because("原因是自动前置的节点超过 300 个", "改用自选节点缩小范围", err, usererror.ToolSettingsNetwork)
+	case errors.Is(err, managedproxy.ErrRelayRefreshEmptied), errors.Is(err, managedproxy.ErrRelayRefreshNoNodes):
+		return usererror.Because("原因是更新后自动前置没有可用节点", "在网络与代理中调整前置后再更新", err, usererror.ToolSettingsNetwork).WithLevel(usererror.LevelWarn)
+	case errors.Is(err, errSourceInUse):
+		return usererror.Because("原因是当前代理链正在用这个订阅", "先换前置或出口并应用", err)
+	}
+	reason := ""
+	switch {
+	case errors.Is(err, managedproxy.ErrRelaySourceGone):
+		reason = "原因是自动前置用的订阅已被删除"
+	case errors.Is(err, managedproxy.ErrRelayNodeGone):
+		reason = "原因是自动前置的自选节点已被移除"
+	case errors.Is(err, managedproxy.ErrRelayNoNodes):
+		reason = "原因是自动前置没有可用节点"
+	default:
+		return nil
+	}
+	if kind == "proxy" || kind == "proxy-update" {
+		return usererror.Because(reason, "在网络与代理中重新选择前置", err, usererror.ToolSettingsNetwork)
+	}
+	return usererror.Notice("启动环境前需要重新选择前置", reason, "在网络与代理中重新选择前置", err, usererror.ToolSettingsNetwork)
+}
+
+// errSourceInUse: a subscription an auto 前置 or the chain uses cannot be
+// deleted.
+var errSourceInUse = errors.New("该来源正用于当前代理链或自动切换中转组，请先选择并应用其他路由")
+
 // errProxyNotApplied is the start's own check that the saved node is the one
 // the core runs (runtime.go).
 var errProxyNotApplied = errors.New("内置代理配置未应用，请重新选择节点")

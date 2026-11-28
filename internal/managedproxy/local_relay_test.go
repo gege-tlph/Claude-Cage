@@ -2,6 +2,7 @@ package managedproxy
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -279,5 +280,41 @@ func TestLocalRelayAndRelayGroups(t *testing.T) {
 	g = s
 	if err := g.SetRouteHops([]RouteHop{{NodeID: relay}, {Relay: &RelayGroup{Strategy: RelayStrategyFallback, SourceID: "remote"}}, {NodeID: ids["exit"]}}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// A subscription update whose route fails for a reason other than an empty
+// group keeps that reason: here a whole source grown past 300 nodes.
+func TestRelayRefreshKeepsOtherReasons(t *testing.T) {
+	s, err := Load(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	nodes := func(n int) []byte {
+		var b strings.Builder
+		b.WriteString("proxies:\n")
+		for i := range n {
+			fmt.Fprintf(&b, "  - {name: n%d, type: socks5, server: n%d.example, port: 1080}\n", i, i)
+		}
+		return []byte(b.String())
+	}
+	if err := s.Import("big", "", nodes(3), "big", 0, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Import("home", "", []byte("proxies: [{name: exit, type: socks5, server: exit.example, port: 1080}]"), "home", 0, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetRouteHops([]RouteHop{{Relay: &RelayGroup{Strategy: RelayStrategyURLTest, SourceID: "big"}}, {NodeID: s.Sources[1].Nodes[0].ID}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Import("big", "", nodes(MaxRelayGroupNodes+1), "big", 0, ""); !errors.Is(err, ErrRelayTooMany) {
+		t.Fatalf("grown past the limit: %v", err)
+	}
+	// Chosen nodes all dropped: the group has none.
+	if err := s.SetRouteHops([]RouteHop{{Relay: &RelayGroup{Strategy: RelayStrategyFallback, NodeIDs: []string{s.Sources[0].Nodes[0].ID, s.Sources[0].Nodes[1].ID}}}, {NodeID: s.Sources[1].Nodes[0].ID}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Import("big", "", []byte("proxies: [{name: other, type: socks5, server: other.example, port: 1080}]"), "big", 0, ""); !errors.Is(err, ErrRelayRefreshEmptied) {
+		t.Fatalf("emptied group: %v", err)
 	}
 }

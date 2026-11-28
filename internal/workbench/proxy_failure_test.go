@@ -103,6 +103,33 @@ func TestNodeAndCoreFailures(t *testing.T) {
 	}
 }
 
+// An auto 前置 the backend refuses names why in three lines: applying it,
+// updating its subscription, or starting with a saved one it cannot use.
+func TestRelayFailures(t *testing.T) {
+	if f := relayFailure("proxy", managedproxy.ErrRelaySourceReused); f == nil || f.Lead != "" || f.Reason != "原因是两个自动前置用了同一个订阅" || f.Tools[0] != "settings:network" {
+		t.Fatalf("%+v", f)
+	}
+	if f := relayFailure("proxy", fmt.Errorf("apply: %w", managedproxy.ErrRelayTooMany)); f == nil || f.Reason != "原因是自动前置的节点超过 300 个" {
+		t.Fatalf("%+v", f)
+	}
+	if f := relayFailure("proxy", managedproxy.ErrRelayRefreshNoNodes); f == nil || f.Level != usererror.LevelWarn || f.Next != "在网络与代理中调整前置后再更新" {
+		t.Fatalf("%+v", f)
+	}
+	if f := relayFailure("proxy", errSourceInUse); f == nil || f.Reason != "原因是当前代理链正在用这个订阅" {
+		t.Fatalf("%+v", f)
+	}
+	if f := relayFailure("proxy", managedproxy.ErrRelayNoNodes); f == nil || f.Lead != "" || f.Next != "在网络与代理中重新选择前置" {
+		t.Fatalf("%+v", f)
+	}
+	if f := relayFailure("up", managedproxy.ErrRelaySourceGone); f == nil || f.Level != usererror.LevelInfo ||
+		f.Error() != "启动环境前需要重新选择前置，原因是自动前置用的订阅已被删除。下一步：在网络与代理中重新选择前置。" {
+		t.Fatalf("%+v", f)
+	}
+	if f := relayFailure("proxy", errors.New("代理链不能重复使用同一个节点")); f != nil {
+		t.Fatalf("other refusals keep their text: %+v", f)
+	}
+}
+
 // The job names the operation a probe left open, the node it went through,
 // and a retry for a failure without tools.
 func TestJobDescribesTheFailure(t *testing.T) {
