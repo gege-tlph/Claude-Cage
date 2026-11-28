@@ -593,6 +593,8 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
           text = shellFilePaths([result.path]);
         }
         if (disposed || !visibleRef.current || !focusedRef.current) throw new Error("终端已切换，请回到原终端重新粘贴");
+        // Paused while the content was on its way: nothing reaches Claude.
+        if (paused.current) throw new Error("Claude 已暂停，请先继续对话");
         // Honor xterm's bracketed-paste mode without enqueuing behind this job.
         emittingPaste = true;
         try { terminal.paste(text); } finally { emittingPaste = false; }
