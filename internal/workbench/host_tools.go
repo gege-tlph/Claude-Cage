@@ -29,6 +29,11 @@ import (
 // that file itself, and a second writer would race with it.
 const hostToolsPort = 18962
 
+// Pathname sockets are reachable from the VM's account network namespaces.
+// Both SSH forwards terminate at the same authenticated tool server.
+const hostToolsSocketDir = "/run/host-tools"
+const hostToolsSocket = hostToolsSocketDir + "/mcp.sock"
+
 //go:embed host_tools_config.py
 var hostToolsConfigScript string
 
@@ -243,8 +248,16 @@ func (s *Server) startHostTools(serving bool) error {
 	tools.bridge = bridge
 	s.reattachClientPluginBridge(bridge)
 	forward := fmt.Sprintf("127.0.0.1:%d:%s", hostToolsPort, bridge.Addr())
-	s.releaseHostToolsPort(ctx)
-	cmd := s.sshCommandWithForwarding(ctx, "-o", "ExitOnForwardFailure=yes", "-N", "-T", "-R", forward, s.sshTarget())
+	args := []string{"-o", "ExitOnForwardFailure=yes", "-N", "-T", "-R", forward}
+	if s.accountDesktopsSupported() {
+		args = append(args, "-R", hostToolsSocket+":"+bridge.Addr())
+	}
+	if err := s.prepareHostToolsForward(ctx); err != nil {
+		close(tools.done)
+		tools.close()
+		return fmt.Errorf("prepare host tools forward: %w", err)
+	}
+	cmd := s.sshCommandWithForwarding(ctx, append(args, s.sshTarget())...)
 	// Ask SSH to end the connection itself. Killed outright, it leaves the
 	// environment holding the port for minutes, and no new forward can bind.
 	cmd.Cancel = func() error {
@@ -285,17 +298,23 @@ func (s *Server) startHostTools(serving bool) error {
 // application was stopped abruptly. Anything else on the port is left alone.
 // Only root can see which process holds another session's socket.
 const hostToolsReleaseScript = `pid=$(sudo -n ss -H -ltnp 'sport = :%d' 2>/dev/null | sed -n 's/.*pid=\([0-9]*\).*/\1/p' | head -n 1)
-case "$(cat "/proc/$pid/comm" 2>/dev/null)" in sshd*) kill "$pid" ;; esac
-exit 0`
+case "$(cat "/proc/$pid/comm" 2>/dev/null)" in sshd*) kill "$pid" || : ;; esac
+`
 
-func (s *Server) releaseHostToolsPort(ctx context.Context) {
+func (s *Server) prepareHostToolsForward(ctx context.Context) error {
 	release, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	cmd := s.sshCommand(release, "-T", s.sshTarget(), "--", "exec /bin/sh")
-	cmd.Stdin = strings.NewReader(fmt.Sprintf(hostToolsReleaseScript, hostToolsPort))
-	if err := cmd.Run(); err != nil {
-		diagnostics.Log("warn", "host-tools", fmt.Sprintf("release error=%v", err))
+	script := fmt.Sprintf(hostToolsReleaseScript, hostToolsPort)
+	if s.accountDesktopsSupported() {
+		// sshd can leave its pathname socket behind when the session ends.
+		script += `set -e
+sudo -n install -d -m 0700 -o "$(id -u)" ` + hostToolsSocketDir + `
+if test -S ` + hostToolsSocket + `; then rm -- ` + hostToolsSocket + `; fi
+`
 	}
+	cmd.Stdin = strings.NewReader(script)
+	return cmd.Run()
 }
 
 // stopSecretPluginsOnLock stops, when Cage locks, the plugins whose programs

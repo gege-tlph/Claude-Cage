@@ -1,4 +1,4 @@
-"""Linux namespace edge. The only uplink is a controller-created Unix socket."""
+"""Route account traffic to its assigned node and local MCP to the host tools socket."""
 
 import asyncio
 import os
@@ -9,11 +9,14 @@ import sys
 
 UPSTREAM = sys.argv[1]
 LOGIN_SOCKET = sys.argv[2]
-STDIN_AUTH = len(sys.argv) > 3 and sys.argv[3] == "--stdin-auth"
+TOOLS_SOCKET = sys.argv[3]
+TOOLS_PORT = int(sys.argv[4])
+STDIN_AUTH = "--stdin-auth" in sys.argv[5:]
 AUTH_HEADER = b""
 MAX_DNS = 65535
 slots = asyncio.Semaphore(96)
 browser_slots = asyncio.Semaphore(48)
+tools_slots = asyncio.Semaphore(32)
 
 
 async def upstream(header, payload=b""):
@@ -78,7 +81,9 @@ async def browser_peer(reader, writer):
             host, port, family=socket.AF_INET, type=socket.SOCK_STREAM
         )
         host = addresses[0][4][0]
-    if ipaddress.ip_address(host).is_loopback and (host != "127.0.0.1" or port < 1024):
+    if ipaddress.ip_address(host).is_loopback and (
+        host != "127.0.0.1" or port < 1024 or port == TOOLS_PORT
+    ):
         raise ValueError("invalid callback")
     return await asyncio.open_connection(host, port, family=socket.AF_INET)
 
@@ -96,6 +101,22 @@ async def browser_connect(reader, writer):
             await writer.drain()
             await pipe_pair(reader, writer, incoming, remote)
     except (OSError, ValueError, asyncio.IncompleteReadError, asyncio.TimeoutError):
+        pass
+    finally:
+        if remote:
+            remote.close()
+        writer.close()
+
+
+async def host_tools(reader, writer):
+    remote = None
+    try:
+        if tools_slots.locked():
+            return
+        async with tools_slots:
+            incoming, remote = await asyncio.open_unix_connection(TOOLS_SOCKET)
+            await pipe_pair(reader, writer, incoming, remote)
+    except (OSError, asyncio.IncompleteReadError):
         pass
     finally:
         if remote:
@@ -187,6 +208,7 @@ async def main():
         await asyncio.start_unix_server(browser_connect, LOGIN_SOCKET),
         await asyncio.start_server(dns_tcp, "127.0.0.1", 53),
         await asyncio.start_server(tcp, "127.0.0.1", 15301),
+        await asyncio.start_server(host_tools, "127.0.0.1", TOOLS_PORT),
     ]
     os.chmod(LOGIN_SOCKET, 0o660)
     ended = asyncio.Event()

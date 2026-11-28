@@ -105,6 +105,7 @@ jobs:
           runuser -u cage -- uv run --no-project --python 3.11 internal/cage/display-governor.test.py
           runuser -u cage -- uv run --no-project --python 3.11 internal/cage/shared-clipboard.test.py
           runuser -u cage -- uv run --no-project --python 3.11 internal/workbench/cache_maintenance_test.py
+          runuser -u cage -- unshare -Urn uv run --offline --no-project --python 3.11 internal/workbench/account_relay_test.py
       - name: Install, render native workbench, reinstall and remove
         run: |
           runuser -u cage -- bwrap --unshare-user --unshare-pid --ro-bind / / --proc /proc --dev /dev -- true

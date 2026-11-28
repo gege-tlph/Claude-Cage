@@ -291,8 +291,9 @@ func (s *Server) ensureAccountNetwork(ctx context.Context, id, node string) erro
 		forwardTarget = bridge.addr()
 		relayFlags = " --stdin-auth"
 	}
+	relayArgs := remote + " /run/account-routes/" + id + "/browser.sock " + hostToolsSocket + " " + strconv.Itoa(hostToolsPort) + relayFlags
 	cmdline := "set -eu; sudo /bin/bash -c " + shellescape.Quote(setupAccountNetwork) + " -- " + id +
-		"; exec sudo ip netns exec " + ns + " setpriv --reuid=\"$(id -u)\" --regid=\"$(id -g)\" --init-groups python3 -I -c " + shellescape.Quote(accountRelay) + " " + remote + " /run/account-routes/" + id + "/browser.sock" + relayFlags
+		"; exec sudo ip netns exec " + ns + " setpriv --reuid=\"$(id -u)\" --regid=\"$(id -g)\" --init-groups python3 -I -c " + shellescape.Quote(accountRelay) + " " + relayArgs
 	life, cancel := context.WithCancel(s.lifetimeContext())
 	cmd := s.sshCommandWithForwarding(life, "-T", "-o", "ExitOnForwardFailure=yes", "-R", remote+":"+forwardTarget, s.sshTarget(), "--", "/bin/bash -c "+shellescape.Quote(cmdline))
 	stderr := &limitedBuffer{max: 2048}
