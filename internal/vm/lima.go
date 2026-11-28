@@ -44,6 +44,7 @@ import (
 	"github.com/sylvinus/agent-vm/internal/cage"
 	"github.com/sylvinus/agent-vm/internal/host"
 	"github.com/sylvinus/agent-vm/internal/limaembed"
+	"github.com/sylvinus/agent-vm/internal/offlinepack"
 	"github.com/sylvinus/agent-vm/internal/paths"
 )
 
@@ -422,7 +423,11 @@ func (l *Lima) Create(ctx context.Context, name, template string, s Settings, lo
 				e = append(e, ".images = "+string(images))
 				// cloud-init rewrites Debian's mirror list after bootcmd.
 				// Configure it immediately before Lima installs dependencies.
-				e = append(e, `.provision += [{"mode": "dependency", "script": `+strconv.Quote(cage.DebianPrepareScriptFor(os.Getenv(cage.DebianMirrorEnv)))+`}]`)
+				prepare := cage.DebianPrepareScriptFor(os.Getenv(cage.DebianMirrorEnv))
+				if os.Getenv(offlinepack.InstallEnv) == "1" {
+					prepare = offlinepack.BootScript(prepare)
+				}
+				e = append(e, `.provision += [{"mode": "dependency", "script": `+strconv.Quote(prepare)+`}]`)
 			}
 			tz, _ := json.Marshal(cfg.Timezone)
 			e = append(e, ".propagateProxyEnv = false", `.env = {"http_proxy":"","https_proxy":"","ftp_proxy":"","no_proxy":"","HTTP_PROXY":"","HTTPS_PROXY":"","FTP_PROXY":"","NO_PROXY":"","ALL_PROXY":"","all_proxy":""}`, ".timezone = "+string(tz))

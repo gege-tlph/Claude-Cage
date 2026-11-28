@@ -16,6 +16,7 @@ import (
 	"github.com/sylvinus/agent-vm/internal/env"
 	"github.com/sylvinus/agent-vm/internal/host"
 	"github.com/sylvinus/agent-vm/internal/hostimage"
+	"github.com/sylvinus/agent-vm/internal/offlinepack"
 	"github.com/sylvinus/agent-vm/internal/state"
 	"github.com/sylvinus/agent-vm/internal/ui"
 	"github.com/sylvinus/agent-vm/internal/version"
@@ -473,6 +474,22 @@ func (e *app) buildBase(ctx context.Context, in install, disk, memory, cpus int)
 	}
 	stopBase := func() { _ = b.Stop(ctx, building) }
 
+	// The full package's installation data replaces the downloads.
+	offline, offlineErr := findOfflineData()
+	if (offline != nil || offlineErr != nil) && !windowed(func(w io.Writer) error {
+		if offlineErr != nil {
+			return offlineErr
+		}
+		return offline.prepare(ctx, b, w)
+	}) {
+		fmt.Fprintf(e.io.Stderr, "Error: Failed to check the installation files. Full log: %s\n", logPath)
+		return 1
+	}
+	if offline != nil {
+		os.Setenv(offlinepack.InstallEnv, "1")
+		defer os.Unsetenv(offlinepack.InstallEnv)
+	}
+
 	fmt.Fprintln(e.io.Stdout, "Creating base VM...")
 	none := []vm.Mount{}
 	if !resume && !windowed(func(w io.Writer) error {
@@ -492,6 +509,11 @@ func (e *app) buildBase(ctx context.Context, in install, disk, memory, cpus int)
 		ha := filepath.Join(LimaHome(e.state), building, "ha.stderr.log")
 		fmt.Fprintf(e.io.Stderr, "Error: Failed to start base VM. Full log: %s\nLima's own log: %s\n", logPath, ha)
 		host.WindowsStartHint(e.io.Stderr, logPath, ha)
+		return 1
+	}
+	if offline != nil && !windowed(func(w io.Writer) error { return offline.copyIn(ctx, b, building, w) }) {
+		fmt.Fprintf(e.io.Stderr, "Error: Failed to copy the installation files. Full log: %s\n", logPath)
+		stopBase()
 		return 1
 	}
 
@@ -526,6 +548,12 @@ func (e *app) buildBase(ctx context.Context, in install, disk, memory, cpus int)
 			stopBase()
 			return 1
 		}
+	}
+
+	if os.Getenv(cage.ConfigEnv) != "" && !windowed(func(w io.Writer) error { return finishInstall(ctx, b, building, w) }) {
+		fmt.Fprintf(e.io.Stderr, "Error: Failed to finish the installation. Full log: %s\n", logPath)
+		stopBase()
+		return 1
 	}
 
 	// Ready only once stopped: Lima clones only a stopped instance.
