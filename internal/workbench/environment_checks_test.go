@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sylvinus/agent-vm/internal/cage"
 	"github.com/sylvinus/agent-vm/internal/host"
 	"github.com/sylvinus/agent-vm/internal/usererror"
 )
@@ -125,6 +126,17 @@ func TestNoSpaceTellsTheComputerFromTheVirtualDisk(t *testing.T) {
 		if f == nil || f.Reason != tc.reason || !reflect.DeepEqual(f.Tools, tc.tools) {
 			t.Fatalf("free %d GiB: %+v", tc.free, f)
 		}
+	}
+}
+
+// A start that automatic memory refused before QEMU names what it needs
+// (#1115).
+func TestLowMemoryBeforeQEMUSaysWhatIsNeeded(t *testing.T) {
+	healthyHost(t)
+	hostFreeMemory = func() uint64 { return 2 << 30 }
+	f := environmentFailure("up", "启动环境", errors.New("exit status 1"), "Error: "+cage.WindowsStartupMemoryLow, failureFacts{memoryGiB: 2})
+	if f == nil || f.Reason != "原因是电脑可用内存不足（需要 3 GiB，可用 2.0 GiB）" || !reflect.DeepEqual(f.Tools, []string{"settings:resources", "start"}) {
+		t.Fatalf("%+v", f)
 	}
 }
 

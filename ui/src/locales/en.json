@@ -5942,6 +5942,8 @@
   "检测服务没有返回有效的 IP 记录": "the check service returned no valid IP record",
   "检测服务返回 HTTP {0}": "the check service returned HTTP {0}",
   "核对节点的密码、协议和端口后重新导入": "Check the node's password, protocol and port, then import again",
+  "Windows 可用物理内存不足 3 GiB": "Windows has less than 3 GiB of free physical memory",
+  "响应编码失败": "Couldn't encode the response",
   "原因是代理节点的 REALITY 认证没有通过（代理核心日志：REALITY authentication failed）": "a proxy node failed REALITY authentication (proxy core log: REALITY authentication failed)",
   "原因是所选节点的 REALITY 认证没有通过（代理核心日志：REALITY authentication failed）": "the selected node failed REALITY authentication (proxy core log: REALITY authentication failed)",
   "原因是代理链前置节点的 REALITY 认证没有通过（代理核心日志：REALITY authentication failed）": "the chain's relay node failed REALITY authentication (proxy core log: REALITY authentication failed)",

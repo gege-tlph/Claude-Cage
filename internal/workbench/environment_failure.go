@@ -62,6 +62,10 @@ func environmentFailure(op, action string, cause error, output string, facts fai
 		return f
 	}
 	switch {
+	// Automatic memory checked the computer before QEMU and found less than
+	// the smallest environment and the host reserve (#1115).
+	case strings.Contains(output, cage.WindowsStartupMemoryLow):
+		return memoryFailure(action, cause, startupMemoryFloorGiB, hostFreeMemory())
 	case strings.Contains(lower, strings.ToLower(host.HypervisorPlatformMissing)), strings.Contains(lower, strings.ToLower(host.HypervisorNotReady)):
 		return hypervisorFailure(action, cause)
 	// Lima reads the VM as stopped while its hostagent still runs (its PID
@@ -104,6 +108,11 @@ func environmentFailure(op, action string, cause error, output string, facts fai
 	}
 	return usererror.Unrecognized(action, lastErrorLine(output), next, cause, append(retry[:1:1], usererror.ToolLog, usererror.ToolDiagnostics)...)
 }
+
+// startupMemoryFloorGiB is the free memory a start with automatic memory
+// needs on Windows: 2 GiB for the environment and 1 GiB left to the host
+// (cage.ResourceAllocation.StartLimits).
+const startupMemoryFloorGiB = 3
 
 // lowDiskGiB is the free space under which a failed start blames the disk.
 const lowDiskGiB = 2
