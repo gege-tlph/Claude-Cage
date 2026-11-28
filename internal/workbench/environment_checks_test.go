@@ -107,6 +107,27 @@ func TestQEMUMemoryErrorSaysWhatIsNeeded(t *testing.T) {
 	}
 }
 
+// 「No space left on device」 blames the computer's disk only when it is low;
+// otherwise the environment's virtual disk is full.
+func TestNoSpaceTellsTheComputerFromTheVirtualDisk(t *testing.T) {
+	healthyHost(t)
+	output := "qemu[stderr]: write failed: No space left on device"
+	for _, tc := range []struct {
+		free   int
+		reason string
+		tools  []string
+	}{
+		{1, "原因是环境所在磁盘空间不足（剩余 1 GiB）", []string{"start", "settings:project"}},
+		{120, "原因是环境的虚拟磁盘已满", []string{"settings:resources", "start"}},
+	} {
+		hostFreeGiB = func(string) (int, bool) { return tc.free, true }
+		f := environmentFailure("up", "启动环境", errors.New("exit status 1"), output, failureFacts{dir: `C:\env`})
+		if f == nil || f.Reason != tc.reason || !reflect.DeepEqual(f.Tools, tc.tools) {
+			t.Fatalf("free %d GiB: %+v", tc.free, f)
+		}
+	}
+}
+
 // A browser that never answers after the start says where and how long (A17).
 func TestBrowserNotReadySaysWhereAndHowLong(t *testing.T) {
 	f := browserNotReady(9 * time.Second)

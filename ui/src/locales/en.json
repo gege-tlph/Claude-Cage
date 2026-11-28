@@ -5791,6 +5791,8 @@
   "原因是环境后台启动超时（{0}）": "the environment's background process timed out while starting ({0})",
   "原因是环境安装未完成（基础模板缺失）": "the environment install isn't finished (base template missing)",
   "原因是环境所在磁盘空间不足": "the environment's disk is low on space",
+  "原因是环境的虚拟磁盘已满": "the environment's virtual disk is full",
+  "在计算资源中调大磁盘后重试": "Enlarge the disk in Compute resources, then try again",
   "原因是环境所在磁盘空间不足（剩余 {0} GiB）": "the environment's disk is low on space ({0} GiB free)",
   "原因是环境目录路径太长": "the environment folder path is too long",
   "原因是环境磁盘正被另一个进程使用": "another process is using the environment's disk",

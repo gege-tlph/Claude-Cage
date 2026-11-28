@@ -76,7 +76,7 @@ func environmentFailure(op, action string, cause error, output string, facts fai
 	case containsAny(lower, "base vm not found", "base vm setup did not complete"):
 		return fail("原因是环境安装未完成（基础模板缺失）", "继续安装", usererror.ToolContinueInstall)
 	case containsAny(lower, "no space left on device", "not enough space on the disk"):
-		return diskFailure(action, cause, dir)
+		return spaceFailure(action, cause, dir)
 	case containsAny(lower, "must be less than unix_path_max", "` too long: `", "vm name too long"):
 		return fail("原因是环境目录路径太长", "在环境与恢复中把环境目录迁到更短的路径", usererror.ToolSettingsProject)
 	case strings.Contains(lower, "which lima cannot mount"):
@@ -185,6 +185,17 @@ func diskFailure(action string, cause error, dir string) *usererror.Failure {
 		reason = fmt.Sprintf("原因是环境所在磁盘空间不足（剩余 %d GiB）", free)
 	}
 	return usererror.Fail(action, reason, "释放磁盘空间后重试，不要删除 Cage lite 的数据目录", cause, usererror.ToolStart, usererror.ToolSettingsProject)
+}
+
+// spaceFailure: a write found no space. The words are the same for the
+// computer's disk and for the environment's own virtual disk, so the
+// computer is asked: with room left there, the virtual disk is full, and only
+// a larger disk helps.
+func spaceFailure(action string, cause error, dir string) *usererror.Failure {
+	if free, ok := hostFreeGiB(dir); dir != "" && ok && free >= lowDiskGiB {
+		return usererror.Fail(action, "原因是环境的虚拟磁盘已满", "在计算资源中调大磁盘后重试", cause, usererror.ToolResources, usererror.ToolStart)
+	}
+	return diskFailure(action, cause, dir)
 }
 
 // qemuFailure reads QEMU's own words, which runtime and vm pass on as
