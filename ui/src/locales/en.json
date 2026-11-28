@@ -6113,5 +6113,15 @@
   "原因是安装程序已退出，仍在用 {0}": "the installer quit, still using {0}",
   "原因是安装准备超时，仍在用 {0}": "preparing the install timed out, still using {0}",
   "原因是环境仍在运行": "the environment is still running",
-  "原因是当前程序的签名无法验证（{0}），仍在用 {1}": "this program's signature can't be verified ({0}), still using {1}"
+  "原因是当前程序的签名无法验证（{0}），仍在用 {1}": "this program's signature can't be verified ({0}), still using {1}",
+  "{0}失败：虚拟机未能启动。QEMU 启动失败：{1}。请查看操作日志；仍无法启动时，在设置中导出诊断包。": "{0} failed: the virtual machine didn't start. QEMU failed to start: {1}. See the operation log; if it still won't start, export diagnostics in Settings.",
+  "打开“操作日志”查看失败记录；仍无法处理时，{0}": "Open \"Operation log\" to see the failure record; if you still can't resolve it, {0}",
+  "打开“操作日志”查看最后的错误；仍无法判断时，{0}": "Open \"Operation log\" to see the last error; if that doesn't explain it, {0}",
+  "操作日志中列出了这个目录；把它移到不含空格的路径后重试。若是 Cage lite 配置目录旁的内部传输目录，步骤见故障排查文档“用户目录含空格时环境无法启动”。": "The folder is listed in the operation log. Move it to a path without spaces and retry. If it is the internal transfer folder next to the Cage lite configuration folder, follow \"Environment won't start when the user folder has spaces\" in the troubleshooting guide.",
+  "电脑上的 Claude Desktop 未能启动，请在电脑上查看操作日志": "Claude Desktop on the computer didn't start. See the operation log on the computer",
+  "随附的 Mihomo 核心未通过配置校验，请核对节点协议和参数；可在“设置 → 环境与恢复 → 诊断包”中导出诊断包查看校验记录；原配置已保留": "The bundled Mihomo core rejected the config. Check node protocols and parameters; export a diagnostics bundle from \"Settings → Environment & recovery → Diagnostics\" to see the validation record. The original config is kept",
+  "打开“操作日志”查看失败记录；仍无法处理时，请在设置中导出诊断包。": "Open \"Operation log\" to see the failure record; if it still can't be resolved, export a diagnostics bundle in Settings.",
+  "打开“操作日志”查看最后的错误；仍无法判断时，在设置中导出诊断包，并附上出错时正在执行的操作。": "Open the operation log to see the last error. If that doesn't explain it, export a diagnostics bundle in Settings and describe what you were doing.",
+  "暂时无法确认设置是否已保存（HTTP 503）。请在连接恢复后核对设置和操作日志，再决定是否重新保存。": "Can't confirm whether the settings were saved (HTTP 503). Once the connection recovers, check the settings and operation log before saving again.",
+  "正在下载并安装 Claude Desktop…": "Downloading and installing Claude Desktop…"
 }

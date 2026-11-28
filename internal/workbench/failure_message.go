@@ -38,7 +38,7 @@ var failureRules = []failureRule{
 	{[]string{"permission denied", "access is denied"}, "系统拒绝访问安装所需的文件或程序", "请检查应用及环境目录的权限；若安全软件拦截了 Cage lite，请先核实其拦截记录。"},
 	// Lima refuses an instance whose socket paths exceed the system limit (#913).
 	{[]string{"must be less than unix_path_max", "` too long: `", "vm name too long"}, limaPathTooLongReason, limaPathTooLongNext},
-	{[]string{"which lima cannot mount"}, "目录路径含有空格，Lima 无法把它共享进环境", "操作详情中列出了这个目录；把它移到不含空格的路径后重试。若是 Cage lite 配置目录旁的内部传输目录，步骤见故障排查文档“用户目录含空格时环境无法启动”。"},
+	{[]string{"which lima cannot mount"}, "目录路径含有空格，Lima 无法把它共享进环境", "操作日志中列出了这个目录；把它移到不含空格的路径后重试。若是 Cage lite 配置目录旁的内部传输目录，步骤见故障排查文档“用户目录含空格时环境无法启动”。"},
 	{[]string{"is also your own lima's home", "set agent_vm_lima_home to a folder for agent-vm alone"}, "宿主机环境变量 LIMA_HOME 与 Cage lite 的虚拟机目录重合", "请取消设置 LIMA_HOME 或将其改为其他目录，完全退出并重新打开 Cage lite 后重试；若正在安装应用更新，请完全退出 Cage lite 后直接运行官方安装包原地升级，原有数据和虚拟机磁盘会保留。"},
 	{[]string{"tried to start delayed item"}, "环境的软件包下载程序反复重试，未能完成安装", "请使用包含 APT 修复的 Cage lite 构建后继续安装；仍失败时导出诊断包。"},
 }
@@ -57,7 +57,7 @@ func executionFailure(action string, err error, output string) error {
 			}
 		}
 	}
-	return usererror.Wrap(action, err, "打开“操作详情”查看最后的错误；仍无法判断时，"+failureHelp)
+	return usererror.Wrap(action, err, "打开“操作日志”查看最后的错误；仍无法判断时，"+failureHelp)
 }
 
 // serviceHTTPFailure and fileServiceFailure: see desktop_failure.go

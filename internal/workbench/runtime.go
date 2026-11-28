@@ -366,7 +366,7 @@ func (s *Server) runCage(args ...string) error {
 		// "Failed to start base VM" footer. Surface that reason in job.error.
 		for _, line := range strings.Split(s.jobs.snapshot().Log, "\n") {
 			if _, reason, ok := strings.Cut(line, "Error: QEMU 启动失败："); ok {
-				return fmt.Errorf("%s失败：虚拟机未能启动。QEMU 启动失败：%s。请查看操作详情；仍无法启动时，在设置中导出诊断包。", action, reason)
+				return fmt.Errorf("%s失败：虚拟机未能启动。QEMU 启动失败：%s。请查看操作日志；仍无法启动时，在设置中导出诊断包。", action, reason)
 			}
 		}
 		diagnostics.Log("error", "environment-operation", fmt.Sprintf("operation=%s error=%v context=%v", args[0], err, ctx.Err()))

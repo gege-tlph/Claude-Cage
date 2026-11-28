@@ -154,7 +154,7 @@ func StartPreflight(ctx context.Context, profile string, s Store) (*PreflightPro
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		return nil, errors.New("随附的 Mihomo 核心未通过配置校验，请核对节点协议和参数；可在设置的“日志与诊断”中导出诊断包查看校验记录；原配置已保留")
+		return nil, errors.New("随附的 Mihomo 核心未通过配置校验，请核对节点协议和参数；可在“设置 → 环境与恢复 → 诊断包”中导出诊断包查看校验记录；原配置已保留")
 	}
 
 	_ = os.Remove(sockPath)

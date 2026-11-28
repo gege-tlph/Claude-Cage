@@ -63,7 +63,7 @@ export function httpErrorMessage(path, status, text = "", contentType = "", meth
     return localizeBackendMessage(message, localize);
   }
   if (path === "/settings" && method === "POST" && status === 503) {
-    return localize("暂时无法确认设置是否已保存（HTTP 503）。请在连接恢复后核对设置和操作详情，再决定是否重新保存。");
+    return localize("暂时无法确认设置是否已保存（HTTP 503）。请在连接恢复后核对设置和操作日志，再决定是否重新保存。");
   }
   const action = operationName(path, method);
   const reasons = {

@@ -35,8 +35,8 @@ test("known sentences joined at run time are translated one by one", () => {
     assert.equal(localizeBackendMessage("操作失败：dial tcp 1.2.3.4: refused", translate), "Operation failed: dial tcp 1.2.3.4: refused");
     assert.equal(localizeBackendMessage("诊断包导出失败：disk full", translate), "Diagnostics export failed: disk full");
     // A reason and the help after it, the help a catalog entry with "；".
-    assert.equal(localizeBackendMessage("程序提前结束（退出码 1），未返回可识别的原因。打开“操作详情”查看最后的错误；仍无法判断时，在设置中导出诊断包，并附上出错时正在执行的操作。", translate),
-      "The program ended early (exit code 1) without a recognizable reason. Open the operation details to see the last error. If that doesn't explain it, export a diagnostics bundle in Settings and describe what you were doing.");
+    assert.equal(localizeBackendMessage("程序提前结束（退出码 1），未返回可识别的原因。打开“操作日志”查看最后的错误；仍无法判断时，在设置中导出诊断包，并附上出错时正在执行的操作。", translate),
+      "The program ended early (exit code 1) without a recognizable reason. Open the operation log to see the last error. If that doesn't explain it, export a diagnostics bundle in Settings and describe what you were doing.");
     assert.equal(localizeBackendMessage("Claude Desktop 的文件服务已经退出。请从 Cage lite 重新打开 Claude Desktop；若应用反复退出，请在设置中查看资源用量并导出诊断包。", translate),
       "Claude Desktop's file service has exited. Open Claude Desktop again from Cage lite. If it keeps exiting, check resource usage in Settings and export a diagnostics bundle.");
     // An unknown sentence keeps the whole message as it was.

@@ -113,7 +113,7 @@ func (s *Server) claudeDesktopAction(w http.ResponseWriter, r *http.Request) {
 				s.mu.Unlock()
 				<-done
 			}()
-			s.setMessage("正在下载并安装 Claude Desktop，可在操作详情查看进度…")
+			s.setMessage("正在下载并安装 Claude Desktop…")
 			s.mu.Lock()
 			tls12Compat := s.preferences.InstallTLS12Compat
 			s.mu.Unlock()

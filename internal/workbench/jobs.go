@@ -233,7 +233,7 @@ func (m *jobManager) finishLocked(execution *jobExecution, err error) {
 			m.state.Failure = &copied
 			err = &copied
 		}
-		m.state.Error = usererror.Display(jobName(m.state.Kind), err, "打开“操作详情”查看失败记录；仍无法处理时，"+failureHelp).Error()
+		m.state.Error = usererror.Display(jobName(m.state.Kind), err, "打开“操作日志”查看失败记录；仍无法处理时，"+failureHelp).Error()
 		var projectFailure *projectShareError
 		if errors.As(original, &projectFailure) {
 			m.state.Recovery = projectFailure.Recovery

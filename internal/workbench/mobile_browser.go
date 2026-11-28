@@ -351,7 +351,7 @@ func (s *Server) phoneSurfaceRequest(surface phoneSurface, w http.ResponseWriter
 		job := s.jobs.snapshot()
 		if b.startJob != "" && job.ID == b.startJob && !job.Running && job.Error != "" {
 			s.retirePhoneSurfaceState(state, surface, b)
-			http.Error(w, "电脑上的 Claude Desktop 未能启动，请在电脑上查看操作详情", 502)
+			http.Error(w, "电脑上的 Claude Desktop 未能启动，请在电脑上查看操作日志", 502)
 			return
 		}
 		if b.startJob != "" && job.ID == b.startJob && job.Running && time.Now().Before(b.readyUntil) {

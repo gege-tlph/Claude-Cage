@@ -185,7 +185,7 @@ export const backendMessageKeys = [
   "节点已应用，正在重新检查环境出口…",
   "节点已应用；启动环境后完成联网检查",
   "代理节点已保存，外网尚未恢复；请重新检查联网条件：{0}",
-  "随附的 Mihomo 核心未通过配置校验，请核对节点协议和参数；可在设置的“日志与诊断”中导出诊断包查看校验记录；原配置已保留",
+  "随附的 Mihomo 核心未通过配置校验，请核对节点协议和参数；可在“设置 → 环境与恢复 → 诊断包”中导出诊断包查看校验记录；原配置已保留",
   "代理端口已被占用，请更换独立端口",
   "无法启动自带代理核心",
   "代理核心启动失败，请查看私有代理日志",
@@ -299,7 +299,7 @@ export const backendMessageKeys = [
   "连接在返回完整结果前中断",
   "当前网络无法到达目标服务",
   "程序提前结束（退出码 {0}），未返回可识别的原因",
-  "打开“操作详情”查看失败记录；仍无法处理时，请在设置中导出诊断包。",
+  "打开“操作日志”查看失败记录；仍无法处理时，请在设置中导出诊断包。",
   "请重新检测；仍失败时导出诊断包。",
   "连接恢复后会自动重试，也可手动重新检测。",
   // Common workbench HTTP & native errors
@@ -412,7 +412,7 @@ function localizePart(part, localize) {
 }
 
 // Backend text joined from several known sentences at run time, such as a
-// reason and the help after it ("原因。打开“操作详情”…；仍无法判断时，…。").
+// reason and the help after it ("原因。打开“操作日志”…；仍无法判断时，…。").
 // A sentence is first looked up whole, since catalog entries may contain
 // "；", and only then clause by clause.
 function localizeSentences(text, localize) {
