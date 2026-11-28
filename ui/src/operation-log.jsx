@@ -104,6 +104,9 @@ export function OperationLog({ job, exportAlways = false, anchor, onClose }) {
   // A backend without events shows each job's output instead.
   const events = log?.raw ? log.events : null;
   const rawText = !log?.raw ? "" : events ? eventLog(events) : rawLog(log.outputs, jobNames(entries));
+  // Until the advanced view's first read answers, the simple lines stay, so
+  // the window does not empty and shrink in between.
+  const shownRaw = raw && Boolean(log?.raw);
   // Follow new lines while the view is scrolled to the end.
   useLayoutEffect(() => {
     const element = body.current;
@@ -145,7 +148,7 @@ export function OperationLog({ job, exportAlways = false, anchor, onClose }) {
       </header>
       {error && <p className="operation-log-error" role="alert">{localizeBackendMessage(error, tr)}</p>}
       <div className="operation-log-content">
-      {view === "simple"
+      {!shownRaw
         ? <div ref={body} className="operation-log-body" onScroll={scrolled}>
           {entries.length ? logGroups(entries).map((group, index) => (
             <ol key={`${group.job}:${index}`} className="operation-log-job">
@@ -168,7 +171,7 @@ export function OperationLog({ job, exportAlways = false, anchor, onClose }) {
             </span>
           ))}</pre> : rawText ? <pre>{rawText}</pre> : log?.raw && empty}
         </div>}
-        <CopyButton text={raw ? rawText : simpleLog(entries, (message) => localizeBackendMessage(message, tr))} onError={setError} />
+        <CopyButton text={shownRaw ? rawText : simpleLog(entries, (message) => localizeBackendMessage(message, tr))} onError={setError} />
       </div>
       {(failed || exportAlways) && <footer className="operation-log-foot">
         {exportError && <span className="operation-log-error" role="alert">{localizeBackendMessage(exportError, tr)}</span>}
