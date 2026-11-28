@@ -101,14 +101,14 @@ export function SettingsPanel({
     [staticDraftOffer, setStaticDraftOffer] = useState(false),
     [jobId, setJobId] = useState(""),
     [submitting, setSubmitting] = useState(false);
-  // 「有未应用的修改」 in place of the submit bar, after asking to leave.
-  const [leaving, setLeaving] = useState(false);
   // A node or chain chosen on 网络与代理 and not yet applied (ProxySettings).
   const [proxyPending, setProxyPending] = useState(null);
   const savePhase = usePhase();
   // 加密 DNS, opened by a failure's 「加密 DNS」 button (failure-flows.mjs).
   const dnsSection = useRef(null), advancedSection = useRef(null);
   const sidebar = useRef(null);
+  // Counts the ← clicks refused while changes wait; the submit bar flashes.
+  const [attention, setAttention] = useState(0);
   useSidebarEdge(sidebar);
   const openDNS = () => {
     setSection("network");
@@ -170,9 +170,10 @@ export function SettingsPanel({
       onClose();
       return;
     }
-    // Settings that only apply through the submit bar ask in the bar itself.
+    // Changes waiting in the submit bar: ← stays and the bar flashes; it
+    // leaves after 撤销修改 or the apply (user, 2026-11-28: no dialog).
     if (changed || proxyPending) {
-      setLeaving(true);
+      setAttention((n) => n + 1);
       return;
     }
     if (
@@ -306,7 +307,6 @@ export function SettingsPanel({
   // settings; a failed start then carries on (carryOnAfter).
   const applyAll = async () => {
     if (busy) return;
-    setLeaving(false);
     if (proxyPending) {
       if (!changed) savePhase.start();
       const ok = await proxyPending.apply();
@@ -323,7 +323,6 @@ export function SettingsPanel({
     if (changed) await save();
   };
   const undoAll = () => {
-    setLeaving(false);
     setDraft({ ...current });
     setProbe(null);
     setError("");
@@ -971,9 +970,7 @@ export function SettingsPanel({
           disabledReason={busy ? tr("另一个操作仍在进行") : proxyPending && !proxyPending.ready ? tr("链式代理还有待选择的节点") : ""}
           onApply={applyAll}
           onUndo={undoAll}
-          leaving={leaving}
-          onDiscard={() => { setLeaving(false); onClose(); }}
-          onKeepEditing={() => setLeaving(false)}
+          attention={attention}
         />
       </div>
     </section>

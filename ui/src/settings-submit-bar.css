@@ -26,8 +26,19 @@
 .settings-submit-actions { display: flex; gap: 8px; align-items: center; margin-left: auto; }
 .settings-submit-actions button { min-height: 36px; padding: 6px 16px; border-radius: 8px; }
 .settings-submit-actions .text-button { padding: 6px 10px; }
-@media (prefers-reduced-motion: reduce) { .settings-submit { transition: none; } }
+/* ← refused while changes wait: the bar flashes twice in the accent tint. */
+@keyframes settings-submit-attention {
+  0%, 50%, 100% { background-color: color-mix(in srgb, var(--paper) 94%, transparent); }
+  25%, 75% { background-color: color-mix(in srgb, var(--accent) 16%, var(--paper)); }
+}
+.settings-submit-bar.is-attention { animation: settings-submit-attention 900ms ease-in-out; }
+.settings-submit-bar.is-attention .settings-submit-text b { color: var(--accent); }
+@media (prefers-reduced-motion: reduce) {
+  .settings-submit { transition: none; }
+  .settings-submit-bar.is-attention { animation: none; background-color: color-mix(in srgb, var(--accent) 16%, var(--paper)); }
+}
 :root[data-reduced-motion="true"] .settings-submit { transition: none; }
+:root[data-reduced-motion="true"] .settings-submit-bar.is-attention { background-color: color-mix(in srgb, var(--accent) 16%, var(--paper)); }
 @media (max-width: 640px) {
   .settings-submit-text { flex-basis: 100%; white-space: normal; }
   .settings-submit-actions { margin-left: 0; }
