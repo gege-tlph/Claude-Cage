@@ -236,9 +236,13 @@ internal sealed class AppUpdater : IDisposable
         {
             if (started)
             {
-                if (!process.HasExited) process.Kill();
+                // A downloader that is exiting can refuse the kill; the failure
+                // below must still be reported and the next update able to start.
+                try { if (!process.HasExited) process.Kill(); }
+                catch (Exception error) when (error is InvalidOperationException or System.ComponentModel.Win32Exception) { }
                 // Windows can expose an exit code before the process handle signals and releases its files.
-                if (!process.WaitForExit(0)) await Task.Run(process.WaitForExit);
+                try { if (!process.WaitForExit(0)) await Task.Run(process.WaitForExit); }
+                catch (InvalidOperationException) { }
             }
             if (archive != null) { try { Directory.Delete(Path.GetDirectoryName(archive)!, true); } catch (IOException) { } }
             if (failure != null) Change("failed", failure, true, retryAt);
