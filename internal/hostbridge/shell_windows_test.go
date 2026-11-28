@@ -290,3 +290,21 @@ func TestWindowsShellChineseOutput(t *testing.T) {
 		}
 	}
 }
+
+// A shell that is not installed is reported before the approval dialog (A20).
+func TestMissingShellFailsBeforeApproval(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	dir := t.TempDir()
+	asked := false
+	command := Command{Dirs: func() []string { return []string{dir} }, Approve: func(context.Context, CommandRequest) error {
+		asked = true
+		return nil
+	}}
+	_, err := command.run(context.Background(), commandInput{Command: "Get-Date", Shell: "pwsh"})
+	if err == nil || !strings.Contains(err.Error(), "pwsh.exe") {
+		t.Fatalf("err = %v", err)
+	}
+	if asked {
+		t.Fatal("asked for approval of a command whose shell is missing")
+	}
+}

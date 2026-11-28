@@ -125,6 +125,11 @@ func (c Command) run(ctx context.Context, in commandInput) (commandOutput, error
 	if err != nil {
 		return commandOutput{}, err
 	}
+	// A shell that is not installed fails here, before the user is asked to
+	// allow a command that could not run.
+	if _, err := shellCommand(in.Command, shell); err != nil {
+		return commandOutput{}, err
+	}
 	if c.Approve != nil {
 		if err := c.Approve(ctx, CommandRequest{Command: in.Command, Shell: shell, Dir: dir, Project: project}); err != nil {
 			return commandOutput{}, err
