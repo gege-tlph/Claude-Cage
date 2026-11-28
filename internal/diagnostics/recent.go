@@ -1,6 +1,9 @@
 package diagnostics
 
 import (
+	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
 )
@@ -27,6 +30,24 @@ type recentLog struct {
 }
 
 var recent recentLog
+
+// isDefault: s writes to the default store's folder. Much of the workbench
+// records through its own diagnostics.New(profile) for the same folder,
+// and those events belong to this run's log too.
+func (s *Store) isDefault() bool {
+	d := Default()
+	if d == nil || s == nil {
+		return false
+	}
+	if s == d {
+		return true
+	}
+	a, b := filepath.Clean(s.dir), filepath.Clean(d.dir)
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(a, b)
+	}
+	return a == b
+}
 
 var levelRank = map[string]int{"debug": 0, "info": 1, "warn": 2, "error": 3}
 

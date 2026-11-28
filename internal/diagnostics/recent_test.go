@@ -2,6 +2,7 @@ package diagnostics
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -22,6 +23,8 @@ func TestRecentKeepsTheDefaultStoresEventsByLevel(t *testing.T) {
 	store.Record("error", "api", "failed")
 	// Another store is not this run's log.
 	New(t.TempDir()).Record("error", "other", "not shown")
+	// A store of its own for the same folder is (diagnostics.New(profile)).
+	New(filepath.Dir(store.dir)).Record("warn", "safety-probe", "browser retry")
 
 	levels := func(events []Event) string {
 		var out []string
@@ -30,14 +33,14 @@ func TestRecentKeepsTheDefaultStoresEventsByLevel(t *testing.T) {
 		}
 		return strings.Join(out, ",")
 	}
-	if got := levels(Recent("debug", 10)); got != "debug:vm-hostagent,info:task/start,warn:proxy,error:api" {
+	if got := levels(Recent("debug", 10)); got != "debug:vm-hostagent,info:task/start,warn:proxy,error:api,warn:safety-probe" {
 		t.Fatalf("debug: %s", got)
 	}
-	if got := levels(Recent("warn", 10)); got != "warn:proxy,error:api" {
+	if got := levels(Recent("warn", 10)); got != "warn:proxy,error:api,warn:safety-probe" {
 		t.Fatalf("warn: %s", got)
 	}
 	// An unknown level reads as info; max keeps the newest.
-	if got := levels(Recent("loud", 2)); got != "warn:proxy,error:api" {
+	if got := levels(Recent("loud", 2)); got != "error:api,warn:safety-probe" {
 		t.Fatalf("max: %s", got)
 	}
 	if events := Recent("info", 10); strings.Contains(events[0].Message, "secret-value") {

@@ -250,7 +250,7 @@ func (s *Store) appendEvents(events []Event) error {
 		kept = append(kept, event)
 		size += int64(len(b))
 	}
-	if s == Default() {
+	if s.isDefault() {
 		recent.add(kept)
 	}
 	return s.withLock(func() error {
