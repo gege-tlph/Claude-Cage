@@ -63,8 +63,16 @@ echo "installed in $(( $(date +%s) - started )) s"
 
 echo '== collect and assemble'
 "$tool" collect -cage "$cage" -config "$config" -out "$work/collected.tar"
-data=$(find "${CAGE_LIMA_CACHE_DIR:-$HOME/.cache/lima}" "$work" -path '*/download/by-url-sha256/*/data' -print -quit 2>/dev/null)
+ls -l "$work/collected.tar"
+# Lima's download cache: CAGE_LIMA_CACHE_DIR, the user cache, or the profile's storage.
+data=
+for dir in "${CAGE_LIMA_CACHE_DIR:-}" "$HOME/.cache/lima" "$work"; do
+  [[ -n "$dir" && -d "$dir" ]] || continue
+  data=$(find "$dir" -path '*/download/by-url-sha256/*/data' -print -quit 2>/dev/null || true)
+  [[ -z "$data" ]] || break
+done
 [[ -n "$data" ]] || { echo 'The Debian image is not in the Lima cache' >&2; exit 1; }
+echo "image: $(dirname "$data")"
 "$tool" assemble -collected "$work/collected.tar" -image-entry "$(dirname "$data")" -version "$version" \
   -tool-versions internal/cage/tool-versions.env -out "$out"
 call environment.stop --wait 10m || true
