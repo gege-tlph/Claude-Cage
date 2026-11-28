@@ -6146,7 +6146,6 @@
   "点击“开始安装”，等待环境安装和网络检查完成。以初始化界面的检查结果为准；": "Click \"Start installing\" and wait for the environment install and network check to finish. The setup screen's check result is what counts;",
   "测速后选出口所在地区最快的节点作前置": "Test speeds, then use the fastest node in the exit's region as the relay",
   "在下面选择节点": "Choose a node below",
-  "设为前置": "Make relay",
   "下移": "Move down",
   "添加前置": "Add relay",
   "{0}/{0} 步": "{0}/{0} steps",

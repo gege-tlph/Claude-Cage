@@ -1,13 +1,14 @@
 import React from "react";
 import { ArrowDown, ArrowRight, ArrowUp, Plus, Route, X } from "lucide-react";
 import { useTranslation } from "./interface-language.mjs";
-import { addRelay, canMakeRelay, makeRelay, move, remove } from "./proxy-route.mjs";
+import { addRelay, move, remove } from "./proxy-route.mjs";
 
-// ProxyRouteEditor edits a chain (demo v11 「链式代理」): one row per hop from
+// ProxyRouteEditor edits a chain (demo v12 「链式代理」): one row per hop from
 // the first 前置 to the 出口, the last row. The row being chosen has a blue
-// frame and takes the next node picked in the list; ↑↓ trade places; a fresh
-// chain offers 「设为前置」 on the old exit, so the old node does not have to
-// stay the exit. onChange receives { route, active }.
+// frame and takes the next node picked in the list; the arrow icons trade
+// places, so the old exit of a fresh chain becomes the relay with its ↑
+// (user: arrows only, as icons, never characters). onChange receives
+// { route, active }.
 export function ProxyRouteEditor({ route, active, nameOf, onChange, disabled, addable = true }) {
   const tr = useTranslation();
   const last = route.length - 1;
@@ -24,8 +25,6 @@ export function ProxyRouteEditor({ route, active, nameOf, onChange, disabled, ad
             <span className={`proxy-hop-name${id ? "" : " empty"}`}>{name}</span>
           </button>
           <span className="proxy-hop-tools">
-            {exit && canMakeRelay(route) && <button type="button" className="proxy-hop-swap" disabled={disabled}
-              onClick={() => onChange(makeRelay(route))}>{tr("设为前置")}</button>}
             <button type="button" className="icon-button" disabled={disabled || index === 0} aria-label={tr("上移")} title={tr("上移")}
               onClick={() => onChange(move(route, index, -1))}><ArrowUp size={14} /></button>
             <button type="button" className="icon-button" disabled={disabled || exit} aria-label={tr("下移")} title={tr("下移")}

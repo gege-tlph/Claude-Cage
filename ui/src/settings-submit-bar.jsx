@@ -1,6 +1,7 @@
 import React from "react";
 import { ActionButton } from "./action-button";
 import { useTranslation } from "./interface-language.mjs";
+import { RouteText } from "./route-text";
 import "./settings-submit-bar.css";
 
 // The one place a settings page commits (design agreed 2026-11-28, demo
@@ -38,7 +39,7 @@ export function SettingsSubmitBar({
             <button type="button" className="primary" autoFocus onClick={onKeepEditing}>{tr("继续编辑")}</button>
           </span>
         </> : <>
-          <span className="settings-submit-text" title={summary}>{summary && <>{tr("待应用：")}<b>{summary}</b></>}</span>
+          <span className="settings-submit-text" title={summary}>{summary && <>{tr("待应用：")}<b><RouteText text={summary} /></b></>}</span>
           <span className="settings-submit-actions">
             <button type="button" className="text-button" disabled={busy || !open} onClick={onUndo}>{tr("撤销修改")}</button>
             <ActionButton className="primary" phase={phase} busyLabel={busyLabel} disabled={disabled || !open}

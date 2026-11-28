@@ -1,13 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { addRelay, canMakeRelay, choose, makeRelay, move, nextEmpty, remove, toChain, toSingle } from "./proxy-route.mjs";
+import { addRelay, choose, move, nextEmpty, remove, toChain, toSingle } from "./proxy-route.mjs";
 
 test("switching to a chain does not pin the old node as the exit", () => {
   const fresh = toChain(["hk"]);
   assert.deepEqual(fresh, { route: ["", "hk"], active: 0 });
-  assert.equal(canMakeRelay(fresh.route), true);
-  // 设为前置: the old node goes in front, the exit is now the slot to choose.
-  const relay = makeRelay(fresh.route);
+  // Moving the old exit up makes it the relay; the exit is the slot to choose.
+  const relay = move(fresh.route, 1, -1);
   assert.deepEqual(relay, { route: ["hk", ""], active: 1 });
   assert.deepEqual(choose(relay.route, relay.active, "us"), { route: ["hk", "us"], active: -1 });
 });

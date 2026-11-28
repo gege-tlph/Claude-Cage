@@ -21,26 +21,16 @@ export function toSingle(route) {
   return { route: [exit], active: -1 };
 }
 
-// makeRelay is 「设为前置」 on the exit of a fresh chain: the old exit moves in
-// front, and the exit becomes the slot being chosen.
-export function makeRelay(route) {
-  if (route.length !== 2 || route[0] || !route[1]) return { route, active: nextEmpty(route) };
-  return { route: [route[1], ""], active: 1 };
-}
-
-// canMakeRelay: the chain is fresh (an empty 前置 before a chosen exit).
-export function canMakeRelay(route) {
-  return route.length === 2 && !route[0] && Boolean(route[1]);
-}
-
-// move swaps hop index with its neighbour (-1 up, +1 down); the moved hop
-// stays the one being chosen.
+// move swaps hop index with its neighbour (-1 up, +1 down). A hop still to
+// choose stays the one being chosen (moving the old exit of a fresh chain up
+// makes it the relay and leaves the exit to choose); else the moved hop is.
 export function move(route, index, by) {
   const to = index + by;
   if (to < 0 || to >= route.length) return { route, active: index };
   const next = [...route];
   [next[index], next[to]] = [next[to], next[index]];
-  return { route: next, active: to };
+  const empty = nextEmpty(next);
+  return { route: next, active: empty >= 0 ? empty : to };
 }
 
 // remove drops a 前置 (never the exit); a chain of one becomes single.

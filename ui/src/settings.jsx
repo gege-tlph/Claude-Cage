@@ -32,6 +32,7 @@ import { FailureCard } from "./failure-card";
 import { failureOf } from "./failure-text.mjs";
 import { reapplyNode, recheckNetwork } from "./failure-flows.mjs";
 import { SettingsSubmitBar } from "./settings-submit-bar";
+import { RouteText } from "./route-text";
 import { pendingSummary } from "./settings-pending.mjs";
 import { AppearanceSettings } from "./appearance-settings";
 import { NotificationSettings } from "./notification-settings";
@@ -427,7 +428,7 @@ export function SettingsPanel({
                     <div className="settings-card settings-exit-card">
                       <div className="settings-row">
                         <div className="settings-row-copy">
-                          <strong>{nodeName || tr("当前出口")}</strong>
+                          <strong>{nodeName ? <RouteText text={nodeName} /> : tr("当前出口")}</strong>
                           <small className="settings-exit-meta">
                             {currentLoc ? (
                               <>

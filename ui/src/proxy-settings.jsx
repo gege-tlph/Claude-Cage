@@ -40,6 +40,7 @@ import { failureOf } from "./failure-text.mjs";
 import { enableClientHelloSplit, openSettingsSection, restartEnvironment } from "./failure-flows.mjs";
 import { StatusIcon } from "./status-icon";
 import { ProxyRouteEditor } from "./proxy-route-editor";
+import { RouteText } from "./route-text";
 import { choose, toChain, toSingle } from "./proxy-route.mjs";
 
 const bytes = (v) => {
@@ -651,10 +652,10 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, onTool, o
             {needsMigration ? tr("代理链需要迁移") : selected ? (savedRoute.length > 1 ? tr("最终出口 · {0}", selected.name) : tr("出口 · {0}", selected.name)) : tr("尚未配置代理节点")}
           </strong>
           {needsMigration ? (
-            <span className="proxy-current-route">{savedRoute.map(routeName).join(" → ")}</span>
+            <span className="proxy-current-route"><RouteText text={savedRoute.map(routeName).join(" → ")} /></span>
           ) : savedRoute.length > 1 && (
             <span className="proxy-current-route">
-              {tr("当前链路：{0}", savedRoute.map(routeName).join(" → "))}
+              <RouteText text={tr("当前链路：{0}", savedRoute.map(routeName).join(" → "))} />
             </span>
           )}
           <span>
