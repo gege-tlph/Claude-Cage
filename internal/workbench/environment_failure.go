@@ -3,11 +3,13 @@ package workbench
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/pbnjay/memory"
+	"github.com/sylvinus/agent-vm/internal/cage"
 	"github.com/sylvinus/agent-vm/internal/diagnostics"
 	"github.com/sylvinus/agent-vm/internal/host"
 	"github.com/sylvinus/agent-vm/internal/usererror"
@@ -17,7 +19,27 @@ import (
 // as notes/failure-text-audit-2026-11-28.md group 1 has it: where it got
 // stuck, what was seen, one next step and the tools for it. It returns nil
 // for setup, which keeps the install rules (failureRules) for now.
-func environmentFailure(op, action string, cause error, output, dir string) *usererror.Failure {
+// failureFacts are what a failed start knows about its environment, for
+// checking the computer when the output names no cause.
+type failureFacts struct {
+	// dir is the environment's Lima home, on the disk it lives on.
+	dir string
+	// memoryGiB is the environment's memory setting; 0 when unknown.
+	memoryGiB int
+	// orphaned reports a virtual machine left running without Lima (#508).
+	orphaned func() bool
+}
+
+// The computer's state, read after a failure. Tests replace them.
+var (
+	hostFreeGiB         = host.FreeGiB
+	hostFreeMemory      = memory.FreeMemory
+	hostHypervisorReady = host.HypervisorReady
+	hostVolume          = host.UnsupportedVolume
+)
+
+func environmentFailure(op, action string, cause error, output string, facts failureFacts) *usererror.Failure {
+	dir := facts.dir
 	var next string
 	var retry []string
 	switch op {
@@ -32,7 +54,7 @@ func environmentFailure(op, action string, cause error, output, dir string) *use
 	fail := func(reason, next string, tools ...string) *usererror.Failure {
 		return usererror.Fail(action, reason, next, cause, tools...)
 	}
-	if f := qemuFailure(action, cause, output); f != nil {
+	if f := qemuFailure(action, cause, output, facts.memoryGiB); f != nil {
 		return f
 	}
 	if f := limaStartFailure(action, cause, output); f != nil {
@@ -40,7 +62,7 @@ func environmentFailure(op, action string, cause error, output, dir string) *use
 	}
 	switch {
 	case strings.Contains(lower, strings.ToLower(host.HypervisorPlatformMissing)), strings.Contains(lower, strings.ToLower(host.HypervisorNotReady)):
-		return fail("原因是 Windows 虚拟化未就绪", "在固件中开启 CPU 虚拟化，在「启用或关闭 Windows 功能」中启用 Windows Hypervisor Platform，然后重启电脑", usererror.ToolStart)
+		return hypervisorFailure(action, cause)
 	case strings.Contains(lower, "is still running, or lima cannot say"):
 		return usererror.Fail("停止环境", "原因是无法确认虚拟机已停止", "重试停止，不要手动删除环境目录", cause, usererror.ToolStop, usererror.ToolDiagnostics)
 	case containsAny(lower, `qemu-img": executable file not found`, `qemu-img\": executable file not found`, `qemu-system-x86_64": executable file not found`, `qemu-system-x86_64\": executable file not found`, "lima needs 'qemu-"):
@@ -61,12 +83,17 @@ func environmentFailure(op, action string, cause error, output, dir string) *use
 		return fail("原因是连接 Linux 容器超时", next, usererror.ToolStart, usererror.ToolLog)
 	case strings.Contains(output, "容器的项目挂载尚未初始化"):
 		return fail("原因是 Linux 容器的项目文件夹未挂载", "重启环境", usererror.ToolRestart)
+	case strings.Contains(lower, "was left running without lima's host agent") && strings.Contains(lower, "could not stop vm"):
+		return orphanFailure(action, cause)
 	case containsAny(lower, "permission denied", "access is denied"):
-		return fail("原因是系统拒绝访问环境所需的文件或程序", "在安全软件中允许 Cage lite，并检查环境目录的权限", usererror.ToolDiagnostics)
+		return deniedFailure(action, cause, output, dir)
 	}
-	// Nothing in the output names a cause: look at the computer itself.
-	if free, ok := host.FreeGiB(dir); ok && dir != "" && free < lowDiskGiB {
-		return diskFailure(action, cause, dir)
+	// Nothing in the output names a cause: look at the computer itself
+	// (notes/failure-text-audit-2026-11-28.md B1–B7), first match wins.
+	if op == "up" {
+		if f := checkedFailure(action, cause, facts); f != nil {
+			return f
+		}
 	}
 	return usererror.Unrecognized(action, lastErrorLine(output), next, cause, append(retry[:1:1], usererror.ToolLog, usererror.ToolDiagnostics)...)
 }
@@ -74,9 +101,81 @@ func environmentFailure(op, action string, cause error, output, dir string) *use
 // lowDiskGiB is the free space under which a failed start blames the disk.
 const lowDiskGiB = 2
 
+// checkedFailure reads the computer after a start the output does not
+// explain: disk space, memory, a left-over virtual machine, Windows
+// virtualization, and the file system the environment lives on.
+func checkedFailure(action string, cause error, facts failureFacts) *usererror.Failure {
+	if facts.dir != "" {
+		if free, ok := hostFreeGiB(facts.dir); ok && free < lowDiskGiB {
+			return diskFailure(action, cause, facts.dir)
+		}
+	}
+	if free := hostFreeMemory(); facts.memoryGiB > 0 && free > 0 && free < uint64(facts.memoryGiB)<<30 {
+		return memoryFailure(action, cause, facts.memoryGiB, free)
+	}
+	if facts.orphaned != nil && facts.orphaned() {
+		return orphanFailure(action, cause)
+	}
+	if err := hostHypervisorReady(); err != nil {
+		return hypervisorFailure(action, cause)
+	}
+	if facts.dir != "" {
+		if kind := hostVolume(facts.dir); kind != "" {
+			if kind == host.VolumeNetwork {
+				kind = "网络驱动器"
+			}
+			return usererror.Fail(action, "原因是环境目录所在磁盘不支持（"+kind+"）", "在环境与恢复中把环境目录迁到 NTFS 磁盘", cause, usererror.ToolSettingsProject)
+		}
+	}
+	return nil
+}
+
+func hypervisorFailure(action string, cause error) *usererror.Failure {
+	return usererror.Fail(action, "原因是 Windows 虚拟化未就绪", "在固件中开启 CPU 虚拟化，在「启用或关闭 Windows 功能」中启用 Windows Hypervisor Platform，然后重启电脑", cause, usererror.ToolStart)
+}
+
+// orphanFailure: the virtual machine of the last run still runs without
+// Lima, and the start could not stop it (#508). Stopping again, then
+// starting, is one button.
+func orphanFailure(action string, cause error) *usererror.Failure {
+	return usererror.Fail(action, "原因是上次的虚拟机仍在运行，没能停止", "重启环境", cause, usererror.ToolRestart, usererror.ToolDiagnostics)
+}
+
+func memoryFailure(action string, cause error, needGiB int, free uint64) *usererror.Failure {
+	reason := "原因是电脑可用内存不足"
+	switch {
+	case needGiB > 0 && free > 0:
+		reason = fmt.Sprintf("原因是电脑可用内存不足（需要 %d GiB，可用 %.1f GiB）", needGiB, float64(free)/(1<<30))
+	case free > 0:
+		reason = fmt.Sprintf("原因是电脑可用内存不足（可用 %.1f GiB）", float64(free)/(1<<30))
+	}
+	return usererror.Fail(action, reason, "关闭其他程序，或在计算资源中调小内存", cause, usererror.ToolResources, usererror.ToolStart)
+}
+
+// deniedFailure tells a refused QEMU from an environment folder that cannot
+// be written, by the line that was refused.
+func deniedFailure(action string, cause error, output, dir string) *usererror.Failure {
+	line := ""
+	for _, candidate := range strings.Split(output, "\n") {
+		if lower := strings.ToLower(candidate); strings.Contains(lower, "permission denied") || strings.Contains(lower, "access is denied") {
+			line = candidate
+		}
+	}
+	lower := strings.ToLower(line)
+	if m := qemuProgram.FindString(lower); m != "" {
+		return usererror.Fail(action, "原因是系统拒绝运行 QEMU（"+m+"）", "在安全软件中允许 Cage lite", cause, usererror.ToolDiagnostics)
+	}
+	if dir != "" && (strings.Contains(lower, strings.ToLower(dir)) || strings.Contains(lower, strings.ToLower(filepath.ToSlash(dir)))) {
+		return usererror.Fail(action, "原因是系统拒绝写入环境目录（"+dir+"）", "检查环境目录的权限", cause, usererror.ToolSettingsProject)
+	}
+	return usererror.Fail(action, "原因是系统拒绝访问环境所需的文件或程序", "在安全软件中允许 Cage lite，并检查环境目录的权限", cause, usererror.ToolDiagnostics)
+}
+
+var qemuProgram = regexp.MustCompile(`qemu-(?:system-[a-z0-9_]+|img)(?:\.exe)?`)
+
 func diskFailure(action string, cause error, dir string) *usererror.Failure {
 	reason := "原因是环境所在磁盘空间不足"
-	if free, ok := host.FreeGiB(dir); ok && dir != "" {
+	if free, ok := hostFreeGiB(dir); ok && dir != "" {
 		reason = fmt.Sprintf("原因是环境所在磁盘空间不足（剩余 %d GiB）", free)
 	}
 	return usererror.Fail(action, reason, "释放磁盘空间后重试，不要删除 Cage lite 的数据目录", cause, usererror.ToolStart, usererror.ToolSettingsProject)
@@ -84,7 +183,7 @@ func diskFailure(action string, cause error, dir string) *usererror.Failure {
 
 // qemuFailure reads QEMU's own words, which runtime and vm pass on as
 // 「QEMU 启动失败：…」.
-func qemuFailure(action string, cause error, output string) *usererror.Failure {
+func qemuFailure(action string, cause error, output string, memoryGiB int) *usererror.Failure {
 	var message string
 	for _, line := range strings.Split(output, "\n") {
 		if _, rest, ok := strings.Cut(line, "QEMU 启动失败："); ok {
@@ -102,11 +201,7 @@ func qemuFailure(action string, cause error, output string) *usererror.Failure {
 	case containsAny(lower, `failed to get "write" lock`, "is another process using the image"):
 		return fail("原因是环境磁盘正被另一个进程使用", "重启环境", usererror.ToolRestart, usererror.ToolDiagnostics)
 	case containsAny(lower, "cannot set up guest memory", "cannot allocate memory"):
-		reason := "原因是电脑可用内存不足"
-		if free := memory.FreeMemory(); free > 0 {
-			reason = fmt.Sprintf("原因是电脑可用内存不足（可用 %.1f GiB）", float64(free)/(1<<30))
-		}
-		return fail(reason, "关闭其他程序，或在计算资源中调小内存", usererror.ToolResources, usererror.ToolStart)
+		return memoryFailure(action, cause, memoryGiB, hostFreeMemory())
 	case containsAny(lower, "could not access kvm kernel module", "failed to initialize kvm"):
 		return fail("原因是 KVM 不可用", "确认已开启 CPU 虚拟化，并允许当前用户使用 KVM", usererror.ToolStart)
 	case containsAny(lower, "hv_error", "hvf error"):
@@ -260,4 +355,42 @@ func containsAny(text string, patterns ...string) bool {
 		}
 	}
 	return false
+}
+
+// failureFacts gathers what environmentFailure checks after a failure.
+func (s *Server) failureFacts() failureFacts {
+	limaHome, _ := s.commandLimaHome()
+	facts := failureFacts{dir: limaHome, orphaned: s.vmOrphaned}
+	if a, err := cage.LoadResourceAllocation(s.configPath); err == nil {
+		if memoryGiB, _, err := a.Limits(); err == nil {
+			facts.memoryGiB = memoryGiB
+		}
+	}
+	return facts
+}
+
+// browserNotReady is a start whose virtual machine runs but whose browser
+// never answered (A17).
+func browserNotReady(waited time.Duration) *usererror.Failure {
+	reason := "卡在启动浏览器，原因是浏览器连接未就绪"
+	if text := usererror.Duration(waited); text != "" {
+		reason += "（" + text + "）"
+	}
+	return usererror.Fail("启动环境", reason, "重试启动", nil, usererror.ToolStart, usererror.ToolLog)
+}
+
+var limaForcedKill = regexp.MustCompile(`QEMU did not exit in (\S+?),? forcibly killing QEMU`)
+
+// noteForcedShutdown adds one line to the simple log when Lima had to kill
+// QEMU after the shutdown wait (C2): the stop still succeeded.
+func (s *Server) noteForcedShutdown(output string) {
+	m := limaForcedKill.FindAllStringSubmatch(output, -1)
+	if len(m) == 0 {
+		return
+	}
+	if wait := limaDuration(m[len(m)-1][1]); wait != "" {
+		s.setMessage("虚拟机未在 " + wait + "内关机，已强制结束")
+		return
+	}
+	s.setMessage("虚拟机未按时关机，已强制结束")
 }

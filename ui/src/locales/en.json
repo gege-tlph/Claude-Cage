@@ -5834,5 +5834,20 @@
   "导出中": "Exporting",
   "{0} 分": "{0} min",
   "重启中": "Restarting",
-  "重启环境？": "Restart the environment?"
+  "重启环境？": "Restart the environment?",
+  "卡在启动浏览器，原因是浏览器连接未就绪": "stuck at starting the browser, the browser connection isn't ready",
+  "原因是浏览器连接未就绪（{0}）": "the browser connection isn't ready ({0})",
+  "原因是浏览器连接未就绪": "the browser connection isn't ready",
+  "原因是上次的虚拟机仍在运行，没能停止": "the VM from the last run is still running and couldn't be stopped",
+  "原因是环境目录所在磁盘不支持（{0}）": "the environment folder's disk isn't supported ({0})",
+  "原因是电脑可用内存不足（需要 {0} GiB，可用 {1} GiB）": "the computer is low on available memory ({0} GiB needed, {1} GiB available)",
+  "原因是系统拒绝写入环境目录（{0}）": "the system denied writing to the environment folder ({0})",
+  "原因是系统拒绝运行 QEMU（{0}）": "the system denied running QEMU ({0})",
+  "在安全软件中允许 Cage lite": "Allow Cage lite in your security software",
+  "在环境与恢复中把环境目录迁到 NTFS 磁盘": "Move the environment folder to an NTFS disk in Environment & recovery",
+  "检查环境目录的权限": "Check the environment folder's permissions",
+  "网络驱动器": "network drive",
+  "虚拟机未在 {0}内关机，已强制结束": "The VM didn't shut down within {0} and was forced to stop",
+  "虚拟机未按时关机，已强制结束": "The VM didn't shut down in time and was forced to stop",
+  "连接项目文件夹": "Connect project folder"
 }

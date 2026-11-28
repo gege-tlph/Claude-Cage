@@ -354,8 +354,7 @@ func (s *Server) runCage(args ...string) error {
 			return packageErr
 		}
 		// Starting and stopping say where they got stuck (environment_failure.go).
-		limaHome, _ := s.commandLimaHome()
-		if failure := environmentFailure(args[0], action, errors.Join(ctx.Err(), err), s.jobs.snapshot().Log, limaHome); failure != nil {
+		if failure := environmentFailure(args[0], action, errors.Join(ctx.Err(), err), s.jobs.snapshot().Log, s.failureFacts()); failure != nil {
 			diagnostics.Log("error", "environment-operation", fmt.Sprintf("operation=%s error=%v context=%v", args[0], err, ctx.Err()))
 			return failure
 		}
@@ -368,6 +367,9 @@ func (s *Server) runCage(args ...string) error {
 		}
 		diagnostics.Log("error", "environment-operation", fmt.Sprintf("operation=%s error=%v context=%v", args[0], err, ctx.Err()))
 		return executionFailure(action, errors.Join(ctx.Err(), err), s.jobs.snapshot().Log)
+	}
+	if args[0] == "stop" || args[0] == "down" {
+		s.noteForcedShutdown(s.jobs.snapshot().Log)
 	}
 	return nil
 }
@@ -552,6 +554,7 @@ func (s *Server) startEnvironment(syncTimezone bool) error {
 	if err = s.runCage("up"); err != nil {
 		return err
 	}
+	waited := time.Now()
 	for i := 0; i < 8; i++ {
 		if s.operationContext().Err() != nil {
 			return s.operationContext().Err()
@@ -561,7 +564,7 @@ func (s *Server) startEnvironment(syncTimezone bool) error {
 		}
 		time.Sleep(time.Second)
 	}
-	return errors.New("环境已启动，但浏览器连接尚未就绪。请重试连接或查看操作详情。")
+	return browserNotReady(time.Since(waited))
 }
 func (s *Server) stopEnvironment() (returned error) {
 	s.desktopStatus.invalidate()

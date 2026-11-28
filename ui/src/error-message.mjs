@@ -44,7 +44,7 @@ export function operationName(path = "", method = "GET") {
   if (path.startsWith("/settings")) return reading ? "读取设置" : "保存设置";
   if (path.startsWith("/diagnostics/export")) return "导出诊断日志";
   if (path.startsWith("/diagnostics")) return "读取诊断日志";
-  if (path.startsWith("/projects")) return "连接项目目录";
+  if (path.startsWith("/projects")) return "连接项目文件夹";
   if (path.startsWith("/account")) return "处理账户操作";
   if (path.startsWith("/claude-desktop")) return "操作 Claude Desktop";
   if (path.startsWith("/desktop-instances")) return reading ? "读取 Desktop 实例" : "操作 Desktop 实例";

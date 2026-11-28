@@ -12,6 +12,7 @@ import (
 )
 
 func TestEnvironmentFailureNamesWhereStartingGotStuck(t *testing.T) {
+	healthyHost(t)
 	cause := errors.New("exit status 1")
 	for _, tc := range []struct {
 		name, op, output, reason string
@@ -44,7 +45,7 @@ func TestEnvironmentFailureNamesWhereStartingGotStuck(t *testing.T) {
 		{"unknown", "up", "starting\nlevel=error msg=\"browser display exited, status=1/FAILURE\"\nexit status 1",
 			"原因未识别", []string{"start", "log", "diagnostics"}},
 	} {
-		f := environmentFailure(tc.op, "启动环境", cause, tc.output, "")
+		f := environmentFailure(tc.op, "启动环境", cause, tc.output, failureFacts{})
 		if f == nil {
 			t.Errorf("%s: no failure", tc.name)
 			continue
@@ -56,10 +57,10 @@ func TestEnvironmentFailureNamesWhereStartingGotStuck(t *testing.T) {
 			t.Errorf("%s: cause lost", tc.name)
 		}
 	}
-	if f := environmentFailure("setup", "准备 Linux 环境", cause, "Error: base vm not found", ""); f != nil {
+	if f := environmentFailure("setup", "准备 Linux 环境", cause, "Error: base vm not found", failureFacts{}); f != nil {
 		t.Fatalf("setup keeps the install rules: %+v", f)
 	}
-	unknown := environmentFailure("up", "启动环境", cause, "level=error msg=\"browser display exited, status=1/FAILURE\"\nexit status 1", "")
+	unknown := environmentFailure("up", "启动环境", cause, "level=error msg=\"browser display exited, status=1/FAILURE\"\nexit status 1", failureFacts{})
 	if unknown.Raw != "browser display exited, status=1/FAILURE" || !unknown.Unknown {
 		t.Fatalf("last error line: %+v", unknown)
 	}
