@@ -130,15 +130,15 @@ try {
   assert.equal(profiles[2].name, undefined);
   await page.setViewportSize({ width: 1280, height: 850 });
   await page.getByRole("button", { name: "展开侧栏", exact: true }).first().click();
-  const fr = JSON.parse(await readFile(new URL("../src/locales/fr.json", import.meta.url), "utf8"));
-  await page.route("**/api/client/language", route => route.fulfill({ json: { language: "fr", active: "fr" } }));
+  const en = JSON.parse(await readFile(new URL("../src/locales/en.json", import.meta.url), "utf8"));
+  await page.route("**/api/client/language", route => route.fulfill({ json: { language: "en", active: "en" } }));
   await page.reload();
-  await page.getByRole("button", { name: fr["Claude 账号管理"], exact: true }).click();
-  await card().getByRole("button", { name: fr["设置"], exact: true }).click();
-  const frenchName = card().getByRole("textbox", { name: fr["账号命令名"] });
-  await frenchName.fill("ops");
-  await frenchName.press("Enter");
-  await page.getByRole("alert").filter({ hasText: fr[conflict] }).waitFor();
+  await page.getByRole("button", { name: en["Claude 账号管理"], exact: true }).click();
+  await card().getByRole("button", { name: en["设置"], exact: true }).click();
+  const englishName = card().getByRole("textbox", { name: en["账号命令名"] });
+  await englishName.fill("ops");
+  await englishName.press("Enter");
+  await page.getByRole("alert").filter({ hasText: en[conflict] }).waitFor();
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ savedByKeyboard: true, conflictPreservedDraft: true, updateRequests: mutations.length, narrowViewport: layout.viewport, maximumNameCharacters: 64, localizedConflict: "fr", unchangedEmailIDAndQuota: true }));
+  console.log(JSON.stringify({ savedByKeyboard: true, conflictPreservedDraft: true, updateRequests: mutations.length, narrowViewport: layout.viewport, maximumNameCharacters: 64, localizedConflict: "en", unchangedEmailIDAndQuota: true }));
 } finally { await browser.close(); }
