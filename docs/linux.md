@@ -58,7 +58,7 @@ Linux 使用 Ctrl 快捷键：`Ctrl+O` 打开项目，`Ctrl+T` 新建网页，`C
 
 ## 更新与卸载
 
-v0.2.2 的完整版支持在终端运行 `claude-cage update --check` 检查版本，或用 `claude-cage update` 下载并校验官方 `.deb`。确认后由 APT 安装，使用普通账号时按系统提示授权。若安装器提示 Cage 仍在运行，请先保存工作，用 `claude-cage stop` 停止环境，退出工作台，再重试。也可手动安装新版 `.deb`。
+可在终端运行 `claude-cage update --check` 检查版本，或用 `claude-cage update` 下载并校验官方 `.deb`。确认后由 APT 安装，使用普通账号时按系统提示授权。若安装器提示 Cage 仍在运行，请先保存工作，用 `claude-cage stop` 停止环境，退出工作台，再重试。也可手动安装新版 `.deb`。
 
 更新和卸载保留 `~/.claude-cage` 中的配置、代理与虚拟磁盘，下载暂存、原 `~/.claude-cage-workspace` 及自行打开的项目目录也保留。卸载命令为：
 
