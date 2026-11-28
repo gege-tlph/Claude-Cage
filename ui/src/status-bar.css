@@ -95,7 +95,9 @@
 .operation-log-failed.is-warn > span { color: var(--status-orange-ink); }
 .operation-log-failed.is-info > span { color: var(--ink); }
 .operation-log-canceled > span { color: var(--muted); }
-.operation-log-raw { padding: 0; background: var(--chrome); }
+/* operation-log-tail.js keeps the lines in view when older ones are added;
+   the browser's own scroll anchoring would shift them a second time. */
+.operation-log-raw { padding: 0; background: var(--chrome); overflow-anchor: none; }
 .operation-log-raw pre { margin: 0; padding: 10px 44px 12px 14px; font: 0.8214rem/1.6 var(--code-font-family, ui-monospace, monospace); color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
 /* Events of the advanced view: time, level, source, message. */
 .operation-log-event time { color: var(--muted); }
