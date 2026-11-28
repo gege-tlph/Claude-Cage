@@ -764,7 +764,7 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
     <div className={`terminal-view ${visible ? "" : "concealed"}`}>
       {session.workspace_notice && <p className="connection-banner" role="status">{session.workspace_notice}</p>}
       {session.paused && <PausedSession id={session.cli_session_id} request={terminalAccountRequest} onContinued={onContinued} disabled={!connected} />}
-      {session.host_input && <p className="connection-banner" role="status">{tr("正在本机终端输入。关闭本机终端后可在这里继续。")}</p>}
+      {session.host_input && <p className="connection-banner" role="status">{tr("本机终端输入中")}</p>}
       {visible && session.cli_session_id && <SessionAccount id={session.cli_session_id} request={terminalAccountRequest} paused={session.paused} compact
         onChanged={onAccountChanged} />}
       <div className={`terminal-host ${preparing ? "terminal-preparing" : ""}`} ref={box} aria-hidden={preparing || undefined} />
