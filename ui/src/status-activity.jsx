@@ -78,7 +78,7 @@ function LogIcon() {
 // icon opens the log; the icon shows a red dot after a failure until then.
 // hideMessage keeps only the icon (first run, while the install card shows
 // the progress).
-export function StatusActivity({ job, toast, toastTone, running, ready, remote, hideMessage = false, exportAlways = false }) {
+export function StatusActivity({ job, toast, toastCount = 0, toastTone, running, ready, remote, hideMessage = false, exportAlways = false }) {
   const tr = useTranslation();
   const anchor = useRef(null), iconRef = useRef(null), textRef = useRef(null);
   const [open, setOpen] = useState(false);
@@ -105,9 +105,13 @@ export function StatusActivity({ job, toast, toastTone, running, ready, remote, 
     previous.current = { id: job?.id, running: Boolean(job?.running) };
     if (said) setSpoken(localizeBackendMessage(said, tr));
   }, [job?.id, job?.running, job?.error, job?.stage, job?.canceled]);
+  // Emptied first, so the same notification twice in a row is heard twice.
   useEffect(() => {
-    if (toast) setSpoken(localizeBackendMessage(toast, tr));
-  }, [toast]);
+    if (!toast) return undefined;
+    setSpoken("");
+    const timer = setTimeout(() => setSpoken(localizeBackendMessage(toast, tr)), 60);
+    return () => clearTimeout(timer);
+  }, [toast, toastCount]);
 
   // The full text shows on hover only when it is cut.
   const measure = () => {

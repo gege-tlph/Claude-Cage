@@ -187,7 +187,8 @@ function App() {
     [privateTabMetadata, setPrivateTabMetadata] = useState({}),
     [projectDialog, setProjectDialog] = useState(null),
     [rename, setRename] = useState(null),
-    [toast, setToast] = useState(""),
+    [toast, setToastText] = useState(""),
+    [toastCount, setToastCount] = useState(0),
     [toastTone, setToastTone] = useState(""),
     [projectRefreshing, setProjectRefreshing] = useState(false),
     [fatal, setFatal] = useState(""),
@@ -197,6 +198,11 @@ function App() {
     [transfer, setTransfer] = useState(null),
     [safetyOpen, setSafetyOpen] = useState(false),
     [quitting, setQuitting] = useState(null);
+  // Each notification counts: one said twice in a row shows and is heard again.
+  const setToast = (text) => {
+    setToastText(text);
+    if (text) setToastCount((count) => count + 1);
+  };
   // The state keeps the width the user chose. A narrow window only limits
   // what is shown, so the choice comes back when the window grows again.
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
@@ -1307,7 +1313,7 @@ function App() {
     if (!toast) return;
     const timer = setTimeout(() => setToast(""), 4500);
     return () => clearTimeout(timer);
-  }, [toast]);
+  }, [toast, toastCount]);
   useEffect(() => {
     if (!tailnetLogin) return;
     if (!status?.ready || managementPage || showHome || desktopOpen) {
@@ -2383,7 +2389,7 @@ function App() {
             {/* Messages sit in the free space and grow toward the start, so the
                 clock and controls after them keep their place as text changes. */}
             <span className="status-spacer">
-              <StatusActivity job={status.job} toast={toast} toastTone={toastTone}
+              <StatusActivity job={status.job} toast={toast} toastCount={toastCount} toastTone={toastTone}
                 running={running} ready={status.ready} remote={isRemoteClient()} />
             </span>
             <MicrophoneIndicator mic={mic} />
