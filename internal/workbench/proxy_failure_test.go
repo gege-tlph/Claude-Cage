@@ -80,6 +80,10 @@ func TestImportFailureCountsNodes(t *testing.T) {
 	if f := importFailure("refresh", mixed); f == nil || f.Error() != "更新订阅失败，原因是 2 个节点都没能导入。解决建议：核对节点配置后重新导入。" {
 		t.Fatalf("%+v", f)
 	}
+	masque := errors.New(`没有可导入的节点，已跳过 2 个；第 1 个节点 "a"：MASQUE 分享链接缺少 ECDSA 密钥，无法导入，请改用其他协议的节点；第 2 个节点 "b"：MASQUE 协议，无法导入，请改用其他协议的节点`)
+	if f := importFailure("import", masque); f == nil || f.Error() != "导入订阅失败，原因是 2 个节点都没能导入（MASQUE 协议不支持）。解决建议：改用其他协议的节点。" {
+		t.Fatalf("%+v", f)
+	}
 	if importFailure("import", errors.New("配置为空")) != nil {
 		t.Fatal("an unrelated error matched")
 	}

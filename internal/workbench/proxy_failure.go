@@ -200,9 +200,16 @@ func importFailure(action string, err error) *usererror.Failure {
 	}
 	reason := "原因是 " + m[1] + " 个节点都没能导入"
 	next := "核对节点配置后重新导入"
-	if n, _ := strconv.Atoi(m[1]); n > 0 && strings.Count(err.Error(), "分享链接的协议暂不支持") >= n {
+	n, _ := strconv.Atoi(m[1])
+	switch text := err.Error(); {
+	case n > 0 && strings.Count(text, "分享链接的协议暂不支持") >= n:
 		reason += "（分享链接的协议不支持）"
 		next = "改用 Clash/Mihomo YAML 导入"
+	case n > 0 && strings.Count(text, "MASQUE 分享链接缺少 ECDSA 密钥")+strings.Count(text, "MASQUE 协议，无法导入") >= n:
+		// The bundled core cannot run MASQUE from a share link or YAML
+		// without its keys: another file of the same nodes will not help.
+		reason += "（MASQUE 协议不支持）"
+		next = "改用其他协议的节点"
 	}
 	return usererror.Fail(lead, reason, next, err).WithLevel(usererror.LevelWarn)
 }

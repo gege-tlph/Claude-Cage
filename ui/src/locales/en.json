@@ -6376,5 +6376,8 @@
   "原因是{0}时完整包里的软件包与清单不符": "the full package's software packages didn't match their manifest while {0}",
   "原因是{0}时完整包里的工具安装包与清单不符": "the full package's tool installers didn't match their manifest while {0}",
   "原因是{0}时完整包里的 Debian 镜像校验不符": "the full package's Debian image failed its checksum while {0}",
-  "重新运行完整包的安装程序后继续安装": "Run the full package's installer again, then continue the install"
+  "重新运行完整包的安装程序后继续安装": "Run the full package's installer again, then continue the install",
+  "原因是 {0} 个节点都没能导入（MASQUE 协议不支持）": "none of the {0} nodes could be imported (MASQUE not supported)",
+  "改用其他协议的节点": "Use a node with another protocol",
+  "（MASQUE 协议不支持）": " (MASQUE not supported)"
 }
