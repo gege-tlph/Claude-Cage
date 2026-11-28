@@ -72,8 +72,8 @@ var ruleNames = [...]string{"无规则", "规则=默认端口", "规则=其他�
 type opKind int
 
 const (
-	opStart opKind = iota
-	opRestart // Stop, then Start once the stop succeeded
+	opStart   opKind = iota
+	opRestart        // Stop, then Start once the stop succeeded
 	opTwoStarts
 )
 
