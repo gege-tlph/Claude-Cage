@@ -92,7 +92,7 @@ func (w *hostCLIPipeOutput) Write(data []byte) (int, error) {
 			}
 			n := binary.BigEndian.Uint32(b[1:5])
 			if n > 64<<10 {
-				return 0, errors.New("无效的客机输出长度")
+				return 0, errors.New("无效的环境输出长度")
 			}
 			if len(b)-5 < int(n) {
 				return len(data), nil
@@ -102,7 +102,7 @@ func (w *hostCLIPipeOutput) Write(data []byte) (int, error) {
 				return 0, err
 			}
 		default:
-			return 0, errors.New("无效的客机输出格式")
+			return 0, errors.New("无效的环境输出格式")
 		}
 	}
 	return len(data), nil

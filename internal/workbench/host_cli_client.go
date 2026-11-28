@@ -396,7 +396,7 @@ func HostCLI(ctx context.Context, config, action string, args []string, in, out,
 	var selector, name string
 	if action == "run-by-name" {
 		if len(args) == 0 || !cagecmd.ValidAccountName(args[0]) {
-			return 2, errors.New("用法：cage <账号名称> [Claude 参数]")
+			return 2, errors.New("用法：cage <账号命令名> [Claude 参数]")
 		}
 		name, args = args[0], args[1:]
 	}
@@ -414,7 +414,7 @@ func HostCLI(ctx context.Context, config, action string, args []string, in, out,
 				args = args[1:]
 			}
 		default:
-			return 2, errors.New("用法：cage account list | use <账号或 auto> | run <账号> [--] [Claude 参数] | rename <账号> <新名称>")
+			return 2, errors.New("用法：cage account list | use <账号或 auto> | run <账号> [--] [Claude 参数] | rename <账号> <账号命令名>")
 		}
 	}
 	profile := filepath.Dir(config)

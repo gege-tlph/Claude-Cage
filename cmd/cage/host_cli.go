@@ -26,7 +26,7 @@ func cageArgs(args []string) (command []string, named bool, err error) {
 		}
 	}
 	if !cagecmd.ValidAccountName(args[0]) {
-		return nil, false, errors.New("使用默认账号请运行 cage claude [参数]，指定账号请运行 cage <名称> [参数]。运行 cage 查看帮助。")
+		return nil, false, errors.New("使用默认账号请运行 cage claude [参数]，指定账号请运行 cage <账号命令名> [参数]。运行 cage 查看帮助。")
 	}
 	return args, true, nil
 }

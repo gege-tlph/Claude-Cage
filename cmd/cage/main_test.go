@@ -116,7 +116,7 @@ func TestStatelessCommandsNeedNoProfile(t *testing.T) {
 		{name: "implicit print", args: []string{"-p", "hello"}, wantCode: 2, wantStderr: "cage claude"},
 		{name: "implicit multiword prompt", args: []string{"review my changes"}, wantCode: 2, wantStderr: "cage claude"},
 		{name: "empty account name", args: []string{"", "hello"}, wantCode: 2, wantStderr: "cage claude"},
-		{name: "reserved auto", args: []string{"auto", "--help"}, wantCode: 2, wantStderr: "cage <名称>"},
+		{name: "reserved auto", args: []string{"auto", "--help"}, wantCode: 2, wantStderr: "cage <账号命令名>"},
 		{name: "short help", args: []string{"-h"}, wantStdout: "Cage lite"},
 		{name: "version", args: []string{"version"}, wantStdout: version.Version},
 		{name: "long version", args: []string{"--version"}, wantStdout: version.Version},
