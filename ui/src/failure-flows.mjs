@@ -61,6 +61,17 @@ export async function enableClientHelloSplit(api, start) {
   if (start) return start();
 }
 
+// enableInstallTLS12 saves the install TLS 1.2 mode, then continues the
+// install (carryOn), which ends where the install ends.
+export async function enableInstallTLS12(api, carryOn) {
+  const settings = await api("/settings");
+  const payload = { ...settings, install_tls12_compat: true };
+  delete payload.browser_home_url;
+  const job = await api("/settings", payload);
+  ended(await waitForJob(api, job.id));
+  return carryOn?.();
+}
+
 // openSettingsSection asks the settings page to show one section (加密 DNS).
 export function openSettingsSection(section) {
   setTimeout(() => window.dispatchEvent(new CustomEvent("cage-settings-section", { detail: section })), 0);

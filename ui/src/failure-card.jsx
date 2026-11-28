@@ -39,6 +39,7 @@ const TOOLS = {
   refresh: { label: "更新订阅", icon: <RefreshCw size={15} />, busy: "更新中", waits: true },
   "refresh-host": { label: "通过主机网络更新", icon: <RefreshCw size={15} />, busy: "更新中", waits: true },
   "split-retry": { label: "开启分段传输并重试", icon: <RefreshCw size={15} />, busy: "应用中", waits: true },
+  "tls12-retry": { label: "开启兼容模式并继续", icon: <RefreshCw size={15} />, busy: "应用中", waits: true },
   "open-desktop": { label: "打开 Claude Desktop", icon: <AppWindow size={15} />, busy: "打开中", waits: true },
   "reopen-desktop": { label: "重新打开", icon: <AppWindow size={15} />, busy: "打开中", waits: true },
   "install-desktop": { label: "安装 Claude Desktop", icon: <Download size={15} />, busy: "安装中", waits: true },
@@ -55,10 +56,10 @@ export function openOperationLog() {
   window.dispatchEvent(new Event("cage-open-operation-log"));
 }
 
-function ToolButton({ name, primary, onTool }) {
+function ToolButton({ name, primary, onTool, labels }) {
   const tr = useTranslation();
   const openChecklist = useContext(SafetyChecklistContext);
-  const tool = TOOLS[name];
+  const tool = TOOLS[name] && { ...TOOLS[name], ...(labels[name] ? { label: labels[name] } : {}) };
   const phase = usePhase();
   const run = async () => {
     phase.start();
@@ -114,7 +115,9 @@ function Unbroken({ text }) {
 // listed in hide are left out (a page does not offer to open itself).
 // After a detour into settings, the button that carries on comes first.
 // compact: the in-place variant inside a settings page.
-export function FailureCard({ failure, onTool, hide = [], compact = false }) {
+// labels renames a tool where the page calls it otherwise (first run's
+// 「网络代理」 step).
+export function FailureCard({ failure, onTool, hide = [], compact = false, labels = {} }) {
   const tr = useTranslation();
   const [detoured, setDetoured] = useState(false);
   const level = ICON_STATE[failure.level] ? failure.level : "error";
@@ -136,7 +139,7 @@ export function FailureCard({ failure, onTool, hide = [], compact = false }) {
       <span>{tr(level === "info" ? "下一步" : "解决建议")}{tr("：")}</span>{localizeFailure(failure.next, tr)}
     </p>}
     {tools.length > 0 && <div className="failure-card-tools">
-      {tools.map((name, index) => <ToolButton key={name} name={name} primary={index === 0} onTool={runTool} />)}
+      {tools.map((name, index) => <ToolButton key={name} name={name} primary={index === 0} onTool={runTool} labels={labels} />)}
     </div>}
   </section>;
 }
