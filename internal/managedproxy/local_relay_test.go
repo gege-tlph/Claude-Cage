@@ -250,3 +250,34 @@ func TestLocalRelayBindingNeedsLoopbackInterface(t *testing.T) {
 		}
 	}
 }
+
+// A local relay goes first and fixed only: not after an auto group, where it
+// would dial through the group, and not among a whole source's candidates.
+func TestLocalRelayAndRelayGroups(t *testing.T) {
+	_, s, relay, via, direct := relayStore(t, true)
+	if err := s.Import("remote", "", []byte("proxies: [{name: r1, type: socks5, server: r1.example, port: 1080}, {name: r2, type: socks5, server: r2.example, port: 1080}, {name: exit, type: socks5, server: exit.example, port: 1080}]"), "remote", 0, ""); err != nil {
+		t.Fatal(err)
+	}
+	ids := map[string]string{}
+	for _, n := range s.Sources[1].Nodes {
+		ids[n.Name] = n.ID
+	}
+	g := s
+	err := g.SetRouteHops([]RouteHop{{Relay: &RelayGroup{Strategy: RelayStrategyFallback, SourceID: "remote"}}, {NodeID: relay}, {NodeID: ids["exit"]}})
+	if !errors.Is(err, ErrLocalRelayExit) {
+		t.Fatalf("a local relay after a group: %v", err)
+	}
+	g = s
+	if err := g.SetRouteHops([]RouteHop{{NodeID: ids["r1"]}, {Relay: &RelayGroup{Strategy: RelayStrategyFallback, SourceID: "mixed"}}, {NodeID: ids["exit"]}}); err != nil {
+		t.Fatal(err)
+	}
+	hops, err := g.ResolveRoute()
+	if err != nil || slices.Contains(hops[1].Candidates, relay) || !slices.Contains(hops[1].Candidates, via) || !slices.Contains(hops[1].Candidates, direct) {
+		t.Fatalf("whole-source candidates: %+v %v", hops, err)
+	}
+	// First and fixed, before a group: allowed.
+	g = s
+	if err := g.SetRouteHops([]RouteHop{{NodeID: relay}, {Relay: &RelayGroup{Strategy: RelayStrategyFallback, SourceID: "remote"}}, {NodeID: ids["exit"]}}); err != nil {
+		t.Fatal(err)
+	}
+}

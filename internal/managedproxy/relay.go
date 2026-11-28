@@ -154,6 +154,14 @@ func (s Store) resolveRoute(blocked map[string]string, minRelayNodes int) ([]Res
 	if _, err := s.checkRouteNodes(fixedList, blocked); err != nil {
 		return nil, err
 	}
+	// checkRouteNodes counts the fixed hops alone: a local relay after a
+	// group would pass as first there, and then dial through the group.
+	relays := s.relays()
+	for i, hop := range s.RouteHops {
+		if n, ok := s.Find(hop.NodeID); i > 0 && ok && relays.relay(n.Config) {
+			return nil, fmt.Errorf("节点 %q：%w", n.Name, ErrLocalRelayExit)
+		}
+	}
 
 	usedSources := map[string]bool{}
 	relayClaimed := map[string]bool{}
@@ -183,7 +191,8 @@ func (s Store) resolveRoute(blocked map[string]string, minRelayNodes int) ([]Res
 				return nil, errors.New("自动切换中转组引用的来源已被移除，请重新选择；原配置已保留")
 			}
 			for _, n := range src.Nodes {
-				if blocked[n.ID] != "" || fixedNodes[n.ID] {
+				// A local relay is never switched to: it only goes first, fixed.
+				if blocked[n.ID] != "" || fixedNodes[n.ID] || relays.relay(n.Config) {
 					continue
 				}
 				if relayClaimed[n.ID] {
