@@ -14,7 +14,7 @@ try {
   const panel = page.getByRole("region", { name: "环境安装进度" });
   const bar = panel.getByRole("progressbar");
   await panel.getByText("25 MiB / 100 MiB").waitFor();
-  // The bar is the whole install (setup-weight.mjs): (2 + 24 x 25%) / 104.
+  // The bar is the whole install (setup-weight.mjs): (2 + 24 x 25%) / 108.
   assert.equal(await bar.getAttribute("aria-valuenow"), "7");
   assert.equal(await panel.locator('[aria-current="step"]').textContent(), "系统镜像");
   await page.getByRole("button", { name: "操作日志", exact: true }).click();
@@ -23,12 +23,12 @@ try {
   if (process.env.CAGE_SETUP_SCREENSHOT) await page.screenshot({ path: process.env.CAGE_SETUP_SCREENSHOT, animations: "disabled" });
   state.status.job.setup_progress = { phase: "tools", label: "正在下载网页编辑器 code-server", received: 8 * 1048576 };
   await panel.getByText("已接收 8 MiB").waitFor();
-  assert.equal(await bar.getAttribute("aria-valuenow"), "80"); // step 12 of 14 starts at 84/104
+  assert.equal(await bar.getAttribute("aria-valuenow"), "81"); // step 13 of 15 starts at 88/108
   state.status.job.setup_progress = { phase: "services", label: "正在配置浏览器与终端" };
   await panel.getByRole("heading", { name: "正在配置浏览器与终端" }).waitFor();
   // A label the weights do not know keeps the step and the number.
-  assert.equal(await bar.getAttribute("aria-valuenow"), "80");
-  assert.equal(await panel.locator(".setup-transfer-bytes").textContent(), "第 12/14 步");
+  assert.equal(await bar.getAttribute("aria-valuenow"), "81");
+  assert.equal(await panel.locator(".setup-transfer-bytes").textContent(), "第 13/15 步");
   await panel.getByRole("button", { name: "停止安装" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "取消" }).click();
   assert.equal(state.requests.filter(r => r.path === "/stop").length, 0);
