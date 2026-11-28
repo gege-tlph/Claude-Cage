@@ -27,6 +27,8 @@ type jobLogEntry struct {
 	Message string    `json:"message"`
 	// State marks the entry that ends a job: done, failed or canceled.
 	State string `json:"state,omitempty"`
+	// Level is a failure's level (error, warn, info), for its color.
+	Level string `json:"level,omitempty"`
 }
 
 type jobLogOutput struct {
@@ -83,7 +85,11 @@ func (l *jobLog) add(job Job, message, state string) {
 	if n := len(l.entries); n > 0 && state == "" && l.entries[n-1].Job == job.ID && l.entries[n-1].Message == message {
 		return
 	}
-	l.entries = append(l.entries, jobLogEntry{Time: now, Job: job.ID, Kind: job.Kind, Stage: job.Stage, Message: message, State: state})
+	entry := jobLogEntry{Time: now, Job: job.ID, Kind: job.Kind, Stage: job.Stage, Message: message, State: state}
+	if state == "failed" && job.Failure != nil {
+		entry.Level = job.Failure.Level
+	}
+	l.entries = append(l.entries, entry)
 	l.prune(now)
 }
 

@@ -350,15 +350,21 @@ func (s *Server) runCage(args ...string) error {
 		if p := s.jobs.snapshot().SetupProgress; p != nil && p.Label != "" {
 			action = strings.TrimPrefix(p.Label, "正在")
 		}
+		if packageErr := packageInstallFailure(action, errors.Join(ctx.Err(), err), s.jobs.snapshot().Log); packageErr != nil {
+			return packageErr
+		}
+		// Starting and stopping say where they got stuck (environment_failure.go).
+		limaHome, _ := s.commandLimaHome()
+		if failure := environmentFailure(args[0], action, errors.Join(ctx.Err(), err), s.jobs.snapshot().Log, limaHome); failure != nil {
+			diagnostics.Log("error", "environment-operation", fmt.Sprintf("operation=%s error=%v context=%v", args[0], err, ctx.Err()))
+			return failure
+		}
 		// CLI failures can include the original QEMU stderr before a generic
 		// "Failed to start base VM" footer. Surface that reason in job.error.
 		for _, line := range strings.Split(s.jobs.snapshot().Log, "\n") {
 			if _, reason, ok := strings.Cut(line, "Error: QEMU 启动失败："); ok {
 				return fmt.Errorf("%s失败：虚拟机未能启动。QEMU 启动失败：%s。请查看操作详情；仍无法启动时，在设置中导出诊断包。", action, reason)
 			}
-		}
-		if packageErr := packageInstallFailure(action, errors.Join(ctx.Err(), err), s.jobs.snapshot().Log); packageErr != nil {
-			return packageErr
 		}
 		diagnostics.Log("error", "environment-operation", fmt.Sprintf("operation=%s error=%v context=%v", args[0], err, ctx.Err()))
 		return executionFailure(action, errors.Join(ctx.Err(), err), s.jobs.snapshot().Log)

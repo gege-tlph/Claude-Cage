@@ -41,6 +41,9 @@ type Job struct {
 	// Stage is the short name of the current step for the status bar; the
 	// message goes to the operation log (job_stage.go).
 	Stage string `json:"stage,omitempty"`
+	// Failure is the failure in three lines (level, reason, next step,
+	// tools) when the error carries one; Error stays its joined text.
+	Failure *usererror.Failure `json:"failure,omitempty"`
 }
 
 var (
@@ -216,6 +219,14 @@ func (m *jobManager) finishLocked(execution *jobExecution, err error) {
 			diagnostics.Log("info", "task", m.state.Kind+" canceled")
 		}
 	case err != nil:
+		if failure, ok := usererror.AsFailure(err); ok {
+			copied := *failure
+			if m.state.Stage != jobName(m.state.Kind) {
+				copied.StuckAt(m.state.Stage)
+			}
+			m.state.Failure = &copied
+			err = &copied
+		}
 		m.state.Error = usererror.Display(jobName(m.state.Kind), err, "打开“操作详情”查看失败记录；仍无法处理时，"+failureHelp).Error()
 		var projectFailure *projectShareError
 		if errors.As(err, &projectFailure) {
