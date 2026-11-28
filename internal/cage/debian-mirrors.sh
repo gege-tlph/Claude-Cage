@@ -33,6 +33,11 @@ case "$preference" in
   ustc) domestic="https://mirrors.ustc.edu.cn https://mirrors.nju.edu.cn";;
   *) echo "Invalid $source: use auto, official, nju or ustc." >&2; exit 1;;
 esac
+# Installing from the full package's repositories: nothing to probe. The
+# environments cloned from this disk probe at their first boot.
+if [ -s /var/cache/cage-offline/apt/sources.list ]; then
+  exit 0
+fi
 for repository in debian debian-security; do
   list="/etc/apt/mirrors/$repository.list"
   [ -f "$list" ] || continue

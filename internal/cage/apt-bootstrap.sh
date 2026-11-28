@@ -30,6 +30,10 @@ schemes=http
 if [ -s /etc/ssl/certs/ca-certificates.crt ]; then
   schemes='https http'
 fi
+# The full package's copy of the security repository, signed as the archive's.
+if [ -s /var/cache/cage-offline/apt/security.list ]; then
+  schemes=offline
+fi
 apt_bootstrap_run() {
   env DEBIAN_FRONTEND=noninteractive apt-get \
     -o Acquire::Retries=0 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15 \
@@ -49,7 +53,11 @@ apt_bootstrap_get() {
 }
 status=1
 for scheme in $schemes; do
-  printf 'deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] %s://deb.debian.org/debian-security trixie-security main\n' "$scheme" > "$stage/security.list"
+  if [ "$scheme" = offline ]; then
+    cp /var/cache/cage-offline/apt/security.list "$stage/security.list"
+  else
+    printf 'deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] %s://deb.debian.org/debian-security trixie-security main\n' "$scheme" > "$stage/security.list"
+  fi
   if apt_bootstrap_run update; then
     status=0
     break

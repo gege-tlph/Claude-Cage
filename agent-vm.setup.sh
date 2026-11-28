@@ -156,8 +156,9 @@ echo '$nrconf{restart} = '"'"'a'"'"';' | sudo tee /etc/needrestart/conf.d/no-pro
 # avahi-daemon, upower, Vulkan drivers), some of them running daemons. The
 # recommended packages that are used are listed by name instead.
 echo "Installing base packages..."
-if [[ "${CLAUDE_CAGE:-}" == 1 ]]; then
+if [[ "${CLAUDE_CAGE:-}" == 1 && ! -s /var/cache/cage-offline/apt/sources.list ]]; then
   # This runs in the guest, through its configured DNS and proxy-only route.
+  # Not when the full package's repositories are copied in.
   package_host=$(. /etc/os-release; if [ "$ID" = ubuntu ]; then printf '%s' archive.ubuntu.com; else printf '%s' deb.debian.org; fi)
   echo "Checking guest DNS for system packages..."
   if ! timeout 15 getent ahostsv4 mirrors.nju.edu.cn >/dev/null &&
@@ -578,9 +579,16 @@ if [[ "$INSTALL_CODE_SERVER" == "1" ]]; then
   if [[ ! -d "$cs_root/lib/vscode/extensions" ]]; then
     cs_root="$(dirname "$(dirname "$(readlink -f "$(command -v code-server)")")")"
   fi
-  echo "Downloading the JSON schemas the editor uses..."
   cs_machine="$HOME/.local/share/code-server/Machine/settings.json"
-  code_server_schemas "$cs_root/lib/vscode/extensions" "$cs_machine"
+  # The full package holds them, collected for this code-server version.
+  cs_offline=/var/cache/cage-offline/schemas/code-server-machine-settings.json
+  if [[ "${CLAUDE_CAGE:-}" == 1 && -s "$cs_offline" ]]; then
+    mkdir -p "$(dirname "$cs_machine")"
+    cp "$cs_offline" "$cs_machine"
+  else
+    echo "Downloading the JSON schemas the editor uses..."
+    code_server_schemas "$cs_root/lib/vscode/extensions" "$cs_machine"
+  fi
   # Claude's conversations start in bypass mode, as the managed settings above
   # do for the CLI. These keys are machine-scoped: code-server ignores them in
   # the user settings.

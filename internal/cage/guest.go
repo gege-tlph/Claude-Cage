@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/sylvinus/agent-vm/internal/diagnostics"
+	"github.com/sylvinus/agent-vm/internal/offlinepack"
 	"github.com/sylvinus/agent-vm/internal/version"
 )
 
@@ -330,8 +331,9 @@ func DebianPrepareScriptFor(preference string) string {
 var chromiumDownload string
 
 func toolInstallFunctions() string {
-	return toolVersions + `
+	return toolVersions + offlinepack.FetchFunction + `
 cage_curl_download() {
+  if cage_offline_fetch "$@"; then return 0; fi
   CAGE_SETUP_PROGRESS="${CAGE_SETUP_PROGRESS:-}" python3 - "$@" <<'CAGE_DOWNLOAD_IDLE'
 ` + toolDownload + `
 CAGE_DOWNLOAD_IDLE
@@ -348,6 +350,8 @@ func ToolInstallPrelude() string {
 	return toolInstallFunctions() + `
 cage_cache_chromium() {
   local status=0
+  # The full package's repositories hold the archives.
+  if [ -s /var/cache/cage-offline/apt/sources.list ]; then return 0; fi
   sudo env APT_CONFIG="${CAGE_APT_CONFIG:-}" CAGE_SETUP_PROGRESS="${CAGE_SETUP_PROGRESS:-}" /usr/bin/python3 -I - "$@" <<'CAGE_CHROMIUM_DOWNLOAD' || status=$?
 ` + chromiumDownload + `
 CAGE_CHROMIUM_DOWNLOAD
