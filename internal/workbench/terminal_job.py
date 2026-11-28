@@ -223,7 +223,7 @@ def fallback_shell(channel, request, status):
     # A manually restarted CLI reads its account history without attaching the
     # previous channel. Reopening from the sidebar creates the mobile connection.
     rc = 'if [ -r ~/.bashrc ]; then . ~/.bashrc; fi\n'
-    if len(prefix) == 5 and Path(prefix[2]).name == "cage-claude-account" and prefix[3] == "run":
+    if len(prefix) == 5 and Path(prefix[2]).name == "claude-account" and prefix[3] == "run":
         rc += 'unalias claude 2>/dev/null\nclaude() { command ' + shlex.join(prefix) + ' "$@"; }\n'
     elif request.get("config"):
         rc += "export CLAUDE_CONFIG_DIR=" + shlex.quote(runtime["path"](request["config"])) + "\n"

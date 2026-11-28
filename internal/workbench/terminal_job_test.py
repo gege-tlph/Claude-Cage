@@ -102,12 +102,12 @@ class TerminalJobTest(unittest.TestCase):
         (home / ".bashrc").write_text("PS1='test-shell> '\n")
         bin_dir = home / "bin"
         bin_dir.mkdir()
-        installed = home / ".local/share/cage/cli-channel-code"
+        installed = home / ".local/share/workbench/cli-channel-code"
         installed.mkdir(parents=True)
         self.channel = installed / "fixture.py"
         shutil.copyfile(SOURCE / "cli_channel.py", self.channel)
         shutil.copyfile(SOURCE / "terminal_job.py", self.channel.with_suffix(".terminal.py"))
-        helper = bin_dir / "cage-claude-account"
+        helper = bin_dir / "claude-account"
         shutil.copyfile(SOURCE.parent / "cage" / "claude-account.py", helper)
         helper.chmod(0o700)
         shutil.copyfile(SOURCE.parent / "cage" / "client_runtime.py", bin_dir / "client_runtime.py")
@@ -117,11 +117,11 @@ class TerminalJobTest(unittest.TestCase):
         account = "ab" * 12
         subject = hashlib.sha256(b"fixture@example.invalid\n").hexdigest()
         self.session, connection = str(uuid.uuid4()), str(uuid.uuid4())
-        self.folder = home / ".local/share/cage/cli-channels" / connection
+        self.folder = home / ".local/share/workbench/cli-channels" / connection
         self.message = {"cli_id": self.session, "connection": connection, "workspace": str(self.workspace),
-                        "config": str(home / ".local/share/cage/claude-accounts" / account / "config")}
+                        "config": str(home / ".local/share/workbench/claude-accounts" / account / "config")}
         request = {"id": connection, "session_id": self.session,
-                   "prefix": ["env", "CAGE_CLAUDE_SUBJECT=" + subject, str(helper), "run", account]}
+                   "prefix": ["env", "ACCOUNT_SUBJECT=" + subject, str(helper), "run", account]}
         self.env = {"HOME": str(home), "PATH": str(bin_dir) + ":/usr/bin:/bin", "TERM": "xterm",
                     "TMPDIR": str(home), "CAGE_WORKBENCH": "1", "LANG": "C"}
         self.pid, self.master = pty.fork()

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -208,5 +209,30 @@ func TestMobileCLIStopFromPreviousUnlock(t *testing.T) {
 	newEpoch, _ := s.account.access()
 	if code := stop(newEpoch); code != http.StatusOK || run.Err() == nil {
 		t.Fatalf("current request failed to stop active turn: HTTP %d, %v", code, run.Err())
+	}
+}
+
+// The guest scripts recognise a managed-account launch by the helper's base
+// name. Keep them in step with the prefix the host builds.
+func TestGuestScriptsRecognizeManagedAccountPrefix(t *testing.T) {
+	args, err := mobileLaunchArgs("claude", claudeSelection{ID: strings.Repeat("ab", 12), GuestID: strings.Repeat("cd", 12), Subject: strings.Repeat("e", 64)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(args) != 5 || args[3] != "run" {
+		t.Fatalf("prefix = %q", args)
+	}
+	want := `Path(prefix[2]).name == "` + path.Base(args[2]) + `"`
+	for _, name := range []string{"terminal_job.py", "cli_channel.py"} {
+		data, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(data), want) {
+			t.Errorf("%s does not match the helper %q", name, args[2])
+		}
+		if strings.Contains(string(data), "cage-claude-account") {
+			t.Errorf("%s still names cage-claude-account", name)
+		}
 	}
 }
