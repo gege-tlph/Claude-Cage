@@ -39,7 +39,7 @@ func proxyActionFailure(action string, err error) error {
 	if err == nil {
 		return nil
 	}
-	err = knownFailure("proxy", err)
+	err = usererror.Own(knownFailure("proxy", err))
 	f, ok := usererror.AsFailure(err)
 	if !ok {
 		return err

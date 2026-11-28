@@ -13,8 +13,11 @@ import (
 
 const windowsHardwareInterface = 1 << 0 // MIB_IF_ROW2.InterfaceAndOperStatusFlags.HardwareInterface
 
-// Only virtual adapters (a Windows VM, a cloud host) also end here.
-var errNoWindowsInterface = usererror.Because("原因是找不到可用的 IPv4 出口网卡", "连接以太网、Wi-Fi 或 PPPoE 宽带后重试", nil)
+// Only virtual adapters (a Windows VM, a cloud host) also end here. A new
+// value each time: the workbench completes a failure for the job it ends.
+func errNoWindowsInterface() error {
+	return usererror.Because("原因是找不到可用的 IPv4 出口网卡", "连接以太网、Wi-Fi 或 PPPoE 宽带后重试", nil)
+}
 
 func windowsPhysicalInterface(ctx context.Context) (string, error) {
 	// IP Helper calls are synchronous. Check the deadline between calls and
@@ -29,14 +32,14 @@ func windowsPhysicalInterface(ctx context.Context) (string, error) {
 		return "", usererror.Because("原因是查询 Windows 网卡超时（10 秒）", "重试", err)
 	}
 	if len(adapters) == 0 {
-		return "", errNoWindowsInterface
+		return "", errNoWindowsInterface()
 	}
 	var table *windows.MibIpForwardTable2
 	if err := windows.GetIpForwardTable2(windows.AF_INET, &table); err != nil {
 		return "", usererror.Because("原因是读不出 Windows 的 IPv4 路由", "重试", err)
 	}
 	if table == nil {
-		return "", errNoWindowsInterface
+		return "", errNoWindowsInterface()
 	}
 	defer windows.FreeMibTable(unsafe.Pointer(table))
 	if err := ctx.Err(); err != nil {
@@ -44,7 +47,7 @@ func windowsPhysicalInterface(ctx context.Context) (string, error) {
 	}
 	name := selectWindowsPhysicalInterface(adapters, table.Rows())
 	if name == "" {
-		return "", errNoWindowsInterface
+		return "", errNoWindowsInterface()
 	}
 	return name, nil
 }

@@ -21,7 +21,8 @@ func (s *Server) describeFailure(kind, initiator string, err error) error {
 	if err == nil {
 		return nil
 	}
-	err = knownFailure(kind, err)
+	// A copy: the failure may be one another call returns too.
+	err = usererror.Own(knownFailure(kind, err))
 	f, ok := usererror.AsFailure(err)
 	if !ok {
 		return err
