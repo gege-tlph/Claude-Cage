@@ -139,7 +139,7 @@ func TestForcedShutdownLeavesOneLogLine(t *testing.T) {
 			lines = append(lines, entry.Message)
 		}
 	}
-	if !reflect.DeepEqual(lines, []string{"虚拟机未在 3 分钟内关机，已强制结束"}) || m.snapshot().Error != "" {
+	if !reflect.DeepEqual(lines, []string{"虚拟机关闭时间超出预期，已强制结束"}) || m.snapshot().Error != "" {
 		t.Fatalf("lines %q, error %q", lines, m.snapshot().Error)
 	}
 }

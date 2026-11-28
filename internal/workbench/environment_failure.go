@@ -379,18 +379,13 @@ func browserNotReady(waited time.Duration) *usererror.Failure {
 	return usererror.Fail("启动环境", reason, "重试启动", nil, usererror.ToolStart, usererror.ToolLog)
 }
 
-var limaForcedKill = regexp.MustCompile(`QEMU did not exit in (\S+?),? forcibly killing QEMU`)
+var limaForcedKill = regexp.MustCompile(`QEMU did not exit in \S+?,? forcibly killing QEMU`)
 
 // noteForcedShutdown adds one line to the simple log when Lima had to kill
-// QEMU after the shutdown wait (C2): the stop still succeeded.
+// QEMU after the shutdown wait (C2): the stop still succeeded. The wording,
+// without the wait, is the user's (2026-11-28).
 func (s *Server) noteForcedShutdown(output string) {
-	m := limaForcedKill.FindAllStringSubmatch(output, -1)
-	if len(m) == 0 {
-		return
+	if limaForcedKill.MatchString(output) {
+		s.setMessage("虚拟机关闭时间超出预期，已强制结束")
 	}
-	if wait := limaDuration(m[len(m)-1][1]); wait != "" {
-		s.setMessage("虚拟机未在 " + wait + "内关机，已强制结束")
-		return
-	}
-	s.setMessage("虚拟机未按时关机，已强制结束")
 }
