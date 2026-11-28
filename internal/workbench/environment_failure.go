@@ -13,6 +13,7 @@ import (
 	"github.com/sylvinus/agent-vm/internal/diagnostics"
 	"github.com/sylvinus/agent-vm/internal/host"
 	"github.com/sylvinus/agent-vm/internal/usererror"
+	"github.com/sylvinus/agent-vm/internal/vm"
 )
 
 // environmentFailure names why starting or stopping the environment failed,
@@ -63,6 +64,11 @@ func environmentFailure(op, action string, cause error, output string, facts fai
 	switch {
 	case strings.Contains(lower, strings.ToLower(host.HypervisorPlatformMissing)), strings.Contains(lower, strings.ToLower(host.HypervisorNotReady)):
 		return hypervisorFailure(action, cause)
+	// Lima reads the VM as stopped while its hostagent still runs (its PID
+	// files lost): a start would leave the config naming what the running VM
+	// does not have. A stop ends that hostagent, then the start goes on.
+	case strings.Contains(output, vm.ErrHostAgentRunning.Error()):
+		return usererror.Fail(action, "原因是上次的环境后台仍在运行", "重启环境", cause, usererror.ToolRestart, usererror.ToolDiagnostics)
 	case strings.Contains(lower, "is still running, or lima cannot say"):
 		return usererror.Fail("停止环境", "原因是无法确认虚拟机已停止", "重试停止，不要手动删除环境目录", cause, usererror.ToolStop, usererror.ToolDiagnostics)
 	case containsAny(lower, `qemu-img": executable file not found`, `qemu-img\": executable file not found`, `qemu-system-x86_64": executable file not found`, `qemu-system-x86_64\": executable file not found`, "lima needs 'qemu-"):
