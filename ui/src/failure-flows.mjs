@@ -1,3 +1,5 @@
+import { hopsFromProxy, routeBody } from "./relay-group.mjs";
+
 // The flows the failure card's tools run (failure-card.jsx). Each carries
 // what the user started through to its end, never only the step that failed:
 // a node is applied again and the network checked, a subscription updated
@@ -36,12 +38,14 @@ function ended(job) {
 }
 
 // reapplyNode applies the saved node (or chain) again; with the environment
-// running the backend then checks the network.
+// running the backend then checks the network. A chain with an auto-switch
+// 前置 goes back as its hops: proxy.route names the group's Mihomo group
+// there (CAGE-RELAY-<i>), which is no node.
 export async function reapplyNode(api) {
   const proxy = await api("/proxy");
-  const route = proxy.route?.length ? proxy.route : proxy.selected ? [proxy.selected] : [];
+  const route = hopsFromProxy(proxy) || (proxy.route?.length ? proxy.route : proxy.selected ? [proxy.selected] : []);
   if (!route.length) throw new Error("尚未选择代理节点");
-  const job = await api("/proxy/route", { node_ids: route, port: proxy.port });
+  const job = await api("/proxy/route", { ...routeBody(route), port: proxy.port });
   return ended(await waitForJob(api, job.id));
 }
 
