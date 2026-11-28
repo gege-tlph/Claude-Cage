@@ -189,6 +189,18 @@ func TestBootScriptWaitsForTheFinishedInstall(t *testing.T) {
 	if !strings.Contains(GuestFinishScript, FinishedMarker) {
 		t.Fatal("guest-finish.sh does not write the marker BootScript waits for")
 	}
+	// Before the copy, APT has no sources; the copy's configuration replaces
+	// that one (never the other way round), and the end removes it.
+	if !strings.Contains(got, "if [ ! -e "+AptConfig+" ]; then\n") || !strings.Contains(got, ": > "+GuestRoot+"/apt/sources.list\n") ||
+		!strings.Contains(got, `'Dir::Etc::sourcelist "`+GuestRoot+`/apt/sources.list";'`) {
+		t.Fatalf("BootScript does not leave APT without sources until the copy: %q", got)
+	}
+	if !strings.Contains(GuestPrepareScript, "sudo tee "+AptConfig) || !strings.Contains(GuestFinishScript, "sudo rm -f "+AptConfig) {
+		t.Fatal("guest-prepare.sh / guest-finish.sh do not replace and remove the APT configuration")
+	}
+	if !strings.Contains(GuestPrepareScript, "boot.Linux/30-install-packages.sh") {
+		t.Fatal("guest-prepare.sh does not run Lima's dependency step again")
+	}
 }
 
 func TestGuestScriptsUseOneRoot(t *testing.T) {

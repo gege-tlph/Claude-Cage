@@ -32,4 +32,18 @@ for directory in "$root"/tools/*/; do
     fi
   done
 done
+# Lima installs its own dependencies at every boot (rsync; sshfs for
+# reverse-sshfs shares). At this first boot APT had no packages yet, so that
+# step failed; it runs again now with Lima's settings, so the system gets what
+# an online installation's first boot gives it. As at boot, a failure is a
+# warning.
+sudo sh -eu -c '
+  [ -f "$1/boot.Linux/30-install-packages.sh" ] && [ -f "$1/lima.env" ] || exit 0
+  while read -r line; do [ -n "$line" ] && export "$line"; done < "$1/lima.env"
+  if [ -f "$1/param.env" ]; then
+    while read -r line; do [ -n "$line" ] && export "$line"; done < "$1/param.env"
+  fi
+  export LIMA_CIDATA_MNT="$1"
+  sh "$1/boot.Linux/30-install-packages.sh"
+' sh /mnt/lima-cidata || echo 'WARNING: Lima dependency installation failed.' >&2
 printf 'Installation files are ready: %s packages\n' "$(find /var/cache/apt/archives -maxdepth 1 -name '*.deb' | wc -l)"
