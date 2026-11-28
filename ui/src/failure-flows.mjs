@@ -14,6 +14,15 @@ export async function waitForJob(api, id, interval = 800) {
   }
 }
 
+// settleJob waits for the job that is running, if any, and returns how it
+// ended (null when none ran or another replaced it). The backend runs one job
+// at a time: settings saved while a node change restarts the environment
+// would be refused (409).
+export async function settleJob(api, interval) {
+  const status = await api("/status");
+  return status.job?.running ? waitForJob(api, status.job.id, interval) : null;
+}
+
 // ended throws for a job that failed, so the tool shows 失败 and the job's
 // own failure card takes over.
 function ended(job) {

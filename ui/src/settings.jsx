@@ -30,7 +30,7 @@ import "./settings.css";
 import { SafetyMessage } from "./safety-message";
 import { FailureCard } from "./failure-card";
 import { failureOf } from "./failure-text.mjs";
-import { reapplyNode, recheckNetwork } from "./failure-flows.mjs";
+import { reapplyNode, recheckNetwork, settleJob } from "./failure-flows.mjs";
 import { SettingsSubmitBar } from "./settings-submit-bar";
 import { RouteText } from "./route-text";
 import { useSidebarEdge } from "./sidebar-edge.mjs";
@@ -325,6 +325,9 @@ export function SettingsPanel({
         if (!savePhase.finish(true, leave)) leave();
         return;
       }
+      // An exit in another time zone restarted the environment; the
+      // settings wait for that start to end.
+      await settleJob(api);
     }
     if (changed) await save();
   };
