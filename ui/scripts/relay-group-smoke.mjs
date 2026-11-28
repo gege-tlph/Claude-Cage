@@ -57,7 +57,8 @@ try {
   assert.deepEqual(posts.at(-1)?.hops, [{ relay: { strategy: "url-test", node_ids: ["tokyo", "hk"] } }, { node_id: "exit" }], JSON.stringify(posts));
 
   // Saved: the group reads back with its node in use; 固定 turns it back.
-  proxy.route = ["exit"];
+  // The backend names the group by its core group in route.
+  proxy.route = ["CAGE-RELAY-0", "exit"];
   proxy.route_hops = [{ relay: { strategy: "url-test", node_ids: ["tokyo", "hk"] }, candidate_count: 2, active_node_id: "tokyo" }, { node_id: "exit" }];
   await page.reload();
   await page.getByRole("button", { name: "设置", exact: true }).click();
@@ -65,7 +66,18 @@ try {
   await editor.getByText("自动 · 最低延迟 · 自选 2 个").waitFor();
   await editor.getByText("当前 Tokyo Transit").waitFor();
   assert.equal(await page.getByText("待应用：", { exact: false }).count(), 0, "a saved group is not a pending change");
+  assert.equal(await page.getByRole("button", { name: "重新选择前置" }).count(), 0, "an auto 前置 has no node to pick again");
   await page.screenshot({ path: path.join(out, "group-saved.png") });
+
+  // A second auto 前置 over the same nodes shows why and cannot be saved.
+  await editor.getByRole("button", { name: "添加前置" }).click();
+  await editor.getByRole("group", { name: "前置方式" }).nth(1).getByRole("button", { name: "自动", exact: true }).click();
+  await editor.getByText("和其他自动前置重复").nth(1).waitFor();
+  assert.equal(await editor.getByText("和其他自动前置重复").count(), 2, "both groups say they overlap");
+  assert.equal(await page.getByRole("button", { name: "保存", exact: true }).last().isDisabled(), true, "an overlapping group can be saved");
+  await page.screenshot({ path: path.join(out, "group-overlap.png") });
+  await editor.getByRole("button", { name: "移除前置" }).nth(1).click();
+
   await editor.getByRole("group", { name: "前置方式" }).getByRole("button", { name: "固定", exact: true }).click();
   await editor.getByText("在下面选择节点").waitFor();
   assert.deepEqual(f.errors, []);
