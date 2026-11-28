@@ -374,12 +374,7 @@ func (s *Server) runCage(args ...string) error {
 			return installFailure(stage, errors.Join(ctx.Err(), err), s.jobs.snapshot().Log, s.failureFacts())
 		}
 		// Starting and stopping say where they got stuck (environment_failure.go).
-		// Our failure rules name the boot "up" (#1090 renamed the subprocess vm-start).
-		op := args[0]
-		if op == "vm-start" {
-			op = "up"
-		}
-		if failure := environmentFailure(op, action, errors.Join(ctx.Err(), err), s.jobs.snapshot().Log, s.failureFacts()); failure != nil {
+		if failure := environmentFailure(failureOperation(args[0]), action, errors.Join(ctx.Err(), err), s.jobs.snapshot().Log, s.failureFacts()); failure != nil {
 			diagnostics.Log("error", "environment-operation", fmt.Sprintf("operation=%s error=%v context=%v", args[0], err, ctx.Err()))
 			return failure
 		}
@@ -1031,4 +1026,14 @@ func (s *Server) vmOrphaned() bool {
 func EnvironmentRunning(configPath string) bool {
 	profile := filepath.Dir(configPath)
 	return vmAlive(profile, environmentWorkspace(profile))
+}
+
+// failureOperation is the name our failure rules (environment_failure.go)
+// know an environment subprocess by: the boot is "up", which #1090 renamed
+// to the subprocess vm-start.
+func failureOperation(subcommand string) string {
+	if subcommand == "vm-start" {
+		return "up"
+	}
+	return subcommand
 }

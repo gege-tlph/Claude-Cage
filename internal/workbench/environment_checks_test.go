@@ -176,3 +176,17 @@ func TestForcedShutdownLeavesOneLogLine(t *testing.T) {
 		t.Fatalf("lines %q, error %q", lines, m.snapshot().Error)
 	}
 }
+
+// The boot subprocess is vm-start since #1090; its failures still go through
+// the start rules (named "up"), while other subprocesses keep their names.
+func TestBootSubprocessUsesStartRules(t *testing.T) {
+	healthyHost(t)
+	if failureOperation("vm-start") != "up" || failureOperation("stop") != "stop" || failureOperation("up") != "up" {
+		t.Fatal("vm-start must map to up and nothing else change")
+	}
+	output := "Warning: VM 'claude-cage-x' was left running without Lima's host agent, cut off: stopping it.\nError: could not stop VM 'claude-cage-x'. See 'agent-vm list'."
+	f := environmentFailure(failureOperation("vm-start"), "启动环境", errors.New("exit status 1"), output, failureFacts{})
+	if f == nil || f.Next != "重启环境" {
+		t.Fatalf("vm-start failure missed the start rules: %+v", f)
+	}
+}
