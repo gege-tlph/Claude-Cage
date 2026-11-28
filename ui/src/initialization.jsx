@@ -271,6 +271,12 @@ function Initialization({ initial, onComplete }) {
   const stopped = !busy && !status?.ready && (job.kind === "stop" || job.canceled);
   const networkPending = Boolean(status?.ready && status.vm_running && network.mode !== "open");
   const progress = !status?.ready && job.setup_progress ? { ...job, setup_progress: job.setup_progress } : null;
+  // The install card stays through the network check after the install and
+  // ends with ✓完成 → 进入工作台 (setup-progress.jsx).
+  const lastProgress = useRef(null);
+  if (progress) lastProgress.current = progress;
+  const checkingCard = !progress && busy && !job.error && job.kind === "start" && lastProgress.current ? lastProgress.current : null;
+  const finishedCard = !progress && showReady && lastProgress.current ? lastProgress.current : null;
   const index = steps.findIndex(([key]) => key === step);
   const title = steps[index][1];
   // Only the install's own jobs describe this step; another job's message
@@ -318,9 +324,11 @@ function Initialization({ initial, onComplete }) {
             <label className="mirror-option"><input type="radio" name="debian-mirror" value={mirrors.domestic} checked={mirrorChoice === mirrors.domestic} onChange={() => setMirrorChoice(mirrors.domestic)} />{tr("{0}优先", tr(mirrorNames[mirrors.domestic] ?? mirrors.domestic))}{mirrors.recommended === mirrors.domestic && <em>{tr("推荐")}</em>}</label>
             <button className="primary" disabled={busy || !mirrorChoice || Boolean(connectionError)} onClick={() => install(mirrorChoice)}>{submitting && <LoaderCircle size={16} className="spin" />}{tr("开始安装")}</button></section>}
           {step === "install" && <>
-            {showReady ? <div className="initialization-ready"><ShieldCheck size={36} /><h2 role={entering ? "status" : undefined}>{tr(entering ? "正在进入工作台" : "环境已就绪")}</h2></div> : <>
+            {finishedCard ? <SetupProgress job={finishedCard} finished entering={entering} onEnter={enter} disconnected={Boolean(connectionError)} />
+            : checkingCard ? <SetupProgress job={checkingCard} checking onStop={stop} disconnected={Boolean(connectionError)} />
+            : showReady ? <div className="initialization-ready"><ShieldCheck size={36} /><h2 role={entering ? "status" : undefined}>{tr(entering ? "正在进入工作台" : "环境已就绪")}</h2></div> : <>
             {needsRestart && <section className="initialization-notice" aria-label={tr("需要重启环境")}><h2>{tr("需要重启环境")}</h2><button className="primary" disabled={busy || Boolean(connectionError)} onClick={restart}>{status.vm_running ? tr("重启环境并检查") : tr("启动环境并检查")}</button></section>}
-            {progress ? <SetupProgress job={progress} onStop={stop} onRetry={needsRestart ? restart : install} disconnected={Boolean(connectionError) || submitting} /> : checkPending
+            {progress ? <SetupProgress job={progress} onStop={stop} onRetry={needsRestart ? restart : install} onTool={initializationTool} disconnected={Boolean(connectionError) || submitting} /> : checkPending
               // Installed and connected: the network check is this card's state (no second block).
               ? <div className="initialization-operation" role="status"><p>{status.safety?.error || job.error || status.network_error || tr("网络与隔离未检查")}</p><button className="primary" disabled={Boolean(connectionError)} onClick={checkNetwork}>{tr("网络与隔离检查")}</button></div>
               : mirrors ? null : <div className="initialization-operation" role="status"><p>{busy && <LoaderCircle size={18} className="spin" />}{measuring ? tr("正在测量软件源速度…") : stopped ? tr("安装已停止") : installMessage || (status.vm_running ? tr("环境已启动") : resumable ? tr("安装未完成") : tr("未开始"))}</p>{!busy && !job.error && !mirrors && !needsRestart && <button className="primary" disabled={Boolean(connectionError)} onClick={install}>{status.ready ? tr("重新启动并检查") : resumable ? tr("继续安装") : tr("开始安装")}</button>}{busy && !measuring && <button onClick={stop} disabled={submitting}>{tr("停止安装")}</button>}</div>}
@@ -336,7 +344,7 @@ function Initialization({ initial, onComplete }) {
           {step === "system" ? <span /> : <button className="text-button" disabled={busy} onClick={back}><ChevronLeft size={16} />{tr("上一步")}</button>}
           {step === "system" && <button className="primary" disabled={busy || !storage?.directory.trim() || choice === undefined || !validGuestChoice(choice) || Boolean(connectionError)} onClick={nextFromSystem}>{submitting && <LoaderCircle size={16} className="spin" />}{tr("下一步：配置代理")}</button>}
           {step === "proxy" && <button className="primary" disabled={busy || proxyDirty || !account?.guest_system && !pending && !validGuestChoice(choice) || needsProxySetup(null, status, proxy) || Boolean(connectionError)} onClick={install}>{submitting ? <LoaderCircle size={16} className="spin" /> : null}{tr("下一步：安装")}</button>}
-          {step === "install" && showReady && <button className="primary" disabled={busy || Boolean(connectionError)} aria-busy={entering} onClick={enter}>{entering && <LoaderCircle size={16} className="spin" />}{tr(entering ? "正在进入…" : "进入工作台")}</button>}
+          {step === "install" && showReady && !finishedCard && <button className="primary" disabled={busy || Boolean(connectionError)} aria-busy={entering} onClick={enter}>{entering && <LoaderCircle size={16} className="spin" />}{tr(entering ? "正在进入…" : "进入工作台")}</button>}
         </footer>
       </>}
       {(status || connectionError) && navigation && !busy && <div className="initialization-support"><button className="text-button" onClick={() => navigation.open()}>{tr("只连接 SSH 主机")}</button></div>}

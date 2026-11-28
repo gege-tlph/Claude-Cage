@@ -33,20 +33,34 @@
 .setup-transfer-bytes { display: block; font-size: .8571rem; line-height: 1.5; color: var(--muted); font-variant-numeric: tabular-nums; }
 .setup-transfer-number { font-size: 1.7143rem; font-weight: 600; color: var(--strong); font-variant-numeric: tabular-nums; }
 .setup-transfer-number small { font-size: .9286rem; padding-left: 2px; }
-.setup-meter { height: 6px; overflow: hidden; margin-top: 16px; border-radius: 8px; background: var(--chrome-dark); }
-.setup-meter span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .25s ease-out; }
-.setup-meter-active span { width: 28%; animation: setup-meter-scan 1.8s ease-in-out infinite alternate; }
-@keyframes setup-meter-scan { from { transform: translateX(0); } to { transform: translateX(257%); } }
+/* The bar: the part done, then the current step's segment with a light
+   sweeping over it (demo v6–v8); a failure stops it and the segment turns red. */
+.setup-meter { position: relative; height: 8px; overflow: hidden; margin-top: 16px; border-radius: 8px; background: var(--chrome-dark); }
+.setup-meter span { position: absolute; top: 0; bottom: 0; left: 0; }
+.setup-meter-done { border-radius: 8px; background: var(--accent); transition: width .32s ease-out; }
+.setup-meter-current {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 16%, transparent) 0%, color-mix(in srgb, var(--accent) 16%, transparent) 35%, color-mix(in srgb, var(--accent) 50%, transparent) 50%, color-mix(in srgb, var(--accent) 16%, transparent) 65%, color-mix(in srgb, var(--accent) 16%, transparent) 100%);
+  background-size: 250% 100%;
+  animation: setup-meter-shine 1.4s linear infinite;
+  transition: left .32s ease-out, width .32s ease-out;
+}
+.setup-meter.failed .setup-meter-current { background: color-mix(in srgb, var(--status-red, var(--danger)) 55%, transparent); animation: none; }
+@keyframes setup-meter-shine { from { background-position: 100% 0; } to { background-position: 0% 0; } }
+.setup-step-name { animation: setup-step-in 160ms ease-out; }
+@keyframes setup-step-in { from { opacity: 0; transform: translateY(4px); } }
+.setup-progress .failure-card { margin-top: 14px; }
 .setup-transfer-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
 .setup-transfer-error { color: var(--danger); font-size: .9286rem; line-height: 1.6; overflow-wrap: anywhere; margin: 12px 0 0; }
 .setup-transfer-hint { color: var(--muted); font-size: .8571rem; line-height: 1.6; margin: 8px 0 0; }
 @media (prefers-reduced-motion: reduce) {
-  .setup-meter span { animation: none; transition: none; }
-  .setup-meter-active { background: repeating-linear-gradient(110deg,var(--chrome-dark) 0 6px,var(--line) 6px 12px); }
-  .setup-meter-active span { display: none; }
+  .setup-meter span, .setup-step-name { animation: none; transition: none; }
+  .setup-meter-current { background: color-mix(in srgb, var(--accent) 28%, transparent); }
+}
+:root[data-reduced-motion="true"] .setup-meter span, :root[data-reduced-motion="true"] .setup-step-name { animation: none; transition: none; }
+@media (forced-colors: active) {
+  .setup-meter-current { animation: none; background: Highlight; opacity: .4; }
 }
 @media (max-width: 600px) {
   .setup-progress { padding: 16px; }
   .setup-transfer-heading { gap: 8px; }
-  .setup-transfer-icon { width: 28px; height: 28px; }
 }
