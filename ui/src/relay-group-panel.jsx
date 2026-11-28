@@ -1,16 +1,18 @@
 import React, { useId } from "react";
 import { InlineSelect } from "./inline-select";
 import { useTranslation } from "./interface-language.mjs";
-import { STRATEGIES, strategyName, withMode, withSource, withStrategy } from "./relay-group.mjs";
+import { STRATEGIES, problemName, strategyName, withMode, withSource, withStrategy } from "./relay-group.mjs";
 import "./relay-group.css";
 
 // RelayGroupPanel is the range and strategy of an auto-switch 前置, under its
 // row in the chain editor. Choosing 自选节点 makes the row the one being
 // chosen: the node list below then ticks the nodes of the group.
-// onChange(next, pick) receives the group and whether to start picking.
-export function RelayGroupPanel({ hop, sources, current, disabled, onChange }) {
+// problem is why the backend would refuse it (groupProblem), shown as its
+// state. onChange(next, pick) receives the group and whether to start picking.
+export function RelayGroupPanel({ hop, sources, current, problem, disabled, onChange }) {
   const tr = useTranslation();
   const name = useId();
+  const trouble = problemName(problem, hop, tr);
   return <div className="proxy-group-panel">
     <div className="proxy-group-line" role="radiogroup" aria-label={tr("范围")}>
       <span className="proxy-group-label">{tr("范围")}</span>
@@ -29,6 +31,7 @@ export function RelayGroupPanel({ hop, sources, current, disabled, onChange }) {
         {tr("自选节点")}
       </label>
       {hop.mode === "nodes" && <span className="proxy-group-count">{tr("已选 {0} 个", hop.relay.node_ids.length)}</span>}
+      {trouble && <span className="proxy-group-problem">{trouble}</span>}
     </div>
     <div className="proxy-group-line">
       <span className="proxy-group-label">{tr("策略")}</span>

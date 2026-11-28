@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { candidates, groupValid, hopsFromProxy, isGroup, newGroup, routeBody, routeKey, toggleNode, withMode, withSource, withStrategy } from "./relay-group.mjs";
+import { candidates, groupProblem, groupValid, hopsFromProxy, isGroup, newGroup, routeBody, routeKey, sourceNodes, toggleNode, withMode, withSource, withStrategy } from "./relay-group.mjs";
 
 const sources = [
   { id: "air", name: "旅行订阅", nodes: [{ id: "la" }, { id: "tokyo" }, { id: "hk" }] },
@@ -48,8 +48,42 @@ test("a group needs two usable candidates outside the fixed hops", () => {
   assert.equal(groupValid(whole, ["tokyo", whole, "exit"], nodes), false);
   const picked = toggleNode(withMode(whole, "nodes"), "la");
   assert.equal(groupValid(picked, [picked, "exit"], nodes), false);
-  assert.equal(groupValid(toggleNode(picked, "hk"), [picked, "exit"], nodes), false);
-  assert.equal(groupValid(toggleNode(picked, "tokyo"), [picked, "exit"], nodes), true);
+  const withHK = toggleNode(picked, "hk");
+  assert.equal(groupValid(withHK, [withHK, "exit"], nodes), false);
+  const both = toggleNode(picked, "tokyo");
+  assert.equal(groupValid(both, [both, "exit"], nodes), true);
   assert.equal(isGroup("la"), false);
   assert.equal(isGroup(picked), true);
+});
+
+test("groups the backend would refuse are not valid, with the reason", () => {
+  const more = [...nodes, { id: "sf", sourceID: "air" }];
+  const a = newGroup(sources, "la");
+  // Two whole-source groups over one source, or chosen nodes shared.
+  const b = newGroup(sources, "la");
+  assert.equal(groupProblem(a, [a, b, "exit"], more), "overlap");
+  assert.equal(groupProblem(b, [a, b, "exit"], more), "overlap");
+  const mine = toggleNode(toggleNode(withMode(newGroup(sources), "nodes"), "la"), "sf");
+  const theirs = toggleNode(toggleNode(withMode(newGroup(sources), "nodes"), "tokyo"), "sf");
+  assert.equal(groupProblem(mine, [mine, theirs, "exit"], more), "overlap");
+  const apart = toggleNode(toggleNode(withMode(newGroup(sources), "nodes"), "la"), "tokyo");
+  assert.equal(groupProblem(apart, [apart, "exit"], more), "");
+  // A chosen node that cannot be used; a source with one node.
+  assert.equal(groupProblem(toggleNode(apart, "ferry"), [toggleNode(apart, "ferry"), "exit"], nodes), "unusable");
+  const lone = withSource(a, "home");
+  assert.equal(groupProblem(lone, [lone, "la"], nodes), "few");
+  // Over 300 candidates in a whole source.
+  const big = [{ id: "big", name: "大机场", nodes: Array.from({ length: 301 }, (_, i) => ({ id: `n${i}` })) }];
+  const huge = newGroup(big);
+  assert.equal(groupProblem(huge, [huge, "exit"], sourceNodes(big)), "many");
+  assert.equal(sourceNodes(big)[0].sourceID, "big");
+});
+
+test("a new group takes a source no other group of the route takes whole", () => {
+  const two = [...sources, { id: "more", name: "备用", nodes: [{ id: "m1" }, { id: "m2" }] }];
+  const first = newGroup(two, "la");
+  assert.equal(first.relay.source_id, "air");
+  assert.equal(newGroup(two, "la", [first, "", "exit"]).relay.source_id, "more");
+  // Chosen nodes leave the source free.
+  assert.equal(newGroup(two, "la", [withMode(first, "nodes"), "", "exit"]).relay.source_id, "air");
 });

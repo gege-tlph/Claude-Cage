@@ -2,7 +2,7 @@ import React from "react";
 import { ArrowDown, ArrowRight, ArrowUp, Plus, Route, X } from "lucide-react";
 import { useTranslation } from "./interface-language.mjs";
 import { addRelay, move, remove } from "./proxy-route.mjs";
-import { groupRange, isGroup, newGroup, strategyName } from "./relay-group.mjs";
+import { groupProblem, groupRange, isGroup, newGroup, sourceNodes, strategyName } from "./relay-group.mjs";
 import { RelayGroupPanel } from "./relay-group-panel";
 
 // ProxyRouteEditor edits a chain (demo v12 「链式代理」): one row per hop from
@@ -17,6 +17,7 @@ export function ProxyRouteEditor({ route, active, nameOf, onChange, disabled, ad
   const tr = useTranslation();
   const last = route.length - 1;
   const replace = (index, hop) => route.map((current, i) => (i === index ? hop : current));
+  const nodes = sourceNodes(sources);
   return <div className="proxy-route-editor">
     <ol className="proxy-route-hops" aria-label={tr("链式代理")}>
       {route.map((id, index) => {
@@ -35,7 +36,7 @@ export function ProxyRouteEditor({ route, active, nameOf, onChange, disabled, ad
             <button type="button" aria-pressed={!group} disabled={disabled}
               onClick={() => group && onChange({ route: replace(index, ""), active: index })}>{tr("固定")}</button>
             <button type="button" aria-pressed={group} disabled={disabled}
-              onClick={() => !group && onChange({ route: replace(index, newGroup(sources, id)), active: active === index ? -1 : active })}>{tr("自动")}</button>
+              onClick={() => !group && onChange({ route: replace(index, newGroup(sources, id, route)), active: active === index ? -1 : active })}>{tr("自动")}</button>
           </span>}
           <span className="proxy-hop-tools">
             <button type="button" className="icon-button" disabled={disabled || index === 0 || (exit && isGroup(route[index - 1]))} aria-label={tr("上移")} title={tr("上移")}
@@ -45,7 +46,7 @@ export function ProxyRouteEditor({ route, active, nameOf, onChange, disabled, ad
             {!exit && <button type="button" className="icon-button" disabled={disabled} aria-label={tr("移除{0}", role)} title={tr("移除{0}", role)}
               onClick={() => onChange(remove(route, index))}><X size={14} /></button>}
           </span>
-          {group && <RelayGroupPanel hop={id} sources={sources || []} current={current[index]} disabled={disabled}
+          {group && <RelayGroupPanel hop={id} sources={sources || []} current={current[index]} problem={groupProblem(id, route, nodes)} disabled={disabled}
             onChange={(next, pick) => onChange({ route: replace(index, next), active: pick ? index : active === index && next.mode !== "nodes" ? -1 : active })} />}
         </li>;
       })}
