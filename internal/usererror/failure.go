@@ -42,6 +42,8 @@ const (
 	ToolRefreshHost = "refresh-host"
 	ToolSplitRetry  = "split-retry"
 	ToolSettingsDNS = "settings:dns"
+	// Install (group 3): turn on the install TLS 1.2 mode, then continue.
+	ToolTLS12Retry = "tls12-retry"
 	// Claude Desktop (group 4).
 	ToolOpenDesktop    = "open-desktop"
 	ToolReopenDesktop  = "reopen-desktop"
@@ -82,8 +84,13 @@ type Failure struct {
 }
 
 // Fail builds an error-level failure of action: 「{action}失败，{reason}」.
+// An empty action leaves the lead to the caller, as Because does.
 func Fail(action, reason, next string, cause error, tools ...string) *Failure {
-	return &Failure{Level: LevelError, Lead: action + "失败", Reason: reason, Next: next, Tools: tools, cause: cause}
+	lead := ""
+	if action != "" {
+		lead = action + "失败"
+	}
+	return &Failure{Level: LevelError, Lead: lead, Reason: reason, Next: next, Tools: tools, cause: cause}
 }
 
 // Because is a failure whose operation the caller names later (Lead empty):

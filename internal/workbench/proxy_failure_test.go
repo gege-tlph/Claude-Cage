@@ -124,18 +124,18 @@ func TestJobDescribesTheFailure(t *testing.T) {
 		if _, wrapped := tc.err.(networkCheckError); wrapped {
 			err = networkCheckError{&copied}
 		}
-		f, _ := usererror.AsFailure(s.describeFailure(tc.kind, err))
+		f, _ := usererror.AsFailure(s.describeFailure(tc.kind, "", err))
 		if f.Lead != tc.lead || f.Subject != "澳大利亚 01" {
 			t.Errorf("%s: %+v, want %q", tc.kind, f, tc.lead)
 		}
 	}
 	want := "应用代理节点失败，原因是经「澳大利亚 01」连不上任何检测地址（6 个出口检测服务和连通性检查都失败：连接超时）。解决建议：换一个节点。"
 	copied := *probe
-	if err := s.describeFailure("proxy", &copied); err.Error() != want {
+	if err := s.describeFailure("proxy", "", &copied); err.Error() != want {
 		t.Fatalf("%q", err.Error())
 	}
 	bare := usererror.Because("原因是连接网络后", "重试", nil)
-	if f, _ := usererror.AsFailure(s.describeFailure("start", bare)); !reflect.DeepEqual(f.Tools, []string{"start"}) {
+	if f, _ := usererror.AsFailure(s.describeFailure("start", "", bare)); !reflect.DeepEqual(f.Tools, []string{"start"}) {
 		t.Fatalf("retry tool: %+v", f)
 	}
 	if f, _ := usererror.AsFailure(proxyActionFailure("import", usererror.Because("原因是x", "y", nil))); f.Lead != "导入订阅失败" {

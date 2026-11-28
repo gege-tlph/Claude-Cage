@@ -347,11 +347,15 @@ func (s *Server) runCage(args ...string) error {
 		if action == "" {
 			action = "执行环境操作"
 		}
-		if p := s.jobs.snapshot().SetupProgress; p != nil && p.Label != "" {
-			action = strings.TrimPrefix(p.Label, "正在")
-		}
-		if packageErr := packageInstallFailure(action, errors.Join(ctx.Err(), err), s.jobs.snapshot().Log); packageErr != nil {
-			return packageErr
+		// An install keeps the operation's name; its step goes into the
+		// reason (setup_failure.go).
+		if p := s.jobs.snapshot().SetupProgress; args[0] == "setup" || p != nil && p.Label != "" {
+			stage := ""
+			if p != nil {
+				stage = installStage(p.Label)
+			}
+			diagnostics.Log("error", "environment-operation", fmt.Sprintf("operation=%s stage=%s error=%v context=%v", args[0], stage, err, ctx.Err()))
+			return installFailure(stage, errors.Join(ctx.Err(), err), s.jobs.snapshot().Log, s.failureFacts())
 		}
 		// Starting and stopping say where they got stuck (environment_failure.go).
 		if failure := environmentFailure(args[0], action, errors.Join(ctx.Err(), err), s.jobs.snapshot().Log, s.failureFacts()); failure != nil {

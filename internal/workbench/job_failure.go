@@ -17,7 +17,7 @@ import (
 // reason went through (usererror.SelectedNode). Known errors that are still
 // plain text become failures first (proxy_failure.go, setup_failure.go,
 // desktop_failure.go).
-func (s *Server) describeFailure(kind string, err error) error {
+func (s *Server) describeFailure(kind, initiator string, err error) error {
 	if err == nil {
 		return nil
 	}
@@ -35,6 +35,17 @@ func (s *Server) describeFailure(kind string, err error) error {
 			f.Lead = "联网检查未通过"
 		default:
 			f.Lead = jobName(kind) + "失败"
+		}
+	}
+	// First run calls a start 「安装」, carried on by 「继续安装」 (group 3).
+	if initiator == jobInitiatorSetup && (kind == "start" || kind == "setup") {
+		if f.Lead == jobName(kind)+"失败" {
+			f.Lead = "安装失败"
+		}
+		for i, tool := range f.Tools {
+			if tool == usererror.ToolStart {
+				f.Tools[i] = usererror.ToolContinueInstall
+			}
 		}
 	}
 	if len(f.Tools) == 0 {
