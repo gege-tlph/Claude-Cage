@@ -260,10 +260,10 @@ func startLinuxCore(ctx context.Context, profile string, s Store) error {
 			return ctx.Err()
 		case <-exited:
 			_ = stopLinuxCore(profile)
-			return errors.New("代理核心启动失败，请查看私有代理日志")
+			return ErrCoreExited
 		case <-timeout.C:
 			_ = stopLinuxCore(profile)
-			return errors.New("代理核心启动超时，请查看私有代理日志")
+			return ErrCoreNotReady
 		case <-ticker.C:
 			if Running(ctx, profile, s) {
 				if err := host.ProtectFile(Socket(profile)); err != nil {

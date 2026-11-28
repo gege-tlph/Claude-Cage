@@ -74,7 +74,7 @@ func TestDNSFailsOverToBackupEndpointThroughProxy(t *testing.T) {
 	}
 	backupDown.Store(true)
 	_, err = e.ExchangeDNS(t.Context(), q)
-	if err == nil || !strings.Contains(err.Error(), "设置 → 网络与代理 → 加密 DNS") || !strings.Contains(err.Error(), "127.0.0.1") {
+	if err == nil || !strings.Contains(err.Error(), "用不了加密 DNS") || !strings.Contains(err.Error(), "127.0.0.1") {
 		t.Fatalf("all endpoints down must point to the settings: %v", err)
 	}
 	if strings.Contains(err.Error(), "/dns-query") || strings.Contains(err.Error(), primary.URL) {

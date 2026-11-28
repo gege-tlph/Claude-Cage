@@ -185,7 +185,7 @@ func TestDelayErrorKeepsCoreFailureClass(t *testing.T) {
 		{&coreError{stage: "api.http-404", status: 404}, "节点未载入核心"},
 		{&coreError{stage: "api.http-504", status: 504}, "测速超时"},
 		{&coreError{stage: "api.http-408", status: 408}, "测速超时"},
-		{&coreError{stage: "api.http-503", status: 503}, "连接节点或上游代理时出错"},
+		{&coreError{stage: "api.http-503", status: 503}, "连接节点或前置失败"},
 		{&coreError{stage: "api.http-500", status: 500}, "HTTP 500"},
 		{&coreError{stage: "api.transport", err: syscall.ECONNREFUSED}, "代理核心未运行"},
 		{&coreError{stage: "api.decode", err: errors.New("bad json")}, "api.decode"},

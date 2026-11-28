@@ -17,6 +17,8 @@ var jobStages = []struct{ prefix, stage string }{
 	{messagePrefix("正在停止环境"), "停止环境"},
 	{messagePrefix("正在停止当前环境"), "停止环境"},
 	{messagePrefix("正在连接项目文件夹"), "连接项目"},
+	{messagePrefix("虚拟机未在 "), "停止环境"},
+	{messagePrefix("虚拟机未按时关机"), "停止环境"},
 	{messagePrefix("正在重新连接客机"), "连接环境"},
 	// Proxy and exit.
 	{messagePrefix("正在验证新出口"), "验证出口"},

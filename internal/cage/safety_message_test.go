@@ -16,7 +16,7 @@ func TestSafetyRejectionExplainsFailedCheck(t *testing.T) {
 	report.Checks[4].Evidence = "浏览器语言与设置不一致"
 	report.Checks[4].Remedy = "更新环境组件，再重新检测"
 	err := report.Authorizes(report.RunID, report.Configuration, time.Now())
-	for _, part := range []string{"浏览器时区与语言", "浏览器语言与设置不一致", "更新环境组件", "外网保持关闭"} {
+	for _, part := range []string{"联网检查未通过，原因是浏览器时区与语言未通过（浏览器语言与设置不一致）", "解决建议：更新环境组件，再重新检测"} {
 		if err == nil || !strings.Contains(err.Error(), part) {
 			t.Fatalf("missing actionable failure %q: %v", part, err)
 		}

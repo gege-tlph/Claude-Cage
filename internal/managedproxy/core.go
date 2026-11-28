@@ -176,9 +176,9 @@ func DelayError(err error) error {
 	case core.status == http.StatusNotFound:
 		return errors.New("节点未载入核心；请先应用节点以载入当前列表")
 	case core.status == http.StatusGatewayTimeout || core.status == http.StatusRequestTimeout:
-		return errors.New("测速超时：节点已载入核心，但 5 秒内没有收到测速地址的响应；请检查节点或上游代理")
+		return errors.New("测速超时：5 秒内没有响应")
 	case core.status == http.StatusServiceUnavailable:
-		return errors.New("测速失败：节点已载入核心，但连接节点或上游代理时出错；请检查节点或上游代理")
+		return errors.New("测速失败：连接节点或前置失败")
 	case core.status != 0:
 		return fmt.Errorf("测速失败：代理核心返回 HTTP %d", core.status)
 	case strings.HasPrefix(core.stage, "api.transport"):
@@ -386,7 +386,7 @@ func Start(ctx context.Context, profile string, s Store) error {
 			return ctx.Err()
 		case <-deadline.C:
 			_ = Stop(profile)
-			return errors.New("代理核心启动超时，请查看私有代理日志")
+			return ErrCoreNotReady
 		case <-ticker.C:
 			if Running(ctx, profile, s) {
 				if err = os.Chmod(Socket(profile), 0600); err != nil {

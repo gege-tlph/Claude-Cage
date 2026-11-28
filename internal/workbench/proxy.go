@@ -164,7 +164,7 @@ func (s *Server) proxyMutation(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	pauseVersion := s.safety.pauseVersion
 	s.mu.Unlock()
-	s.launchRequest(w, r, "proxy", func() error { return s.changeProxy(action, input, &pauseVersion) })
+	s.launchRequest(w, r, "proxy", func() error { return proxyActionFailure(action, s.changeProxy(action, input, &pauseVersion)) })
 }
 
 // Every operation that validates or starts the bundled core fails before a job
@@ -450,6 +450,17 @@ func (s *Server) changeProxy(action string, in proxyInput, resumeVersion *uint64
 			defer client.CloseIdleConnections()
 			data, usage, err = fetchProxySource(ctx, client, in.URL)
 			if err != nil {
+				previous := 0
+				if index >= 0 {
+					previous = len(p.Sources[index].Nodes)
+				}
+				lead := proxyActionLeads[action]
+				if lead == "" {
+					lead = "更新订阅"
+				}
+				if f := subscriptionFailure(lead, err, in.HostDownload && !viaRelay, previous, in.ID); f != nil {
+					err = f
+				}
 				if index >= 0 {
 					p.Sources[index].Error = err.Error()
 					p.Sources[index].Attempted = time.Now()
@@ -461,6 +472,9 @@ func (s *Server) changeProxy(action string, in proxyInput, resumeVersion *uint64
 		if next, followed := s.ferryFollowExitOn(action, p, index, in, data, usage); followed {
 			p = next
 		} else if err = p.Import(in.Name, in.URL, data, in.ID, in.Interval, usage); err != nil {
+			if f := importFailure(action, err); f != nil {
+				err = f
+			}
 			s.proxySourceFailure(in.ID, err)
 			return err
 		}
@@ -583,7 +597,7 @@ func (s *Server) applyProxy(p managedproxy.Store, old cage.Config, resumeVersion
 		if returned != nil && !committed {
 			_ = previous.Save(s.profile)
 			_ = writePrivate(s.configPath, old)
-		} else if returned != nil && !errors.Is(returned, context.Canceled) {
+		} else if _, structured := usererror.AsFailure(returned); returned != nil && !errors.Is(returned, context.Canceled) && !structured {
 			returned = fmt.Errorf("代理节点已保存，外网尚未恢复；请重新检查联网条件：%w", usererror.Display("恢复联网", returned, "请重新检测；仍失败时导出诊断包。"))
 		}
 	}()
@@ -854,7 +868,9 @@ func (s *Server) refreshProxySubscriptions() {
 	for _, src := range p.Sources {
 		if src.URL != "" && src.Interval > 0 && time.Since(src.Updated) >= time.Duration(src.Interval)*time.Hour && time.Since(src.Attempted) > 15*time.Minute {
 			// Automatic refresh never opts into a host-network fallback.
-			_, _ = s.submitJob("proxy-update", func() error { return s.changeProxy("refresh", proxyInput{ID: src.ID}, nil) })
+			_, _ = s.submitJob("proxy-update", func() error {
+				return proxyActionFailure("refresh", s.changeProxy("refresh", proxyInput{ID: src.ID}, nil))
+			})
 			return
 		}
 	}

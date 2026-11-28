@@ -107,7 +107,7 @@ func TestDarwinPhysicalInterfaceReportsScutilFailureInsteadOfNoNIC(t *testing.T)
 	if _, err := selectPhysicalInterface("interface: en0", "Hardware Port: Wi-Fi\nDevice: en0\n", "", map[string]bool{"en0": true}); err == nil || !strings.Contains(err.Error(), "无法读取系统网络状态") {
 		t.Fatalf("empty nwi: got %v, want system network state error", err)
 	}
-	if _, err := selectPhysicalInterface("interface: en0", "Hardware Port: Wi-Fi\nDevice: en0\n", "No network information\n", map[string]bool{"en0": true}); err == nil || !strings.Contains(err.Error(), "未找到可用的物理 IPv4 网卡") {
+	if _, err := selectPhysicalInterface("interface: en0", "Hardware Port: Wi-Fi\nDevice: en0\n", "No network information\n", map[string]bool{"en0": true}); err == nil || !strings.Contains(err.Error(), "找不到可用的物理 IPv4 网卡") {
 		t.Fatalf("offline nwi: got %v, want no physical IPv4 interface error", err)
 	}
 }

@@ -203,13 +203,13 @@ func StartPreflight(ctx context.Context, profile string, s Store) (*PreflightPro
 		select {
 		case <-done:
 			cleanup()
-			return nil, fmt.Errorf("候选代理核心启动失败：%w", &coreError{stage: "preflight.exit", err: exitErr})
+			return nil, errors.Join(ErrCoreExited, &coreError{stage: "preflight.exit", err: exitErr})
 		case <-ctx.Done():
 			cleanup()
 			return nil, ctx.Err()
 		case <-deadline.C:
 			cleanup()
-			return nil, errors.Join(errors.New("代理核心启动超时，请查看私有代理日志"), lastErr)
+			return nil, errors.Join(ErrCoreNotReady, lastErr)
 		case <-ticker.C:
 			lastErr = checkRunningSocket(ctx, sockPath, iface, candidate)
 			if lastErr == nil {

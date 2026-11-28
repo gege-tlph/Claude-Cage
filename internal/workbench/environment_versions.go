@@ -15,7 +15,7 @@ import (
 )
 
 var errGuestUpdateRequired = errors.New("环境组件需要更新，请先保存浏览器和编辑器中的修改。工作台终端与磁盘保留，编辑器内终端可能结束。")
-var errGuestRecoveryRequired = errors.New("环境组件清单缺失或上次更新中断，请重新启动环境以重建组件清单；恢复期间外网保持关闭。")
+var errGuestRecoveryRequired = errors.New("环境组件清单缺失或上次更新中断，请重新启动环境以重建组件清单。")
 
 // Environments not yet updated keep these files under their former names.
 const guestConnectionSnapshot = `sudo cat /etc/workbench/browser-control.json 2>/dev/null || sudo cat /etc/claude-cage/browser-control.json; printf '\n'; cat "$HOME/.config/workbench/browser-password" 2>/dev/null || cat "$HOME/.config/claude-cage/browser-password"; printf '\n'; d=/etc/claude-cage; if sudo test -d /etc/workbench; then d=/etc/workbench; fi; if sudo test -e "$d/components.updating"; then printf '{"updating":true}'; elif sudo test -f "$d/components.json"; then sudo cat "$d/components.json"; else printf 'null'; fi; if sudo test -e "$d/components.updating"; then printf '\nupdating'; fi`
@@ -193,7 +193,7 @@ func (s *Server) synchronizeEnvironment() error {
 	s.mu.Unlock()
 	message := "正在更新环境组件，外网暂时关闭"
 	if recovering {
-		message = "组件清单缺失或更新中断，正在恢复环境组件，外网保持关闭"
+		message = "组件清单缺失或更新中断，正在恢复环境组件"
 	}
 	if err := s.closeProxyGate(message); err != nil {
 		return err

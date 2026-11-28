@@ -33,7 +33,25 @@ const (
 	ToolSettingsNetwork = "settings:network"
 	ToolSettingsProject = "settings:project"
 	ToolResources       = "settings:resources"
+	// Proxy and network (group 2): each carries the flow through, see
+	// ui/src/failure-card.jsx.
+	ToolReapply     = "reapply"
+	ToolRecheck     = "recheck"
+	ToolChecklist   = "checklist"
+	ToolRefresh     = "refresh"
+	ToolRefreshHost = "refresh-host"
+	ToolSplitRetry  = "split-retry"
+	ToolSettingsDNS = "settings:dns"
+	// Claude Desktop (group 4).
+	ToolOpenDesktop    = "open-desktop"
+	ToolReopenDesktop  = "reopen-desktop"
+	ToolInstallDesktop = "install-desktop"
+	ToolUpdateDesktop  = "update-desktop"
 )
+
+// SelectedNode stands for the node a reason went through until the
+// workbench names it (Subject): 「经所选节点…」 becomes 「经「澳大利亚 01」…」.
+const SelectedNode = "所选节点"
 
 // rawLimit bounds the last error line a failure quotes.
 const rawLimit = 120
@@ -56,12 +74,29 @@ type Failure struct {
 	// Unknown marks a reason that was not recognized; the job fills in the
 	// stage it was stuck at.
 	Unknown bool `json:"unknown,omitempty"`
-	cause   error
+	// Subject is the node SelectedNode in Reason stands for, shown quoted.
+	Subject string `json:"subject,omitempty"`
+	// Target is what a tool acts on, such as the subscription to update.
+	Target string `json:"target,omitempty"`
+	cause  error
 }
 
 // Fail builds an error-level failure of action: 「{action}失败，{reason}」.
 func Fail(action, reason, next string, cause error, tools ...string) *Failure {
 	return &Failure{Level: LevelError, Lead: action + "失败", Reason: reason, Next: next, Tools: tools, cause: cause}
+}
+
+// Because is a failure whose operation the caller names later (Lead empty):
+// the exit probe does not know whether a start or a node switch ran it.
+func Because(reason, next string, cause error, tools ...string) *Failure {
+	return &Failure{Level: LevelError, Reason: reason, Next: next, Tools: tools, cause: cause}
+}
+
+// Notice is a nothing-failed failure: the user has a step to take
+// (LevelInfo, 「下一步」). lead is the whole first part, such as
+// 「启动环境前需要代理节点」.
+func Notice(lead, reason, next string, cause error, tools ...string) *Failure {
+	return &Failure{Level: LevelInfo, Lead: lead, Reason: reason, Next: next, Tools: tools, cause: cause}
 }
 
 // Unrecognized is the failure of action whose cause was not recognized; raw
@@ -93,11 +128,22 @@ func (f *Failure) NextLabel() string {
 	return "解决建议"
 }
 
+// NamedReason is Reason with SelectedNode replaced by the quoted Subject.
+func (f *Failure) NamedReason() string {
+	if f.Subject == "" {
+		return f.Reason
+	}
+	return strings.Replace(f.Reason, SelectedNode, "「"+f.Subject+"」", 1)
+}
+
 func (f *Failure) Error() string {
 	var b strings.Builder
 	b.WriteString(f.Lead)
-	if f.Reason != "" {
-		b.WriteString("，" + f.Reason)
+	if reason := f.NamedReason(); reason != "" {
+		if f.Lead != "" {
+			b.WriteString("，")
+		}
+		b.WriteString(reason)
 	}
 	if f.Raw != "" {
 		b.WriteString("（最后一条错误：" + f.Raw + "）")

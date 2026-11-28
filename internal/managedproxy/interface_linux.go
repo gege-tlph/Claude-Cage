@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/sylvinus/agent-vm/internal/usererror"
 )
 
 func linuxPhysicalInterface(ctx context.Context) (string, error) {
@@ -92,7 +94,7 @@ func selectLinuxPhysicalInterface(routes string, usable map[string]bool) (string
 		}
 	}
 	if selected == "" {
-		return "", errors.New("未找到带 IPv4 默认路由的物理或云主机网卡；Cage lite 外网保持关闭，请连接网络后重试")
+		return "", usererror.Because("原因是找不到带 IPv4 默认路由的网卡", "连接网络后重试", nil)
 	}
 	return selected, nil
 }

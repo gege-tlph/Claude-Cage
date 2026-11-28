@@ -338,7 +338,7 @@ func (s *Server) browserExitObservation(ctx context.Context, cfg cage.Config) (b
 		return observation, err
 	}
 	_ = diagnostics.New(s.profile).Record("warn", "safety-probe", fmt.Sprintf("stage=browser retry=1 status=%d", observation.Network.Status))
-	s.setMessage("浏览器出口检测暂时未成功，正在重试一次；外网保持关闭…")
+	s.setMessage("浏览器出口检测暂时未成功，正在重试一次…")
 	timer := time.NewTimer(time.Second)
 	defer timer.Stop()
 	select {
@@ -590,7 +590,7 @@ func (s *Server) checkExitPolicy(ctx context.Context, cfg cage.Config, ip string
 	}
 	loc, err := s.locationForIP(ctx, cfg, ip)
 	if err != nil {
-		return cage.CheckUnknown, "出口定位暂时不可用，无法确认非中国大陆出口，外网保持关闭"
+		return cage.CheckUnknown, "出口定位暂时不可用，无法确认非中国大陆出口"
 	}
 	observed := loc.exitLocation()
 	state, message := policy.Evaluate(ip, &observed)
@@ -742,14 +742,14 @@ func (s *Server) runSafetyCheck() (returned error) {
 	shares, networkLayout := s.inspectVMLayout()
 	private, err := os.CreateTemp(s.profile, ".cage-private-probe-*")
 	if err != nil {
-		return usererror.Wrap("创建私有目录检查文件", err, "请检查 Cage lite 配置目录的写入权限和磁盘剩余空间，然后重新检测。外网保持关闭。")
+		return usererror.Wrap("创建私有目录检查文件", err, "请检查 Cage lite 配置目录的写入权限和磁盘剩余空间，然后重新检测。")
 	}
 	defer os.Remove(private.Name())
 	defer private.Close()
 	shareRoot := s.environmentDir()
 	shared, err := os.CreateTemp(shareRoot, ".cage-share-probe-*")
 	if err != nil {
-		return usererror.Wrap("创建项目共享检查文件", err, "请确认环境目录仍存在且可写，再重新检测；不要删除个人配置目录。外网保持关闭。")
+		return usererror.Wrap("创建项目共享检查文件", err, "请确认环境目录仍存在且可写，再重新检测；不要删除个人配置目录。")
 	}
 	defer os.Remove(shared.Name())
 	defer shared.Close()
@@ -865,6 +865,11 @@ func (s *Server) runSafetyCheck() (returned error) {
 		set("dns_transport", cage.CheckPassed, "检查期间公共解析被拒绝；固定 DNS 查询经指定 DoH 与代理完成；客机解析器仅指向环境内地址，到公共 DNS 的 UDP/53、TCP/53 与 DoT/853 直连均未绕过网关", "")
 	} else {
 		result, evidence := cage.CheckUnknown, "公共解析拒绝记录或加密 DNS 查询证据不完整"
+		if networkErr == nil && network.DNS.Status != 0 && network.DNS.Status != 200 {
+			// The fixed DNS query through the node failed: the DoH endpoints
+			// are unusable through it (failure-text-audit P7).
+			evidence = dohUnavailableEvidence(cfg, network.DNS)
+		}
 		if boundaryErr == nil && dnsBypass != "" {
 			evidence = dnsBypass
 			if dnsBypassConfirmed {
@@ -945,7 +950,7 @@ func (s *Server) runSafetyCheck() (returned error) {
 	paused = s.networkPaused
 	s.mu.Unlock()
 	if paused || ctx.Err() != nil {
-		return errors.New("检测已取消，外网保持关闭")
+		return errors.New("检测已取消")
 	}
 	state, err = client.Grant(ctx, report)
 	if err != nil {

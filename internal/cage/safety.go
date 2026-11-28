@@ -2,11 +2,8 @@ package cage
 
 import (
 	"errors"
-	"fmt"
-	"strings"
 	"time"
 
-	"github.com/sylvinus/agent-vm/internal/diagnostics"
 	"github.com/sylvinus/agent-vm/internal/exitpolicy"
 )
 
@@ -69,27 +66,14 @@ func (r SafetyReport) Authorizes(runID, configuration string, now time.Time) err
 		}
 		seen[check.ID] = check
 		if check.Critical && check.State != CheckPassed {
-			state := "未通过"
-			if check.State == CheckUnknown {
-				state = "未能确认"
-			}
-			title := safetyCheckTitle(check)
-			evidence := strings.TrimRight(diagnostics.Redact(check.Evidence), "。；;")
-			if evidence == "" {
-				evidence = "没有取得检测结果"
-			}
-			next := strings.TrimRight(diagnostics.Redact(check.Remedy), "。；;")
-			if next == "" {
-				next = "打开“检查清单”查看此项结果，重新检测；仍失败时在设置中导出诊断包"
-			}
-			return fmt.Errorf("联网检查未通过：%s（%s）。%s。%s。外网保持关闭。", title, state, evidence, next)
+			return checkFailure(check)
 		}
 	}
 	for _, id := range requiredSafetyChecks {
 		check, found := seen[id]
 		if !found || !check.Critical || check.State != CheckPassed || check.Evidence == "" ||
 			check.CheckedAt.Before(r.CreatedAt) || check.CheckedAt.After(now.Add(time.Minute)) {
-			return fmt.Errorf("联网检查缺少有效证据：%s的记录缺失、过期或不完整。请重新检测；仍失败时在设置中导出诊断包。外网保持关闭。", safetyCheckTitle(SafetyCheck{ID: id}))
+			return missingEvidence(id)
 		}
 	}
 	return nil

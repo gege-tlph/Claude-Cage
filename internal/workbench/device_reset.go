@@ -716,7 +716,7 @@ func (s *Server) executeQuickDeviceReset(items []string, irreversible bool) erro
 	})
 	diagnostics.Log("info", "device-reset", fmt.Sprintf("quick reset completed mode=quick runtime=%s irreversible=%v", runtimeKind, irreversible))
 	if startErr != nil {
-		return fmt.Errorf("换机已完成，环境已启动但外网保持关闭（建议切换代理节点后重新检测）：%w", startErr)
+		return fmt.Errorf("换机已完成，环境已启动，联网检查未通过：%w", startErr)
 	}
 	return nil
 }
@@ -922,7 +922,7 @@ func (s *Server) executeLimaRebuild(ctx context.Context, nextProfile *guestprofi
 	})
 	diagnostics.Log("info", "device-reset", fmt.Sprintf("rebuild completed runtime=%s irreversible=%v archive=%s", newRuntime, irreversible, finalArchiveID))
 	if startErr != nil {
-		return fmt.Errorf("新机已重建完成，外网保持关闭（建议切换代理节点后重新检测）：%w", startErr)
+		return fmt.Errorf("新机已重建完成，联网检查未通过：%w", startErr)
 	}
 	return nil
 }
@@ -1018,7 +1018,7 @@ func (s *Server) executeContainerRebuild(ctx context.Context, nextProfile *guest
 		OSRotated:    true,
 	})
 	if startErr != nil {
-		return fmt.Errorf("新容器已重建完成，外网保持关闭（建议切换代理节点后重新检测）：%w", startErr)
+		return fmt.Errorf("新容器已重建完成，联网检查未通过：%w", startErr)
 	}
 	return nil
 }

@@ -36,13 +36,13 @@ func appliedStore(b []byte, missing bool, endpoint, revision string) (Store, err
 		return p, err
 	}
 	if _, ok := p.Find(p.Selected); !ok {
-		return p, errors.New("尚未选择代理节点，请在网络与代理中添加来源并选择节点")
+		return p, ErrNoNodeSelected
 	}
 	if _, err := p.Route(); err != nil {
 		return p, err
 	}
 	if revision == "" || p.Revision == "" || revision != p.Revision || endpoint != p.Endpoint() {
-		return p, errors.New("代理节点尚未应用或配置不一致，请重新应用节点；外网保持关闭")
+		return p, ErrNodeNotApplied
 	}
 	return p, nil
 }

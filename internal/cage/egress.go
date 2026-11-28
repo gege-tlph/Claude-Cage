@@ -377,7 +377,7 @@ func (e *Egress) dnsUnavailable(cause error) error {
 	for _, endpoint := range e.dnsURLs {
 		hosts = append(hosts, DNSHost(endpoint))
 	}
-	return fmt.Errorf("经所选节点无法使用加密 DNS（%s）；可在“设置 → 网络与代理 → 加密 DNS”改用其他端点、添加备用端点，或开启公共 DNS 备用：%w", strings.Join(hosts, "、"), cause)
+	return fmt.Errorf("经所选节点用不了加密 DNS（%s）：%w", strings.Join(hosts, "、"), cause)
 }
 
 func (e *Egress) exchangeDNSOnce(ctx context.Context, endpoint string, origID uint16, wire []byte) (*dns.Msg, bool, string, error) {

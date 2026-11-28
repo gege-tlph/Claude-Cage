@@ -87,8 +87,8 @@ func TestAccessDeniedNamesWhatWasRefused(t *testing.T) {
 	cause := errors.New("exit status 1")
 	for output, want := range map[string]string{
 		`Error: fork/exec C:\Program Files\Cage lite\qemu\qemu-system-x86_64.exe: Access is denied.`: "原因是系统拒绝运行 QEMU（qemu-system-x86_64.exe）",
-		`Error: open C:\CageData\lima\claude-cage-x\diffdisk: Access is denied.`:                   `原因是系统拒绝写入环境目录（C:\CageData\lima）`,
-		`Error: open somewhere: permission denied`:                                                "原因是系统拒绝访问环境所需的文件或程序",
+		`Error: open C:\CageData\lima\claude-cage-x\diffdisk: Access is denied.`:                     `原因是系统拒绝写入环境目录（C:\CageData\lima）`,
+		`Error: open somewhere: permission denied`:                                                   "原因是系统拒绝访问环境所需的文件或程序",
 	} {
 		f := environmentFailure("up", "启动环境", cause, output, failureFacts{dir: `C:\CageData\lima`})
 		if f == nil || f.Reason != want {

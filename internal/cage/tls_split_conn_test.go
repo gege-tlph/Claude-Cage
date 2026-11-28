@@ -229,7 +229,7 @@ func TestTLSClientHelloSplitEndToEndThroughPickyServer(t *testing.T) {
 	}
 	defer plainTransport.CloseIdleConnections()
 	ip, err := probeExitIPServices(context.Background(), &http.Client{Transport: plainTransport, Timeout: 3 * time.Second}, services, time.Minute, "")
-	if ip != "" || !errors.Is(err, ErrTLSHandshakeFailed) || !strings.Contains(err.Error(), "TLS 握手失败") {
+	if ip != "" || !errors.Is(err, ErrTLSHandshakeFailed) || !strings.Contains(err.Error(), "TLS 握手都中断") {
 		t.Fatalf("expected ErrTLSHandshakeFailed without split, got ip=%q err=%v", ip, err)
 	}
 

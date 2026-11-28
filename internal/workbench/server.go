@@ -793,6 +793,7 @@ func jsonReply(w http.ResponseWriter, v any) {
 }
 func requestError(w http.ResponseWriter, err error) {
 	diagnostics.Log("error", "api", fmt.Sprintf("%v; cause=%v", err, errors.Unwrap(err)))
+	failureHeader(w, err)
 	http.Error(w, err.Error(), http.StatusBadRequest)
 }
 func (s *Server) status(w http.ResponseWriter, r *http.Request) {

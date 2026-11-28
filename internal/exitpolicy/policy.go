@@ -114,13 +114,13 @@ func (p Policy) Evaluate(ip string, location *Location) (State, string) {
 	}
 	if p.NeedsBinding() {
 		if p.Mode == "dynamic" && p.CountryCode == "" {
-			return Unknown, "动态 IP 的允许国家或地区尚未绑定，外网保持关闭。请在网络与代理设置中确认出口地区"
+			return Unknown, "IP 变化规则的允许范围尚未绑定"
 		}
-		return Unknown, "尚未绑定出口规则，请在设置中确认检测到的 IP 或地区"
+		return Unknown, "IP 变化规则尚未绑定"
 	}
 	if p.Mode == "static" {
 		if p.IP != ip {
-			return Failed, "检测出口已偏离绑定的静态 IP"
+			return Failed, "出口已偏离绑定的静态 IP"
 		}
 		return Passed, "检测出口与绑定的静态 IP 一致"
 	}
@@ -128,7 +128,7 @@ func (p Policy) Evaluate(ip string, location *Location) (State, string) {
 		return Passed, "动态 IP 可在非中国大陆地区变化，流量仍须经指定代理"
 	}
 	if !strings.EqualFold(p.CountryCode, location.CountryCode) {
-		return Failed, "检测出口超出允许的国家或地区"
+		return Failed, "出口超出 IP 变化规则允许的国家或地区"
 	}
 	if p.Scope == "country" {
 		return Passed, "检测出口位于允许的国家或地区"
@@ -137,7 +137,7 @@ func (p Policy) Evaluate(ip string, location *Location) (State, string) {
 		return Unknown, "当前位置缺少州或省，不能确认允许范围"
 	}
 	if !strings.EqualFold(p.Region, strings.Join(strings.Fields(location.Region), " ")) {
-		return Failed, "检测出口超出允许的州或省范围"
+		return Failed, "出口超出 IP 变化规则允许的州或省"
 	}
 	if p.Scope == "region" {
 		return Passed, "检测出口位于允许的州或省"
@@ -146,7 +146,7 @@ func (p Policy) Evaluate(ip string, location *Location) (State, string) {
 		return Unknown, "当前位置缺少州、省或城市，不能确认城市范围"
 	}
 	if !strings.EqualFold(p.City, strings.Join(strings.Fields(location.City), " ")) {
-		return Failed, "检测出口超出允许的城市范围"
+		return Failed, "出口超出 IP 变化规则允许的城市"
 	}
 	return Passed, "检测出口位于允许的城市及其所属州、省"
 }

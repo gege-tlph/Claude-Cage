@@ -47,7 +47,7 @@ func TestFirstStartReportsUnreachableProxyBeforeImageSetup(t *testing.T) {
 	}
 	s.jobs.workers.Wait()
 	job := s.jobs.snapshot()
-	if job.SetupProgress != nil || !strings.Contains(job.Error, "代理出口预检未通过") || !strings.Contains(job.Error, "首跳状态未确定") || !strings.Contains(job.Error, "代理连接失败") {
+	if job.SetupProgress != nil || job.Error != "启动环境失败，原因是连不上本机代理核心。解决建议：重新应用节点。" || job.Failure == nil || job.Failure.Tools[0] != "reapply" {
 		t.Fatalf("expected a proxy preflight failure before image preparation, got %+v", job)
 	}
 }

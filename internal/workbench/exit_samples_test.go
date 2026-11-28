@@ -10,12 +10,14 @@ import (
 func TestIncompleteExitSamplesIdentifyRoutesAndRedactPrivateErrors(t *testing.T) {
 	good := networkObservation{Status: 200, IP: "8.8.8.8"}
 	message := incompleteExitSamples("", context.DeadlineExceeded, good, nil, networkObservation{}, errors.New("浏览器请求失败 https://user:password@private.example/secret token=private-token /Users/alice/project"))
-	for _, want := range []string{"宿主", "超时", "浏览器", "出口采样不完整"} {
+	_, details := exitSampleGaps("", context.DeadlineExceeded, good, nil, networkObservation{}, errors.New("浏览器请求失败 https://user:password@private.example/secret token=private-token /Users/alice/project"))
+	message += " | " + strings.Join(details, "；")
+	for _, want := range []string{"电脑本机和浏览器没有取到出口", "电脑本机：", "超时", "浏览器："} {
 		if !strings.Contains(message, want) {
 			t.Fatalf("missing diagnostic %q: %s", want, message)
 		}
 	}
-	for _, unwanted := range []string{"虚拟机终端", "private.example", "private-token", "alice", "password"} {
+	for _, unwanted := range []string{"终端：", "private.example", "private-token", "alice", "password"} {
 		if strings.Contains(message, unwanted) {
 			t.Fatalf("successful route or private data included: %s", message)
 		}
@@ -37,12 +39,14 @@ func TestIncompleteExitSamplesIdentifyRoutesAndRedactPrivateErrors(t *testing.T)
 		{networkObservation{Status: 503, Error: "proxy_unavailable", Reason: "probe_failed"}, "内部检测未能经代理取得出口"},
 		{networkObservation{Status: 200}, "没有返回出口地址"},
 	} {
-		message := incompleteExitSamples("8.8.8.8", nil, tc.observation, nil, good, nil)
-		if !strings.Contains(message, "虚拟机终端：") || !strings.Contains(message, tc.want) || strings.Contains(message, "宿主：") || strings.Contains(message, "浏览器：") {
+		_, details := exitSampleGaps("8.8.8.8", nil, tc.observation, nil, good, nil)
+		message := strings.Join(details, "；")
+		if !strings.Contains(message, "终端：") || !strings.Contains(message, tc.want) || strings.Contains(message, "电脑本机：") || strings.Contains(message, "浏览器：") {
 			t.Fatalf("wrong route or failure category: %s", message)
 		}
 	}
-	untrusted := incompleteExitSamples("8.8.8.8", nil, networkObservation{Status: 503, Reason: "untrusted https://secret.example"}, nil, good, nil)
+	_, untrustedDetails := exitSampleGaps("8.8.8.8", nil, networkObservation{Status: 503, Reason: "untrusted https://secret.example"}, nil, good, nil)
+	untrusted := strings.Join(untrustedDetails, "；")
 	if strings.Contains(untrusted, "secret.example") || strings.Contains(untrusted, "untrusted") || !strings.Contains(untrusted, "检测通道返回 HTTP 503") {
 		t.Fatalf("untrusted reason leaked or broke formatting: %s", untrusted)
 	}

@@ -79,7 +79,7 @@ func TestBrowserExitRetryUsesFreshSampleAndKeepsFailureEvidence(t *testing.T) {
 			} else if condition == "unavailable" {
 				good := networkObservation{Status: 200, IP: "8.8.8.8"}
 				message := incompleteExitSamples(good.IP, nil, good, nil, v.Network, nil)
-				if !strings.Contains(message, "浏览器：检测通道返回 HTTP 503") {
+				if message != "浏览器没有取到出口" {
 					t.Fatal("retry concealed the failure", message)
 				}
 			}

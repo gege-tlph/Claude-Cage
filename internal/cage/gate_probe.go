@@ -34,7 +34,11 @@ func ProbeExitIP(ctx context.Context, cfg Config) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return probeExitIP(ctx, e, exitProbeReachabilityURL)
+	ip, err := probeExitIP(ctx, e, exitProbeReachabilityURL)
+	if err != nil && e.splitClientHello {
+		err = splitAlreadyOn(err)
+	}
+	return ip, err
 }
 
 // exitProbeService is a fixed public IPv4 echo endpoint. Each one is reached
@@ -172,7 +176,7 @@ func probeExitIPServices(ctx context.Context, client *http.Client, services []ex
 		service := services[result.index]
 		// Fixed service IDs survive URL redaction in exported diagnostics.
 		diagnostics.Log("warn", "exit-probe", fmt.Sprintf("service=%s stage=%s dial_ms=%d tls_ms=%d ttfb_ms=%d duration_ms=%d error=%v cause=%v", service.id, result.timing.stage, result.timing.dialMS, result.timing.tlsMS, result.timing.ttfbMS, result.duration.Milliseconds(), result.err, errors.Unwrap(result.err)))
-		failures[result.index] = probeFailure{service: service.name, reason: probeReason(result.err)}
+		failures[result.index] = probeFailure{service: service.name, reason: shortProbeReason(probeReason(result.err))}
 		var networkError net.Error
 		if !errors.Is(result.err, context.DeadlineExceeded) && !(errors.As(result.err, &networkError) && networkError.Timeout()) {
 			allTimedOut = false
@@ -192,16 +196,15 @@ func probeExitIPServices(ctx context.Context, client *http.Client, services []ex
 			timer.Reset(stagger)
 		}
 	}
-	reported := summarizeProbeFailures(failures)
 	if errors.Is(ctx.Err(), context.Canceled) {
-		return "", usererror.Wrap("通过所选代理查询出口 IP", ctx.Err(), "外网保持关闭。")
+		return "", usererror.Wrap("通过所选代理查询出口 IP", ctx.Err(), "")
 	}
 	if allSchemeMismatch {
 		// A plain HTTP answer proves the node is reachable, so the
 		// connectivity check and the ClientHello hints would not help. Trojan
 		// and similar servers hand unauthenticated or unparsable streams to a
 		// fallback web server, which produces exactly this answer.
-		return "", usererror.New("通过所选代理建立 TLS 连接", reported, "节点没有按代理协议转发请求，而是直接返回了网页响应，常见于节点的密码、协议、端口或传输设置与服务端不一致，或代理核心与该节点不兼容；请核对节点配置后重新导入并应用，或切换代理节点；外网保持关闭。", errors.Join(ErrTLSHandshakeFailed, http.ErrSchemeMismatch))
+		return "", probeSchemeMismatch(failures, errors.Join(ErrTLSHandshakeFailed, http.ErrSchemeMismatch))
 	}
 	if allTLSHandshakeFailed && !allTimedOut {
 		// The bundled core grants a SOCKS5 CONNECT before it dials the node,
@@ -210,19 +213,17 @@ func probeExitIPServices(ctx context.Context, client *http.Client, services []ex
 		// connectivity address has a handshake problem.
 		if reachability != "" && ctx.Err() == nil {
 			if reached, _ := proxyReaches(ctx, client, reachability); !reached {
-				return "", usererror.Titled("代理节点无法连通", reported, "通过所选代理访问连通性检查地址也未成功，节点可能无法连通；请检查节点地址、端口、账号密码以及本机到节点的网络，或切换节点；外网保持关闭。", ErrProxyConnectFailed)
+				return "", probeUnreachable(failures, ErrProxyConnectFailed)
 			}
 		}
-		return "", usererror.Titled("TLS 握手失败", reported, "所选代理链路在 TLS 握手阶段中断（如返回 EOF），可尝试在“设置 → 网络与代理”开启“TLS ClientHello 分段传输兼容模式”；若使用未设置 client-fingerprint 的 VMess/VLESS/Trojan 等 TLS/gRPC 节点，也可尝试在节点 YAML 中添加 client-fingerprint: safari 或 firefox 后重新导入并应用，或切换代理节点；外网保持关闭。", ErrTLSHandshakeFailed)
+		return "", probeTLS(failures, false, ErrTLSHandshakeFailed)
 	}
 	if allTimedOut {
-		title := "实时出口采样超时"
-		next := "实时出口采样超时，请稍后重试或切换更稳定的代理节点；外网保持关闭。"
 		cause := errors.Join(ErrExitProbeTimeout, context.DeadlineExceeded)
+		failure := probeTimedOut(failures, cause)
 		if allTLSHandshakeFailed {
-			title = "TLS 握手超时"
-			next = "所选代理链路在 TLS 握手阶段超时，可尝试在“设置 → 网络与代理”开启“TLS ClientHello 分段传输兼容模式”；若使用未设置 client-fingerprint 的 VMess/VLESS/Trojan 等 TLS/gRPC 节点，也可尝试在节点 YAML 中添加 client-fingerprint: safari 或 firefox 后重新导入并应用，或切换代理节点；外网保持关闭。"
 			cause = errors.Join(ErrTLSHandshakeFailed, cause)
+			failure = probeTLS(failures, true, cause)
 		}
 		if reachability != "" && ctx.Err() == nil {
 			// Through the bundled core a SOCKS5 CONNECT is granted before the
@@ -230,19 +231,17 @@ func probeExitIPServices(ctx context.Context, client *http.Client, services []ex
 			// the echo services both end as response timeouts.
 			switch reached, timedOut := proxyReaches(ctx, client, reachability); {
 			case reached:
-				title = "实时出口采样超时"
-				next = "所选代理可以访问连通性检查地址，但出口 IP 检测服务均无响应，可能被节点出口按域名屏蔽；请更换节点，或请代理服务商放行 ipv4.icanhazip.com、checkip.amazonaws.com、whatismyip.akamai.com、1.1.1.1、api.ipify.org 或 ipv4.geojs.io 中的任一地址；外网保持关闭。"
-				cause = errors.Join(ErrExitProbeBlocked, cause)
+				failure = probeBlocked(failures, errors.Join(ErrExitProbeBlocked, cause))
 			case timedOut:
-				next = "通过所选代理访问连通性检查地址同样超时，节点可能无法连通；请检查节点地址、端口、账号密码以及本机到节点的网络，或切换节点；若节点使用 TLS/gRPC 且未设置 client-fingerprint（如 VMess+gRPC+TLS），可尝试在节点 YAML 中添加 client-fingerprint: safari 或 firefox 后重新导入并应用，或尝试在“设置 → 网络与代理”开启“TLS ClientHello 分段传输兼容模式”；外网保持关闭。"
+				failure = probeUnreachable(failures, cause)
 			}
 		}
-		return "", usererror.Titled(title, reported, next, cause)
+		return "", failure
 	}
 	if allProxyConnectFailed {
-		return "", usererror.Titled("代理连接失败", reported, "未能通过所选代理建立连接，请检查代理核心与节点状态；外网保持关闭。", ErrProxyConnectFailed)
+		return "", probeCoreUnreachable(failures, ErrProxyConnectFailed)
 	}
-	return "", errors.New("通过所选代理查询出口 IP 失败：" + reported + "。未能确认出口时，外网保持关闭。")
+	return "", probeMixed(failures, nil)
 }
 
 // proxyReaches reports whether one GET to endpoint returned HTTP 204 through
@@ -383,14 +382,14 @@ func queryExitIPServiceTimed(ctx context.Context, client *http.Client, service e
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return "", snapshot(), fmt.Errorf("查询出口 IP 失败：检测服务返回 HTTP %d。请检查所选代理，稍后重新检测；外网保持关闭。", resp.StatusCode)
+		return "", snapshot(), fmt.Errorf("查询出口 IP 失败：检测服务返回 HTTP %d", resp.StatusCode)
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 4097))
 	if err != nil {
 		return "", snapshot(), usererror.Wrap("读取出口检测响应", err, "请稍后重新检测。")
 	}
 	if len(body) > 4096 {
-		return "", snapshot(), errors.New("查询出口 IP 失败：检测服务没有返回有效的 IP 记录。请更换可用节点或稍后重新检测；外网保持关闭。")
+		return "", snapshot(), errors.New("查询出口 IP 失败：检测服务没有返回有效的 IP 记录")
 	}
 	text := strings.TrimSpace(string(body))
 	if service.trace {

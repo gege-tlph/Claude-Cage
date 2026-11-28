@@ -374,6 +374,13 @@ func (s *Server) runCage(args ...string) error {
 	return nil
 }
 func setupProxyPreflightFailure(cause error) error {
+	// The exit probe names its cause (internal/cage/probe_failure.go); the
+	// first start only adds the operation.
+	if f, ok := usererror.AsFailure(cause); ok && f.Lead == "" {
+		copied := *f
+		copied.Lead = "启动环境失败"
+		return &copied
+	}
 	reason := "启动前的代理出口检查未通过"
 	if errors.Is(cause, cage.ErrProxyConnectFailed) {
 		// The SOCKS core can acknowledge CONNECT before dialing the upstream.
@@ -450,7 +457,7 @@ func (s *Server) startEnvironment(syncTimezone bool) error {
 			return e
 		}
 		if p.Selected == "" || p.Endpoint() != cfg.ProxyURL || p.Revision != cfg.ProxyRevision {
-			return errors.New("内置代理配置未应用，请重新选择节点")
+			return errProxyNotApplied
 		}
 		name, e := physicalProxyInterface(s.operationContext())
 		if e != nil {
@@ -823,7 +830,7 @@ func (s *Server) applyWithOptions(v savedProfile, validate, saveStaticDraft bool
 		}
 	}
 	if pendingStaticDraftErr != nil {
-		return staticDraftPendingError{fmt.Errorf("已保存待验证的静态 IP 基准（%s），外网保持关闭。待代理恢复后请重新检测联网，实时出口、国家与隔离检查全部通过前不会放行外网：%w", v.Config.ExitPolicy.IP, pendingStaticDraftErr)}
+		return staticDraftPendingError{fmt.Errorf("已保存待验证的静态 IP 基准（%s）。待代理恢复后请重新检测联网，实时出口、国家与隔离检查全部通过前不会放行外网：%w", v.Config.ExitPolicy.IP, pendingStaticDraftErr)}
 	}
 	return nil
 }

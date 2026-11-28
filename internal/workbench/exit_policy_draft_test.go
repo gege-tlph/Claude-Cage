@@ -58,7 +58,7 @@ func TestStaticIPDraftSaveAndFailClosedSecurity(t *testing.T) {
 			t.Fatal(err)
 		}
 		state := awaitJobIdle(t, &s.jobs)
-		if state.ID != job.ID || state.SettingsSaved || state.Recovery != "static-ip-draft-available" || !strings.Contains(state.Error, "静态 IP 基准未保存") || !strings.Contains(state.Error, "代理连接失败") {
+		if state.ID != job.ID || state.SettingsSaved || state.Recovery != "static-ip-draft-available" || !strings.Contains(state.Error, "静态 IP 基准未保存") || !strings.Contains(state.Error, "连不上本机代理核心") {
 			t.Fatalf("unexpected default failure state: %+v", state)
 		}
 		saved, err := loadConfig(s.configPath)
@@ -106,7 +106,7 @@ func TestStaticIPDraftSaveAndFailClosedSecurity(t *testing.T) {
 			t.Fatalf("unexpected accepted job: %s %v", raw, err)
 		}
 		state := awaitJobIdle(t, &s.jobs)
-		if !state.SettingsSaved || state.Message != "已保存待验证的静态 IP，外网保持关闭" || !strings.Contains(state.Error, "已保存待验证的静态 IP 基准（8.8.8.8）") || !strings.Contains(state.Error, "外网保持关闭") {
+		if !state.SettingsSaved || state.Message != "已保存待验证的静态 IP" || !strings.Contains(state.Error, "已保存待验证的静态 IP 基准（8.8.8.8）") || strings.Contains(state.Error, "外网保持关闭") {
 			t.Fatalf("unexpected draft save job state: %+v", state)
 		}
 		saved, err := loadConfig(s.configPath)

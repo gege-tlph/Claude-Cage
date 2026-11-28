@@ -66,7 +66,7 @@ func (s *Server) submitJobWithInitiator(initiator, kind string, run func() error
 			s.monitorCancel()
 		}
 		return nil
-	}, afterSuccess, run)
+	}, afterSuccess, func() error { return s.describeFailure(kind, run()) })
 	s.mu.Unlock()
 	if intentFailed {
 		_ = s.closeProxyGate("网络恢复意图无法保存，外网保持关闭")

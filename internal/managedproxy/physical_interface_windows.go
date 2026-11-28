@@ -3,17 +3,18 @@ package managedproxy
 import (
 	"context"
 	"errors"
-	"fmt"
 	"runtime"
 	"time"
 	"unsafe"
 
+	"github.com/sylvinus/agent-vm/internal/usererror"
 	"golang.org/x/sys/windows"
 )
 
 const windowsHardwareInterface = 1 << 0 // MIB_IF_ROW2.InterfaceAndOperStatusFlags.HardwareInterface
 
-var errNoWindowsInterface = errors.New("未找到可用的 IPv4 出口网卡。请连接以太网、Wi-Fi 或 PPPoE 宽带；仅有虚拟网卡的 Windows 虚拟机和云主机暂不可用。Cage lite 外网保持关闭")
+// Only virtual adapters (a Windows VM, a cloud host) also end here.
+var errNoWindowsInterface = usererror.Because("原因是找不到可用的 IPv4 出口网卡", "连接以太网、Wi-Fi 或 PPPoE 宽带后重试", nil)
 
 func windowsPhysicalInterface(ctx context.Context) (string, error) {
 	// IP Helper calls are synchronous. Check the deadline between calls and
@@ -22,24 +23,24 @@ func windowsPhysicalInterface(ctx context.Context) (string, error) {
 	defer cancel()
 	adapters, err := windowsPhysicalAdapters(ctx)
 	if err != nil {
-		return "", fmt.Errorf("无法读取 Windows 物理网卡信息；Cage lite 外网保持关闭: %w", err)
+		return "", usererror.Because("原因是读不出 Windows 的网卡信息", "重试", err)
 	}
 	if err := ctx.Err(); err != nil {
-		return "", fmt.Errorf("Windows 物理网卡查询超时；Cage lite 外网保持关闭: %w", err)
+		return "", usererror.Because("原因是查询 Windows 网卡超时（10 秒）", "重试", err)
 	}
 	if len(adapters) == 0 {
 		return "", errNoWindowsInterface
 	}
 	var table *windows.MibIpForwardTable2
 	if err := windows.GetIpForwardTable2(windows.AF_INET, &table); err != nil {
-		return "", fmt.Errorf("无法读取 Windows IPv4 路由；Cage lite 外网保持关闭: %w", err)
+		return "", usererror.Because("原因是读不出 Windows 的 IPv4 路由", "重试", err)
 	}
 	if table == nil {
 		return "", errNoWindowsInterface
 	}
 	defer windows.FreeMibTable(unsafe.Pointer(table))
 	if err := ctx.Err(); err != nil {
-		return "", fmt.Errorf("Windows IPv4 路由查询超时；Cage lite 外网保持关闭: %w", err)
+		return "", usererror.Because("原因是查询 Windows IPv4 路由超时（10 秒）", "重试", err)
 	}
 	name := selectWindowsPhysicalInterface(adapters, table.Rows())
 	if name == "" {

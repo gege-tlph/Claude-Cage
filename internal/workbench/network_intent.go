@@ -35,7 +35,7 @@ func (s *Server) restoreNetworkIntent() error {
 	defer s.mu.Unlock()
 	s.networkPaused, s.safety.pauseVersion = paused, generation
 	if err != nil && !os.IsNotExist(err) {
-		s.networkIntentError = "无法读取网络暂停状态，外网保持关闭；请确认后手动恢复。"
+		s.networkIntentError = "无法读取网络暂停状态，请确认后手动恢复。"
 		return errors.New(s.networkIntentError)
 	}
 	s.networkIntentError = ""
@@ -46,8 +46,8 @@ func (s *Server) restoreNetworkIntent() error {
 func (s *Server) saveNetworkIntentLocked(paused bool) error {
 	if err := writePrivate(filepath.Join(s.profile, "network-intent.json"), networkIntent{Version: 1, Paused: paused, PauseVersion: s.safety.pauseVersion}); err != nil {
 		s.networkPaused = true
-		s.networkIntentError = "无法保存网络暂停状态，外网保持关闭；请解决配置写入问题后重试。"
-		return fmt.Errorf("无法保存网络暂停状态，当前外网保持关闭；请解决配置写入问题后重试：%w", err)
+		s.networkIntentError = "无法保存网络暂停状态，请解决配置写入问题后重试。"
+		return fmt.Errorf("无法保存网络暂停状态，请解决配置写入问题后重试：%w", err)
 	}
 	s.networkPaused = paused
 	s.networkIntentError = ""

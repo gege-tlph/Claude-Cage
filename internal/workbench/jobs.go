@@ -219,7 +219,13 @@ func (m *jobManager) finishLocked(execution *jobExecution, err error) {
 			diagnostics.Log("info", "task", m.state.Kind+" canceled")
 		}
 	case err != nil:
-		if failure, ok := usererror.AsFailure(err); ok {
+		// The failure's own copy goes to the job; the original keeps the
+		// wrappers (network check, project share) the checks below look for.
+		original := err
+		// A wrapper that adds its own words (「静态 IP 基准未保存…：」) keeps
+		// the joined text; only an error that reads as the failure is shown
+		// in three lines.
+		if failure, ok := usererror.AsFailure(err); ok && err.Error() == failure.Error() {
 			copied := *failure
 			if m.state.Stage != jobName(m.state.Kind) {
 				copied.StuckAt(m.state.Stage)
@@ -229,24 +235,24 @@ func (m *jobManager) finishLocked(execution *jobExecution, err error) {
 		}
 		m.state.Error = usererror.Display(jobName(m.state.Kind), err, "打开“操作详情”查看失败记录；仍无法处理时，"+failureHelp).Error()
 		var projectFailure *projectShareError
-		if errors.As(err, &projectFailure) {
+		if errors.As(original, &projectFailure) {
 			m.state.Recovery = projectFailure.Recovery
 			m.state.Workspace = projectFailure.Path
 		}
 		var recoveryFailure *jobRecoveryError
-		if m.state.Recovery == "" && errors.As(err, &recoveryFailure) {
+		if m.state.Recovery == "" && errors.As(original, &recoveryFailure) {
 			m.state.Recovery = recoveryFailure.Recovery
 		}
 		m.state.Message = jobName(m.state.Kind) + "失败"
 		var networkFailure networkCheckError
 		var draftPending staticDraftPendingError
-		if m.state.Kind == "start" && errors.As(err, &networkFailure) {
+		if m.state.Kind == "start" && errors.As(original, &networkFailure) {
 			m.state.Message = "环境已启动，联网检查未通过"
 		} else if m.state.SettingsSaved {
 			m.state.Message = "设置已保存，等待环境恢复"
-			if errors.As(err, &draftPending) {
-				m.state.Message = "已保存待验证的静态 IP，外网保持关闭"
-			} else if errors.As(err, &networkFailure) {
+			if errors.As(original, &draftPending) {
+				m.state.Message = "已保存待验证的静态 IP"
+			} else if errors.As(original, &networkFailure) {
 				m.state.Message = "设置已保存，环境已启动，联网检查未通过"
 			}
 		}
@@ -261,7 +267,7 @@ func (m *jobManager) finishLocked(execution *jobExecution, err error) {
 
 func jobName(kind string) string {
 	names := map[string]string{
-		"start": "启动环境", "stop": "停止环境", "setup": "准备环境", "settings": "应用设置", "project": "连接项目文件夹", "storage": "迁移环境目录", "restore": "恢复配置", "resources": "应用资源配置", "safety": "检查联网条件", "network-recovery": "恢复联网", "proxy": "应用代理节点", "proxy-network": "恢复代理连接", "environment-update": "更新环境组件", "environment-tools": "更新环境工具", "claude-desktop-install": "安装 Claude Desktop", "claude-desktop-update": "更新 Claude Desktop", "claude-desktop-start": "打开 Claude Desktop", "claude-desktop-stop": "关闭 Claude Desktop", "device-reset": "重置环境与换机", "device-reset-restore": "恢复旧环境",
+		"start": "启动环境", "stop": "停止环境", "setup": "准备环境", "settings": "应用设置", "project": "连接项目文件夹", "storage": "迁移环境目录", "restore": "恢复配置", "resources": "应用资源配置", "safety": "检查联网条件", "network-recovery": "恢复联网", "proxy": "应用代理节点", "proxy-update": "更新订阅", "proxy-network": "恢复代理连接", "environment-update": "更新环境组件", "environment-tools": "更新环境工具", "claude-desktop-install": "安装 Claude Desktop", "claude-desktop-update": "更新 Claude Desktop", "claude-desktop-start": "打开 Claude Desktop", "claude-desktop-stop": "关闭 Claude Desktop", "device-reset": "重置环境与换机", "device-reset-restore": "恢复旧环境",
 	}
 	if name := names[kind]; name != "" {
 		return name
