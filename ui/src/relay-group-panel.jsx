@@ -13,13 +13,15 @@ import "./relay-group.css";
 export function RelayGroupPanel({ hop, sources, current, problem, disabled, onChange }) {
   const tr = useTranslation();
   const name = useId();
+  const rangeLabel = useId();
+  const strategyLabel = useId();
   const trouble = problemName(problem, hop, tr);
   const nodeName = (id) => sources.flatMap((s) => s.nodes || []).find((n) => n.id === id)?.name || id;
   const ordered = hop.relay.strategy === "fallback";
   const chosen = hop.mode === "nodes" ? hop.relay.node_ids : [];
   return <div className="proxy-group-panel">
-    <div className="proxy-group-line" role="radiogroup" aria-label={tr("范围")}>
-      <span className="proxy-group-label">{tr("范围")}</span>
+    <div className="proxy-group-line" role="radiogroup" aria-labelledby={rangeLabel}>
+      <span className="proxy-group-label" id={rangeLabel}>{tr("范围")}</span>
       <label className="check-line proxy-group-choice">
         <input type="radio" name={name} checked={hop.mode === "source"} disabled={disabled}
           onChange={() => onChange(withMode(hop, "source"), false)} />
@@ -51,8 +53,8 @@ export function RelayGroupPanel({ hop, sources, current, problem, disabled, onCh
       </li>)}
     </ol>}
     <div className="proxy-group-line">
-      <span className="proxy-group-label">{tr("策略")}</span>
-      <span className="proxy-route-mode" role="group" aria-label={tr("策略")}>
+      <span className="proxy-group-label" id={strategyLabel}>{tr("策略")}</span>
+      <span className="proxy-route-mode" role="group" aria-labelledby={strategyLabel}>
         {STRATEGIES.map((strategy) => <button type="button" key={strategy} aria-pressed={hop.relay.strategy === strategy} disabled={disabled}
           onClick={() => onChange(withStrategy(hop, strategy), false)}>{strategyName(strategy, tr)}</button>)}
       </span>
