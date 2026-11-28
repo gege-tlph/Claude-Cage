@@ -575,7 +575,7 @@ var (
 	// updated at most this often: Ferry may keep sending the old expiry.
 	ferryExpiredUpdateEvery = time.Hour
 	ferryProbe              = func(ctx context.Context, profile, nodeID string) error {
-		_, err := measureProxyDelay(ctx, profile, nodeID)
+		_, _, err := measureProxyDelay(ctx, profile, nodeID)
 		return err
 	}
 	ferryCoreReady = func(ctx context.Context, s *Server, p managedproxy.Store) bool {

@@ -128,6 +128,8 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, onTool, o
     regionBarRef = useRef(null),
     mutating = useRef(false),
     delayReasons = useRef({}),
+    // The fallback target that answered when the usual one timed out (#1125).
+    delayTargets = useRef({}),
     loading = useRef(false),
     latest = useRef(null),
     appliedFailure = useRef(null),
@@ -307,6 +309,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, onTool, o
             try {
               const result = await api("/proxy/delay", { node_id: id });
               delete delayReasons.current[id];
+              delayTargets.current[id] = result.target;
               if (result.delay > 0) timings[id] = result.delay;
               if (alive.current)
                 setDelays((old) => ({ ...old, [id]: `${result.delay} ms` }));
@@ -349,8 +352,10 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, onTool, o
       const measured = await api("/proxy/delay", { node_ids: candidates.map((n) => n.id).slice(0, 300) });
       const results = measured.results || [];
       for (const result of results) {
-        if (result.delay > 0) delete delayReasons.current[result.node_id];
-        else if (result.error) delayReasons.current[result.node_id] = result.error;
+        if (result.delay > 0) {
+          delete delayReasons.current[result.node_id];
+          delayTargets.current[result.node_id] = result.target;
+        } else if (result.error) delayReasons.current[result.node_id] = result.error;
       }
       if (alive.current) setDelays((old) => ({ ...old, ...Object.fromEntries(results.map((r) => [r.node_id, r.delay > 0 ? `${r.delay} ms` : "不可用 / 未载入"])) }));
       const pick = pickRelay({ region: exitRegion({ name: exitNode.name }), candidates, results });
@@ -569,7 +574,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, onTool, o
         </button>
         {state.tag ? <span className={`proxy-node-role ${state.kind}`}>{state.tag}</span>
           : n.relay && <span className="proxy-node-role">{tr("本机中转")}</span>}
-        <span className="proxy-delay" title={n.blocked_reason ? undefined : (delayReasons.current[n.id] ? localizeBackendMessage(delayReasons.current[n.id], tr) : undefined)}>
+        <span className="proxy-delay" title={n.blocked_reason ? undefined : (delayReasons.current[n.id] ? localizeBackendMessage(delayReasons.current[n.id], tr) : delayTargets.current[n.id] || undefined)}>
           {!n.blocked_reason && (delays[n.id] ? tr(delays[n.id]) : tr("未测速"))}
         </span>
         <button
