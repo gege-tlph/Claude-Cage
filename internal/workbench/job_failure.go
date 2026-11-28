@@ -30,16 +30,16 @@ func (s *Server) describeFailure(kind, initiator string, err error) error {
 		var check networkCheckError
 		switch {
 		case kind == "proxy" || kind == "proxy-update":
-			f.Lead = jobName(kind) + "失败"
+			f.Lead = usererror.LeadOf(jobName(kind))
 		case errors.As(err, &check), kind == "safety", kind == "network-recovery":
 			f.Lead = "联网检查未通过"
 		default:
-			f.Lead = jobName(kind) + "失败"
+			f.Lead = usererror.LeadOf(jobName(kind))
 		}
 	}
 	// First run calls a start 「安装」, carried on by 「继续安装」 (group 3).
 	if initiator == jobInitiatorSetup && (kind == "start" || kind == "setup") {
-		if f.Lead == jobName(kind)+"失败" {
+		if f.Lead == usererror.LeadOf(jobName(kind)) {
 			f.Lead = "安装失败"
 		}
 		for i, tool := range f.Tools {

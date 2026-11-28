@@ -1,9 +1,7 @@
 package workbench
 
 import (
-	"fmt"
 	"io"
-	"net/http"
 	"strings"
 	"sync"
 
@@ -62,48 +60,11 @@ func executionFailure(action string, err error, output string) error {
 	return usererror.Wrap(action, err, "打开“操作详情”查看最后的错误；仍无法判断时，"+failureHelp)
 }
 
-func serviceHTTPFailure(action string, status int) error {
-	reason, next := fmt.Sprintf("服务返回 HTTP %d，尚未取得可识别的具体原因", status), failureHelp
-	switch status {
-	case http.StatusUnauthorized, http.StatusForbidden:
-		reason, next = "服务拒绝了这次连接的授权", "请重新连接当前环境；若仍出现，更新环境组件后再试。"
-	case http.StatusNotFound, http.StatusGone:
-		reason, next = "目标窗口、文件或服务接口已不存在", "请重新打开目标窗口或重新选择文件；已有环境较旧时，先更新环境组件。"
-	case http.StatusConflict:
-		reason, next = "目标状态已变化，或另一个操作尚未结束", "请确认当前页面与目标文件，再重新发起这次操作。"
-	case http.StatusRequestEntityTooLarge:
-		reason, next = "文件或请求内容超过服务允许的大小", "请缩小文件或分批处理，再重新发起这次操作。"
-	case http.StatusTooManyRequests:
-		reason, next = "服务暂时限制了请求次数", "请等待片刻后重试，避免连续点击。"
-	case http.StatusBadGateway, http.StatusServiceUnavailable:
-		reason, next = "环境内的服务尚未就绪或已停止响应", "请先确认环境已启动；等待后仍无法连接时，查看环境设置中的组件状态。"
-	case http.StatusGatewayTimeout:
-		reason, next = "等待环境内服务响应超时", "请检查环境负载并稍后再试；持续超时则导出诊断包。"
-	}
-	return usererror.New(action, reason, next, nil)
-}
+// serviceHTTPFailure and fileServiceFailure: see desktop_failure.go
+// (failure-text-audit group 4).
+func serviceHTTPFailure(action string, status int) error { return serviceFailure(action, status) }
 
-func fileServiceFailure(status int, data []byte) error {
-	known := map[string]string{
-		"上传窗口已关闭，请重新选择文件":         "上传窗口已关闭。请重新点击应用内的上传按钮，再选择文件。",
-		"原文件窗口已关闭":                "原文件窗口已关闭。请在接收文件的应用中重新打开文件窗口。",
-		"请先完成已打开的文件窗口":            "另一个文件窗口尚未处理。请先完成或关闭该窗口，再重新选择文件。",
-		"每个文件不能超过 2 GB":           "单个文件超过 2 GB 上限。请缩小文件后重新上传。",
-		"项目文件夹尚未连接，请重新打开项目":       "项目文件夹尚未连接。请先在 Cage lite 中重新打开该项目，再选择目录。",
-		"目标没有接收文件，请点击支持附件的输入框后重试": "目标没有接收文件。请先点击应用内支持附件的输入框，再重新选择文件。",
-		"上传已取消":       "上传已被取消。需要继续时，请重新选择文件。",
-		"当前窗口没有请求文件夹": "当前窗口需要选择文件，不能接收文件夹。请按应用的窗口提示重新选择。",
-		"文件夹正在交给应用":   "文件夹仍在传给应用。请等待当前操作结束后再选择。",
-		"文件位置无法读取":    "接收文件的应用无法读取该位置。请确认项目目录已连接，并重新选择。",
-		"下载服务不可用":     "环境内的下载服务尚未就绪。请重新打开应用；旧环境请先更新环境组件。",
-		"文件请求过大":      "这次文件请求超过服务允许的大小。请减少一次传递的文件数量。",
-		"请选择项目文件夹":    "当前操作需要一个已连接的项目文件夹。请先在 Cage lite 中打开项目，再重新选择目录。",
-	}
-	if reason := known[strings.TrimSpace(string(data))]; reason != "" {
-		return fmt.Errorf("传递文件失败：%s", reason)
-	}
-	return serviceHTTPFailure("传递文件", status)
-}
+func fileServiceFailure(status int, data []byte) error { return fileTransferFailure(status, data) }
 
 func browserOperation(path string) string {
 	switch path {

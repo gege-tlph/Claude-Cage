@@ -20,12 +20,22 @@ func installStage(label string) string {
 	return strings.TrimSpace(strings.TrimPrefix(strings.TrimRight(label, "…."), "正在"))
 }
 
+// spaced ends a step named after a Latin word with a space, for the 「时」
+// after it: 「安装 Node.js 24 时」.
+func spaced(stage string) string {
+	if last := stage[len(stage)-1]; last < 0x80 && last != ' ' {
+		return stage + " "
+	}
+	return stage
+}
+
 // installFailure names why the install step stage failed. It falls back to
 // the start rules (environment_failure.go), then to 「卡在{stage}，原因未识别」.
 func installFailure(stage string, cause error, output string, facts failureFacts) *usererror.Failure {
 	if stage == "" {
 		stage = "准备环境"
 	}
+	stage = spaced(stage)
 	if f := imageFailure(stage, cause, output); f != nil {
 		return f
 	}

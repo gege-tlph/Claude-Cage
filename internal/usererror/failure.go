@@ -88,7 +88,7 @@ type Failure struct {
 func Fail(action, reason, next string, cause error, tools ...string) *Failure {
 	lead := ""
 	if action != "" {
-		lead = action + "失败"
+		lead = LeadOf(action)
 	}
 	return &Failure{Level: LevelError, Lead: lead, Reason: reason, Next: next, Tools: tools, cause: cause}
 }
@@ -104,6 +104,15 @@ func Because(reason, next string, cause error, tools ...string) *Failure {
 // 「启动环境前需要代理节点」.
 func Notice(lead, reason, next string, cause error, tools ...string) *Failure {
 	return &Failure{Level: LevelInfo, Lead: lead, Reason: reason, Next: next, Tools: tools, cause: cause}
+}
+
+// LeadOf is 「{action}失败」, with the space the typography wants after a
+// Latin name: 「打开 Claude Desktop 失败」.
+func LeadOf(action string) string {
+	if last := action[len(action)-1]; last < 0x80 && (last >= '0' && last <= '9' || last >= 'A' && last <= 'Z' || last >= 'a' && last <= 'z') {
+		return action + " 失败"
+	}
+	return action + "失败"
 }
 
 // Unrecognized is the failure of action whose cause was not recognized; raw
@@ -122,6 +131,7 @@ func (f *Failure) WithLevel(level string) *Failure {
 
 // StuckAt names the stage an unrecognized failure was stuck at: 「卡在启动浏览器，原因未识别」.
 func (f *Failure) StuckAt(stage string) {
+	stage = strings.TrimSpace(stage)
 	if f.Unknown && stage != "" && !strings.HasPrefix(f.Reason, "卡在") {
 		f.Reason = "卡在" + stage + "，" + f.Reason
 	}

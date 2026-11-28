@@ -312,6 +312,9 @@ func (s *Server) pollAllDesktopFiles(ctx context.Context) (map[string]any, error
 		case ctx.Err() != nil:
 			return nil, usererror.Wrap("传递文件", ctx.Err(), "请确认环境仍在运行；恢复连接后重新选择文件，并核对目标是否已收到文件。")
 		case err != nil:
+			if f := desktopFilesStopped(string(stderr.data)); f != nil {
+				return nil, f
+			}
 			return nil, executionFailure("连接文件传递服务", err, string(stderr.data))
 		case readErr != nil:
 			return nil, usererror.Wrap("读取文件传递结果", readErr, "结果没有完整返回，请恢复连接后核对文件是否已收到。")
@@ -399,6 +402,9 @@ func (s *Server) guestFilesForDesktop(ctx context.Context, desktopID, target, me
 		case httpStatus >= 400:
 			return nil, fileServiceFailure(httpStatus, data)
 		case err != nil:
+			if f := desktopFilesStopped(string(stderr.data)); f != nil {
+				return nil, f
+			}
 			return nil, executionFailure("连接文件传递服务", err, string(stderr.data))
 		case readErr != nil:
 			return nil, usererror.Wrap("读取文件传递结果", readErr, "结果没有完整返回，请恢复连接后核对文件是否已收到。")

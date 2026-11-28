@@ -121,7 +121,10 @@ func (s *Server) claudeDesktopAction(w http.ResponseWriter, r *http.Request) {
 			if action == "update" {
 				script = "set -e\nsudo systemctl stop desktop-session.service\n" + script
 			}
-			return RunMaintenanceScript(s.operationContext(), s.configPath, script, s.jobs.execution(), s.jobs.execution())
+			if err := RunMaintenanceScript(s.operationContext(), s.configPath, script, s.jobs.execution(), s.jobs.execution()); err != nil {
+				return desktopInstallFailure(action == "update", err, s.jobs.snapshot().Log)
+			}
+			return nil
 		case "start":
 			return s.startClaudeDesktop()
 		default:
@@ -160,7 +163,7 @@ func (s *Server) startClaudeDesktop() error {
 	cmd.Stdin = bytes.NewReader(key)
 	cmd.Stdout, cmd.Stderr = s.jobs.execution(), s.jobs.execution()
 	if err = cmd.Run(); err != nil {
-		return executionFailure("打开 Claude Desktop", errors.Join(ctx.Err(), err), s.jobs.snapshot().Log)
+		return desktopStartFailure(errors.Join(ctx.Err(), err), s.jobs.snapshot().Log)
 	}
 	s.watchDesktopLogins()
 	return nil
@@ -190,6 +193,9 @@ func (s *Server) runDesktopScript(script string, timeout time.Duration) error {
 			defer finish()
 			_, _ = s.guest(cleanup, "sudo systemctl stop desktop-operation.service")
 			return ctx.Err()
+		}
+		if f := desktopStartFailure(err, s.jobs.snapshot().Log); !f.Unknown {
+			return f
 		}
 		return executionFailure("准备或关闭 Claude Desktop", err, s.jobs.snapshot().Log)
 	}

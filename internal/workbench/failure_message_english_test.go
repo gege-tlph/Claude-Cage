@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/sylvinus/agent-vm/internal/usererror"
 )
 
 // The English interface splits "<action>失败：<reason>。<next>" and translates
@@ -46,14 +48,29 @@ func TestFailureMessagesHaveEnglish(t *testing.T) {
 		check(message)
 	}
 	check(executionFailure("启动环境", errors.New("exit status 1"), "unknown").Error())
-	for _, status := range []int{401, 404, 409, 413, 429, 500, 502, 504} {
-		check(serviceHTTPFailure("传递文件", status).Error())
+	// Failures in three parts (desktop_failure.go): each part needs English.
+	checkFailure := func(err error) {
+		t.Helper()
+		f, ok := usererror.AsFailure(err)
+		if !ok {
+			t.Errorf("not a failure: %v", err)
+			return
+		}
+		action := strings.TrimSuffix(strings.TrimSuffix(f.Lead, "失败"), " ")
+		for _, part := range []string{action, value.ReplaceAllString(f.Reason, "HTTP {0}"), f.Next} {
+			if part != "" && english[part] == "" && english[value.ReplaceAllString(part, "HTTP {0}")] == "" {
+				t.Errorf("no English for %q (in %q)", part, err.Error())
+			}
+		}
+	}
+	for _, status := range []int{401, 404, 409, 413, 429, 502, 504} {
+		checkFailure(serviceHTTPFailure("传递文件", status))
 	}
 	for _, sent := range []string{"上传窗口已关闭，请重新选择文件", "原文件窗口已关闭", "请先完成已打开的文件窗口", "每个文件不能超过 2 GB", "项目文件夹尚未连接，请重新打开项目", "目标没有接收文件，请点击支持附件的输入框后重试", "上传已取消", "当前窗口没有请求文件夹", "文件夹正在交给应用", "文件位置无法读取", "下载服务不可用", "文件请求过大", "请选择项目文件夹"} {
-		message := fileServiceFailure(400, []byte(sent)).Error()
-		if !strings.HasPrefix(message, "传递文件失败：") || strings.Contains(message, "HTTP") {
-			t.Errorf("%q was not recognized: %q", sent, message)
+		err := fileServiceFailure(400, []byte(sent))
+		if !strings.HasPrefix(err.Error(), "传递文件失败，原因是") || strings.Contains(err.Error(), "HTTP") {
+			t.Errorf("%q was not recognized: %q", sent, err.Error())
 		}
-		check(message)
+		checkFailure(err)
 	}
 }
