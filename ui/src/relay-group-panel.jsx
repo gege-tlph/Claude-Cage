@@ -1,7 +1,8 @@
 import React, { useId } from "react";
+import { ArrowDown, ArrowUp, X } from "lucide-react";
 import { InlineSelect } from "./inline-select";
 import { useTranslation } from "./interface-language.mjs";
-import { STRATEGIES, problemName, strategyName, withMode, withSource, withStrategy } from "./relay-group.mjs";
+import { STRATEGIES, moveNode, problemName, strategyName, toggleNode, withMode, withSource, withStrategy } from "./relay-group.mjs";
 import "./relay-group.css";
 
 // RelayGroupPanel is the range and strategy of an auto-switch 前置, under its
@@ -13,6 +14,9 @@ export function RelayGroupPanel({ hop, sources, current, problem, disabled, onCh
   const tr = useTranslation();
   const name = useId();
   const trouble = problemName(problem, hop, tr);
+  const nodeName = (id) => sources.flatMap((s) => s.nodes || []).find((n) => n.id === id)?.name || id;
+  const ordered = hop.relay.strategy === "fallback";
+  const chosen = hop.mode === "nodes" ? hop.relay.node_ids : [];
   return <div className="proxy-group-panel">
     <div className="proxy-group-line" role="radiogroup" aria-label={tr("范围")}>
       <span className="proxy-group-label">{tr("范围")}</span>
@@ -33,6 +37,19 @@ export function RelayGroupPanel({ hop, sources, current, problem, disabled, onCh
       {hop.mode === "nodes" && <span className="proxy-group-count">{tr("已选 {0} 个", hop.relay.node_ids.length)}</span>}
       {trouble && <span className="proxy-group-problem">{trouble}</span>}
     </div>
+    {chosen.length > 0 && <ol className={`proxy-group-nodes${ordered ? " is-ordered" : ""}`} aria-label={tr("自选节点")}>
+      {chosen.map((id, index) => <li key={id}>
+        <span className="proxy-group-node-name">{nodeName(id)}</span>
+        {ordered && <>
+          <button type="button" className="icon-button" disabled={disabled || index === 0} aria-label={tr("上移")} title={tr("上移")}
+            onClick={() => onChange(moveNode(hop, index, -1), true)}><ArrowUp size={13} /></button>
+          <button type="button" className="icon-button" disabled={disabled || index === chosen.length - 1} aria-label={tr("下移")} title={tr("下移")}
+            onClick={() => onChange(moveNode(hop, index, 1), true)}><ArrowDown size={13} /></button>
+        </>}
+        <button type="button" className="icon-button" disabled={disabled} aria-label={tr("移除 {0}", nodeName(id))} title={tr("移除")}
+          onClick={() => onChange(toggleNode(hop, id), true)}><X size={13} /></button>
+      </li>)}
+    </ol>}
     <div className="proxy-group-line">
       <span className="proxy-group-label">{tr("策略")}</span>
       <span className="proxy-route-mode" role="group" aria-label={tr("策略")}>

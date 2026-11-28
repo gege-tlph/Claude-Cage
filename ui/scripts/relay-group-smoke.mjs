@@ -48,13 +48,18 @@ try {
   await page.getByRole("button", { name: "中转组节点 HK 01" }).click();
   await editor.getByText("已选 2 个").waitFor();
   assert.equal(await page.getByRole("button", { name: "中转组节点 住宅 IP · 节点001" }).isDisabled(), true, "the fixed exit cannot join the group");
+  // 故障转移 tries the chosen nodes in their listed order, which the arrows change.
+  await editor.getByRole("group", { name: "策略" }).getByRole("button", { name: "故障转移" }).click();
+  const pool = editor.getByRole("list", { name: "自选节点" });
+  await pool.getByRole("button", { name: "下移" }).first().click();
+  assert.deepEqual(await pool.locator(".proxy-group-node-name").allTextContents(), ["HK 01", "Tokyo Transit"]);
   await page.screenshot({ path: path.join(out, "group-nodes.png") });
 
   // Apply from the settings submit bar.
   const apply = page.getByRole("button", { name: "保存", exact: true }).last();
   await apply.click();
   await page.waitForTimeout(800);
-  assert.deepEqual(posts.at(-1)?.hops, [{ relay: { strategy: "url-test", node_ids: ["tokyo", "hk"] } }, { node_id: "exit" }], JSON.stringify(posts));
+  assert.deepEqual(posts.at(-1)?.hops, [{ relay: { strategy: "fallback", node_ids: ["hk", "tokyo"] } }, { node_id: "exit" }], JSON.stringify(posts));
 
   // Saved: the group reads back with its node in use; 固定 turns it back.
   // The backend names the group by its core group in route.

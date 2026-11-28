@@ -46,6 +46,16 @@ export const withMode = (hop, mode) => ({ ...hop, mode });
 export const withStrategy = (hop, strategy) => ({ ...hop, relay: { ...hop.relay, strategy } });
 export const withSource = (hop, sourceID) => ({ ...hop, relay: { ...hop.relay, source_id: sourceID } });
 
+// moveNode moves the chosen node at index by delta (-1 up, 1 down): 故障转移
+// uses the first usable node in this order.
+export function moveNode(hop, index, delta) {
+  const ids = [...hop.relay.node_ids];
+  const to = index + delta;
+  if (to < 0 || to >= ids.length) return hop;
+  [ids[index], ids[to]] = [ids[to], ids[index]];
+  return { ...hop, relay: { ...hop.relay, node_ids: ids } };
+}
+
 export function toggleNode(hop, id) {
   const ids = hop.relay.node_ids;
   return { ...hop, relay: { ...hop.relay, node_ids: ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id] } };

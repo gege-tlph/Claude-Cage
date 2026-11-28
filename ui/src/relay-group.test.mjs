@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { candidates, groupProblem, groupValid, hopsFromProxy, isGroup, newGroup, routeBody, routeKey, sourceNodes, toggleNode, withMode, withSource, withStrategy } from "./relay-group.mjs";
+import { candidates, groupProblem, groupValid, hopsFromProxy, isGroup, moveNode, newGroup, routeBody, routeKey, sourceNodes, toggleNode, withMode, withSource, withStrategy } from "./relay-group.mjs";
 
 const sources = [
   { id: "air", name: "旅行订阅", nodes: [{ id: "la" }, { id: "tokyo" }, { id: "hk" }] },
@@ -86,4 +86,13 @@ test("a new group takes a source no other group of the route takes whole", () =>
   assert.equal(newGroup(two, "la", [first, "", "exit"]).relay.source_id, "more");
   // Chosen nodes leave the source free.
   assert.equal(newGroup(two, "la", [withMode(first, "nodes"), "", "exit"]).relay.source_id, "air");
+});
+
+test("chosen nodes keep the order 故障转移 tries them in", () => {
+  const hop = toggleNode(toggleNode(toggleNode(withMode(newGroup(sources), "nodes"), "la"), "tokyo"), "hk");
+  assert.deepEqual(moveNode(hop, 2, -1).relay.node_ids, ["la", "hk", "tokyo"]);
+  assert.deepEqual(moveNode(hop, 0, 1).relay.node_ids, ["tokyo", "la", "hk"]);
+  assert.equal(moveNode(hop, 0, -1), hop);
+  assert.equal(moveNode(hop, 2, 1), hop);
+  assert.deepEqual(routeBody([moveNode(hop, 2, -1), "exit"]).hops[0].relay.node_ids, ["la", "hk", "tokyo"]);
 });

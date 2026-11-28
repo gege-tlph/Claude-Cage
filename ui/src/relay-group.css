@@ -12,6 +12,11 @@
 .proxy-group-panel .inline-select-trigger { min-height: 28px; padding: 3px 8px; width: auto; min-width: 9rem; }
 .proxy-group-panel .proxy-route-mode button { font-size: 12px; }
 .proxy-group-count, .proxy-group-current { color: var(--muted); font-size: 12px; }
+.proxy-group-nodes { display: grid; gap: 2px; max-width: 480px; margin: 0 0 0 44px; padding: 0; list-style: none; counter-reset: pool; }
+.proxy-group-nodes li { display: flex; align-items: center; gap: 4px; min-height: 26px; font-size: 13px; color: var(--strong); }
+.proxy-group-nodes.is-ordered li::before { counter-increment: pool; content: counter(pool); flex: none; width: 18px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.proxy-group-node-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proxy-group-nodes .icon-button { width: 24px; height: 24px; }
 .proxy-group-problem { color: var(--danger); font-size: 12px; }
 .proxy-node-pool { flex: none; color: var(--status-blue, var(--accent)); }
 .proxy-node-pool.is-off { color: var(--muted); }
