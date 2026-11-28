@@ -103,7 +103,10 @@ try {
   assert.equal(await workspace.locator(".terminal-chrome:visible").count(), 2);
   assert.equal(await workspace.locator(".terminal-view:not(.concealed)").count(), 2);
   await page.setViewportSize({ width: 1360, height: 850 });
+  const beforeMenu = (await primaryPane.locator(".terminal-view").boundingBox()).y;
   await primaryPane.getByRole("button", { name: "向下拆分" }).click();
+  await page.getByRole("menuitem", { name: "普通终端", exact: true }).waitFor();
+  assert.equal((await primaryPane.locator(".terminal-view").boundingBox()).y, beforeMenu, "the split menu floats over the terminal");
   await page.getByRole("menuitem", { name: "普通终端", exact: true }).click();
   const third = terminalPane(state.terminals.at(-1).id);
   await third.waitFor();

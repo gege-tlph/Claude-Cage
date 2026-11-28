@@ -2258,8 +2258,17 @@ svg {
 }
 .terminal-create-form > label:first-child {display:grid;gap:4px;}
 .terminal-create-form > small {color:var(--muted);}
-.sidebar-project > .terminal-create-menu,
-.chrome > .terminal-create-menu { margin-inline-start: auto; }
+.sidebar-project > .terminal-create-menu { margin-inline-start: auto; }
+/* In a pane header the menu floats over the page instead of growing the
+   header and pushing the terminal or page down. */
+.chrome > .terminal-create-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  inset-inline-end: 8px;
+  z-index: 16;
+  margin: 0;
+  box-shadow: var(--shadow-md);
+}
 .terminal-create-menu button {
   gap: 10px;
   white-space: nowrap;
