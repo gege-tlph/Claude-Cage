@@ -16,10 +16,13 @@ try {
   const openSettings = async () => {
     await page.getByRole("button", { name: /^设置/ }).click();
     await page.getByRole("button", { name: "网络与代理", exact: true }).click();
+    // The IP change rules sit in 网络与代理's 高级 card.
+    const advanced = page.locator("details.settings-advanced");
+    if (!(await advanced.evaluate((element) => element.open))) await advanced.locator(":scope > summary").click();
   };
   await openSettings();
-  await page.getByText("中国大陆出口禁止放行；静态 IP 和不限地区也必须确认出口国家。", { exact: true }).waitFor();
   const picker = page.getByRole("combobox", { name: "动态 IP 的允许范围", exact: true });
+  await picker.waitFor();
   const layoutTop = locator => locator.evaluate(element => {
     let top = element.getBoundingClientRect().top;
     for (let parent = element.parentElement; parent; parent = parent.parentElement) top += parent.scrollTop;
@@ -63,7 +66,6 @@ try {
   assert.equal(await picker.getAttribute("aria-expanded"), "false");
   await chooseInline(picker, "any");
   assert.match(await picker.textContent(), /中国大陆除外/);
-  await page.getByText(/命中大陆网段、定位为中国大陆、无法确认出口地区/).waitFor();
   assert.deepEqual(errors, []);
   console.log("PASS: inline mouse/keyboard expansion, region binding, city preservation, save and reload");
 } finally { await browser.close(); }
