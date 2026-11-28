@@ -23,6 +23,9 @@ export function InlineSelect({
   const list = useRef(null);
   const [open, setOpen] = useState(false);
   const [cursor, setCursor] = useState(null);
+  // typed: the list was opened by typing. It then shows what matches the
+  // text, even a whole option's value; opened by a click, it shows all.
+  const [typed, setTyped] = useState(false);
   const options = Children.toArray(children).flatMap((child) => {
     const group = child.type === "optgroup" ? child.props.label : null;
     return (group ? Children.toArray(child.props.children) : [child]).map(
@@ -38,7 +41,7 @@ export function InlineSelect({
   });
   const selected = options.find((option) => option.value === String(value));
   const filtered =
-    editable && !selected && value
+    editable && (typed || !selected) && value
       ? options.filter((option) =>
           (option.label + " " + option.value)
             .toLowerCase()
@@ -82,6 +85,7 @@ export function InlineSelect({
   }, [open]);
   const show = () => {
     setCursor(selected?.value ?? null);
+    setTyped(false);
     setOpen(true);
   };
   const choose = (item) => {
@@ -100,7 +104,12 @@ export function InlineSelect({
       event.stopPropagation();
       setOpen(false);
     } else if (key === "Enter" || (!editable && key === " ")) {
-      if (editable && (!visible || active < 0)) return;
+      if (editable && (!visible || active < 0)) {
+        // Typed text with no highlighted row: Enter keeps the text and
+        // closes the list, which would otherwise cover the fields below.
+        if (visible) setOpen(false);
+        return;
+      }
       event.preventDefault();
       if (!visible) show();
       else if (active >= 0) choose(filtered[active]);
@@ -188,6 +197,7 @@ export function InlineSelect({
           onChange={(event) => {
             onValueChange(event.target.value);
             setCursor(null);
+            setTyped(true);
             setOpen(true);
           }}
         />
