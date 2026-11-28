@@ -11,6 +11,7 @@ import { InitializationDNS } from "./initialization-dns";
 import { SetupProgress } from "./setup-progress";
 import { DiagnosticSettings } from "./diagnostics.jsx";
 import { InitializationDetails } from "./initialization-checks";
+import { StatusActivity } from "./status-activity";
 import { Modal } from "./modal";
 import { SafetyMessage } from "./safety-message";
 import { needsEnvironmentRestart, needsProxySetup } from "./onboarding-state.mjs";
@@ -24,12 +25,18 @@ import { localizeBackendMessage } from "./backend-message.mjs";
 
 const steps = [["system", "系统与存储"], ["proxy", "网络代理"], ["install", "安装与检查"]];
 
-function InitializationFrame({ children }) {
+// statusBar is the status bar's content, under the page.
+function InitializationFrame({ children, statusBar }) {
   const tr = useTranslation();
-  return <main className="initialization">
+  const page = <main className="initialization">
     <StartupBrand label={tr("首次设置")} />
     {children}
   </main>;
+  if (!statusBar) return page;
+  return <div className="initialization-shell">
+    {page}
+    <footer className="status-bar initialization-status-bar">{statusBar}</footer>
+  </div>;
 }
 
 const setupApi = (path, body, method, headers = {}, options) =>
@@ -85,7 +92,6 @@ function Initialization({ initial, onComplete }) {
   const [mirrorChoice, setMirrorChoice] = useState("");
   const [measuring, setMeasuring] = useState(false);
   const [details, setDetails] = useState(false);
-  const [help, setHelp] = useState(false);
   const [dialog, setDialog] = useState(null);
   const [proxyDirty, setProxyDirty] = useState(false);
   const alive = useRef(true);
@@ -270,7 +276,13 @@ function Initialization({ initial, onComplete }) {
   const installMessage = ["start", "guest-install", "safety", "stop"].includes(job.kind) ? localizeBackendMessage(job.message, tr) : "";
   const resumable = Boolean(initial.started || pending || job.setup_progress);
   const checkPending = Boolean(status?.ready && network.mode !== "open" && !busy && !needsRestart);
-  return <InitializationFrame>
+  const checks = status?.safety?.report?.checks || [];
+  // First run has no settings page, so the log always offers the diagnostics
+  // package; while the install card shows the progress, only the icon stays.
+  const statusBar = <span className="status-spacer">
+    <StatusActivity job={status?.job} hideMessage={Boolean(progress)} exportAlways />
+  </span>;
+  return <InitializationFrame statusBar={statusBar}>
     <section className="initialization-content">
       <ol className="initialization-steps" aria-label={tr("首次设置步骤")}>{steps.map(([key, label], position) => <li key={key} aria-current={step === key ? "step" : undefined}><span>{position < index ? <Check size={14} /> : position + 1}</span><span className="initialization-step-label" data-label={tr(label)}>{tr(label)}</span></li>)}</ol>
       <div className="initialization-title"><h1>{tr(title)}</h1></div>
@@ -293,13 +305,13 @@ function Initialization({ initial, onComplete }) {
           {step === "install" && <>
             {showReady ? <div className="initialization-ready"><ShieldCheck size={36} /><h2 role={entering ? "status" : undefined}>{tr(entering ? "正在进入工作台" : "环境已就绪")}</h2></div> : <>
             {needsRestart && <section className="initialization-notice" aria-label={tr("需要重启环境")}><h2>{tr("需要重启环境")}</h2><button className="primary" disabled={busy || Boolean(connectionError)} onClick={restart}>{status.vm_running ? tr("重启环境并检查") : tr("启动环境并检查")}</button></section>}
-            {progress ? <SetupProgress job={progress} onDetails={() => setDetails(true)} onStop={stop} onRetry={needsRestart ? restart : install} disconnected={Boolean(connectionError) || submitting} /> : checkPending
+            {progress ? <SetupProgress job={progress} onStop={stop} onRetry={needsRestart ? restart : install} disconnected={Boolean(connectionError) || submitting} /> : checkPending
               // Installed and connected: the network check is this card's state (no second block).
               ? <div className="initialization-operation" role="status"><p>{status.safety?.error || job.error || status.network_error || tr("网络与隔离未检查")}</p><button className="primary" disabled={Boolean(connectionError)} onClick={checkNetwork}>{tr("网络与隔离检查")}</button></div>
               : mirrors ? null : <div className="initialization-operation" role="status"><p>{busy && <LoaderCircle size={18} className="spin" />}{measuring ? tr("正在测量软件源速度…") : stopped ? tr("安装已停止") : installMessage || (status.vm_running ? tr("环境已启动") : resumable ? tr("安装未完成") : tr("未开始"))}</p>{!busy && !job.error && !mirrors && !needsRestart && <button className="primary" disabled={Boolean(connectionError)} onClick={install}>{status.ready ? tr("重新启动并检查") : resumable ? tr("继续安装") : tr("开始安装")}</button>}{busy && !measuring && <button onClick={stop} disabled={submitting}>{tr("停止安装")}</button>}</div>}
             {job.error && !progress && !checkPending && <div className="initialization-notice" role="alert"><SafetyMessage message={job.error} />{!networkPending && !needsRestart && <button className="primary" disabled={busy || Boolean(connectionError)} onClick={install}>{tr("继续安装")}</button>}</div>}
             </>}
-            <div className="initialization-recovery">{canReselect && <button disabled={busy} onClick={() => setStep("system")}>{tr("查看或撤销原安装选择")}</button>}<button onClick={() => setStep("proxy")} disabled={busy}>{tr("网络代理")}</button>{!progress && <button onClick={() => setDetails(true)}>{tr("操作详情")}</button>}</div>
+            <div className="initialization-recovery">{canReselect && <button disabled={busy} onClick={() => setStep("system")}>{tr("查看或撤销原安装选择")}</button>}<button onClick={() => setStep("proxy")} disabled={busy}>{tr("网络代理")}</button>{!progress && checks.length > 0 && <button onClick={() => setDetails(true)}>{tr("检查结果")}</button>}</div>
           </>}
         </div>
         {error && <p className="initialization-notice" role="alert"><SafetyMessage message={error} /></p>}
@@ -310,10 +322,9 @@ function Initialization({ initial, onComplete }) {
           {step === "install" && showReady && <button className="primary" disabled={busy || Boolean(connectionError)} aria-busy={entering} onClick={enter}>{entering && <LoaderCircle size={16} className="spin" />}{tr(entering ? "正在进入…" : "进入工作台")}</button>}
         </footer>
       </>}
-      {(status || connectionError) && <div className="initialization-support"><button className="text-button" aria-expanded={help} onClick={() => setHelp(!help)}>{tr("日志与诊断")}</button>{navigation && !busy && <button className="text-button" onClick={() => navigation.open()}>{tr("只连接 SSH 主机")}</button>}</div>}
-      {help && <DiagnosticSettings />}
+      {(status || connectionError) && navigation && !busy && <div className="initialization-support"><button className="text-button" onClick={() => navigation.open()}>{tr("只连接 SSH 主机")}</button></div>}
     </section>
-    {details && <Modal title={tr("操作详情")} onClose={() => setDetails(false)}><InitializationDetails status={status} /></Modal>}
+    {details && <Modal title={tr("最近一次检查结果")} onClose={() => setDetails(false)}><InitializationDetails status={status} /></Modal>}
     {dialog && <Modal title={dialog.title} onClose={() => settleDialog(false)} footer={<><button onClick={() => settleDialog(false)}>{tr("取消")}</button><button className="primary" onClick={() => settleDialog(true)}>{tr(dialog.confirm)}</button></>}><div className="modal-body"><p>{tr(dialog.body)}</p></div></Modal>}
   </InitializationFrame>;
 }

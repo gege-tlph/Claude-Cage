@@ -18,7 +18,6 @@ import {
   Globe2,
   LoaderCircle,
   MapPin,
-  MoreHorizontal,
   Power,
   RefreshCw,
   Shield,
@@ -78,6 +77,7 @@ import { FoldedText, SafetyChecklistButton, SafetyChecklistContext, SafetyMessag
 import { networkState, isGuestLocalURL } from "./safety-state.mjs";
 import { needsProxySetup } from "./onboarding-state.mjs";
 import { statusExitText } from "./status-exit.mjs";
+import { StatusActivity, StatusBarHost, operationLogOpen } from "./status-activity";
 import { accountName, setPrivacyMasked, usePrivacyMask } from "./privacy-mask.mjs";
 import { NetworkLatency } from "./network-latency";
 import { NetworkSpeed } from "./network-speed";
@@ -160,6 +160,7 @@ function App() {
     [guestSystem, setGuestSystem] = useState(undefined),
     [startRequest, setStartRequest] = useState(null),
     [settingsSection, setSettingsSection] = useState("keyboard"),
+    [settingsRequest, setSettingsRequest] = useState(0),
     [home, setHome] = useState(true),
     [sidebarCollapsed, setSidebarCollapsed] = useState(
       readLocal(clientStorageKey("cage-sidebar-collapsed"), false),
@@ -192,7 +193,6 @@ function App() {
     [browserError, setBrowserError] = useState(""),
     [dialog, setDialog] = useState(null),
     [transfer, setTransfer] = useState(null),
-    [details, setDetails] = useState(false),
     [safetyOpen, setSafetyOpen] = useState(false),
     [quitting, setQuitting] = useState(null);
   // The state keeps the width the user chose. A narrow window only limits
@@ -552,6 +552,7 @@ function App() {
   const openSettings = (section = "keyboard") => {
     setSafetyOpen(false);
     setSettingsSection(section);
+    setSettingsRequest(request => request + 1);
     setSettingsOpen(true);
   };
   const select = async (id, focusContent = true) => {
@@ -952,7 +953,6 @@ function App() {
         ) {
           lastJob.current = next.job.id;
           await refreshSettings();
-          if (next.job.error) notify(next.job.error);
         }
         if (next.ready) {
           const fetchBrowser = !next.environment_update_required && (!browserStreamReady.current || !initialized.current);
@@ -1329,7 +1329,7 @@ function App() {
         settingsOpen ||
         managementPage ||
         transfer ||
-        details ||
+        operationLogOpen() ||
         safetyOpen ||
         projectDialog ||
         terminalChoice ||
@@ -1399,7 +1399,7 @@ function App() {
         managementPage ||
         transfer ||
         dialog ||
-        details ||
+        operationLogOpen() ||
         safetyOpen ||
         projectDialog ||
         terminalChoice ||
@@ -1459,7 +1459,7 @@ function App() {
           settingsOpen ||
           managementPage ||
           transfer ||
-          details ||
+          operationLogOpen() ||
           safetyOpen ||
           projectDialog ||
           terminalChoice ||
@@ -1513,7 +1513,6 @@ function App() {
     settingsOpen,
     managementPage,
     safetyOpen,
-    details,
     transfer,
     dialog,
     current,
@@ -2029,7 +2028,6 @@ function App() {
                 onProjectOpened={async () => { await refreshSettings(); await refreshStatus.current?.(); }}
                 status={status} visible={!settingsOpen && !managementPage} remoteRef={remote} focused={focused} split={split}
                 onStatus={notify} onFallback={(text, message) => setTransfer({ text, message })}
-                onDetails={() => setDetails(true)}
                 // DesktopPanes draws the one sidebar reveal for every pane.
                 refreshSignal={defaultDesktopSignal}
                 autoStart={!defaultDesktopStopped}
@@ -2119,7 +2117,7 @@ function App() {
                     <button className="primary" onClick={() => openSettings("project")}>{tr("恢复环境存储")}</button>
                   </> : setupProgress ? <>
                     <h1>{status.job.error ? tr("环境安装未完成") : tr("正在安装环境")}</h1>
-                    <SetupProgress job={status.job} onDetails={() => setDetails(true)}
+                    <SetupProgress job={status.job}
                       onStop={stop} onRetry={() => startEnvironment(status.job.kind === "guest-install" ? { guest_system: status.job.setup_progress.system } : {})} disconnected={Boolean(connectionError)} />
                   </> : <>
                   <h1>
@@ -2285,22 +2283,14 @@ function App() {
                       <div className="start-error-actions">
                         <SafetyChecklistButton message={status.job.error} />
                         {status.can_restore && <button className="text-button" onClick={() => openSettings("project")}>{tr("查看恢复选项")}</button>}
-                        {status.job?.log && <button className="text-button" onClick={() => setDetails(true)}>{tr("查看操作详情")}</button>}
                       </div>
                     </div>;
                   })()}
-                  {!failureCard && !setupProgress && status.job?.log && (busy || Boolean(status.job?.error) || !running || !status.ready) && (
-                    <button
-                      className="text-button details-link"
-                      onClick={() => setDetails(true)}
-                    >
-                      {tr("查看操作详情")}
-                    </button>
-                  )}
                 </div>
               </div>
             )}
           </main>
+          <StatusBarHost overlay={settingsOpen}>
           <footer className="status-bar">
             {sidebarCollapsed && <AppUpdateButton updates={appUpdates} />}
             <button onClick={() => setSafetyOpen(true)} title={tr("网络与隔离检查")}>
@@ -2346,21 +2336,8 @@ function App() {
             {/* Messages sit in the free space and grow toward the start, so the
                 clock and controls after them keep their place as text changes. */}
             <span className="status-spacer">
-              <span className={`status-feedback${toast && toastTone ? ` ${toastTone}` : ""}`} role="status">
-                <SafetyMessage message={toast ||
-                  (busy
-                    ? status.job.message
-                    : running
-                      ? status.ready
-                        ? isRemoteClient() ? "文件保存在云端" : ""
-                        : "环境运行中 · 浏览器待恢复"
-                      : "")} />
-              </span>
-              {status.job?.log && (
-                <button title={tr("操作详情")} onClick={() => setDetails(true)}>
-                  <MoreHorizontal size={15} />
-                </button>
-              )}
+              <StatusActivity job={status.job} toast={toast} toastTone={toastTone}
+                running={running} ready={status.ready} remote={isRemoteClient()} />
             </span>
             <MicrophoneIndicator mic={mic} />
             <AudioControls audio={audio} />
@@ -2382,6 +2359,7 @@ function App() {
               <span>{tr("停止环境")}</span>
             </button>
           </footer>
+          </StatusBarHost>
         </div>
         {floatingPages.map((page, index) => (
           <FloatingPluginView
@@ -2404,6 +2382,7 @@ function App() {
           status={status}
           workspace={workspace}
           initialSection={settingsSection}
+          sectionRequest={settingsRequest}
           onClose={() => setSettingsOpen(false)}
           onSaved={refreshSettings}
           onConfirm={confirm}
@@ -2592,17 +2571,6 @@ function App() {
                 setTransfer({ ...transfer, text: e.target.value })
               }
             />
-          </div>
-        </Modal>
-      )}
-      {details && (
-        <Modal title={tr("操作详情")} wide onClose={() => setDetails(false)}>
-          <div className="modal-body">
-            <p><SafetyMessage message={status.job.message} /></p>
-            {status.job.error && (
-              <div className="error-message"><SafetyMessage message={status.job.error} /></div>
-            )}
-            <pre className="job-log">{status.job.log || tr("暂无日志")}</pre>
           </div>
         </Modal>
       )}

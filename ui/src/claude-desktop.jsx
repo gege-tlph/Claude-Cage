@@ -27,7 +27,6 @@ export function ClaudeDesktop({
   split = false,
   onStatus,
   onFallback,
-  onDetails,
   onExpand,
   sidebarCollapsed,
   refreshSignal = 0,
@@ -157,7 +156,6 @@ export function ClaudeDesktop({
           <SafetyMessage message={error || statusError || (desktop?.failure_reason === "oom-kill"
             ? "环境内存不足，Claude Desktop 已被系统关闭。请在设置中检查计算资源后重新打开。"
             : "Claude Desktop 未能启动，可重试打开或修复安装。")} />
-          <button onClick={onDetails}>{tr("操作详情")}</button>
           {error && <button onClick={() => setError("")}>{tr("关闭")}</button>}
         </div>
       )}
@@ -166,9 +164,6 @@ export function ClaudeDesktop({
         <div className="desktop-progress" role="status">
           <RefreshCw size={16} className="spin" />
           {localizeBackendMessage(status.job.message, tr)}
-          <button className="text-button" onClick={onDetails}>
-            {tr("查看进度")}
-          </button>
         </div>
       )}
       <div className="desktop-screen">

@@ -5761,5 +5761,12 @@
   "重启环境": "Restart environment",
   "重启组件": "Restart components",
   "重建存储": "Rebuild storage",
-  "验证节点": "Verify node"
+  "验证节点": "Verify node",
+  "操作日志": "Activity log",
+  "简易": "Simple",
+  "高级": "Advanced",
+  "诊断包": "Diagnostics",
+  "检查结果": "Check results",
+  "调试": "Debug",
+  "日志等级": "Log level"
 }

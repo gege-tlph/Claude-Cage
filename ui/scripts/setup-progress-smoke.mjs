@@ -16,8 +16,8 @@ try {
   await panel.getByText("25 MiB / 100 MiB").waitFor();
   assert.equal(await bar.getAttribute("aria-valuenow"), "25");
   assert.equal(await panel.locator('[aria-current="step"]').textContent(), "系统镜像");
-  await panel.getByRole("button", { name: "操作详情" }).click();
-  await page.getByRole("dialog").waitFor();
+  await page.getByRole("button", { name: "操作日志", exact: true }).click();
+  await page.getByRole("dialog", { name: "操作日志", exact: true }).waitFor();
   await page.keyboard.press("Escape");
   if (process.env.CAGE_SETUP_SCREENSHOT) await page.screenshot({ path: process.env.CAGE_SETUP_SCREENSHOT, animations: "disabled" });
   state.status.job.setup_progress = { phase: "tools", label: "下载 code-server", received: 8 * 1048576 };

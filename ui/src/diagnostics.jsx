@@ -5,6 +5,23 @@ import { reportDiagnostic } from "./diagnostics.mjs";
 import { isRemoteClient, runtimeURL } from "./client-context.mjs";
 import { useTranslation, translate } from "./interface-language.mjs";
 
+// exportDiagnostics saves or downloads the diagnostics package. It returns
+// the notice to show, or "" when the save dialog was canceled.
+export async function exportDiagnostics() {
+  if (nativeAvailable()) {
+    const result = await native("exportDiagnostics");
+    return result?.canceled ? "" : "诊断包已保存。分享前请检查其中内容。";
+  }
+  // Fetch before downloading so authentication or disk failures are shown.
+  const response = await fetch(runtimeURL("/diagnostics/export"));
+  if (!response.ok) throw new Error((await response.text()).trim() || "诊断包导出失败");
+  if (!response.headers.get("content-type")?.startsWith("application/zip")) throw new Error("当前后台不支持诊断导出，请重新打开 Cage lite");
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a"); link.href = url; link.download = "cage-diagnostics.zip"; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  return "诊断包已下载。分享前请检查其中内容。";
+}
+
 export function DiagnosticSettings() {
   const tr = useTranslation();
   const remote = isRemoteClient();
@@ -21,24 +38,13 @@ export function DiagnosticSettings() {
   const save = async () => {
     setBusy(true); setError(""); setNotice("");
     try {
-      if (nativeAvailable()) {
-        const result = await native("exportDiagnostics");
-        if (!result?.canceled) setNotice("诊断包已保存。分享前请检查其中内容。");
-      } else {
-        // Fetch before downloading so authentication or disk failures are shown.
-        const response = await fetch(runtimeURL("/diagnostics/export"));
-        if (!response.ok) throw new Error((await response.text()).trim() || "诊断包导出失败");
-        if (!response.headers.get("content-type")?.startsWith("application/zip")) throw new Error("当前后台不支持诊断导出，请重新打开 Cage lite");
-        const url = URL.createObjectURL(await response.blob());
-        const link = document.createElement("a"); link.href = url; link.download = "cage-diagnostics.zip"; link.click();
-        setTimeout(() => URL.revokeObjectURL(url), 30_000);
-        setNotice("诊断包已下载。分享前请检查其中内容。");
-      }
+      const notice = await exportDiagnostics();
+      if (notice) setNotice(notice);
     } catch (error) { setError(error.message); }
     finally { setBusy(false); }
   };
-  return <section className="settings-group" aria-label={tr("日志与诊断")}>
-    <h3>{tr("日志与诊断")}</h3>
+  return <section className="settings-group" aria-label={tr("诊断包")}>
+    <h3>{tr("诊断包")}</h3>
     {info && <p className="footnote">{remote ? tr("服务器") : tr("本机")}{tr("日志") + " "}{(info.bytes / 1024 / 1024).toFixed(1)} MiB · {info.files}{" " + tr("个文件")}</p>}
     <button className="secondary-button" disabled={busy} onClick={save}>
       {busy ? <LoaderCircle size={14} className="spin" /> : <ArrowDownToLine size={14} />}

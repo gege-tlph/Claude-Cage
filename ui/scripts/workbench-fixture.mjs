@@ -206,6 +206,36 @@ export async function createWorkbench({
       result = state.settings;
     else if (path === "/status")
       result = { ...state.status, workspace: state.settings.workspace };
+    else if (path === "/jobs/log") {
+      // The operation log: a test sets state.jobLog, else the current job's.
+      const job = state.status.job || {};
+      const now = new Date().toISOString();
+      result = state.jobLog || (job.id ? {
+        entries: [
+          { time: now, job: job.id, kind: job.kind, message: job.kind || "任务" },
+          ...(job.message ? [{ time: now, job: job.id, kind: job.kind, message: job.message }] : []),
+          ...(!job.running && job.error ? [{ time: now, job: job.id, kind: job.kind, message: job.error, state: "failed" }] : []),
+        ],
+        outputs: job.log ? [{ job: job.id, kind: job.kind, started: now, log: job.log }] : [],
+      } : { entries: [], outputs: [] });
+      // The advanced view asks for events at a level: a test sets
+      // state.jobLogEvents, else a few of each level.
+      const level = new URL(request.url()).searchParams.get("level");
+      if (level) {
+        const levels = ["debug", "info", "warn", "error"];
+        const at = (seconds) => new Date(Date.now() - seconds * 1000).toISOString();
+        const events = state.jobLogEvents || [
+          { time: at(40), level: "info", source: "task/start", message: "[job start] cage up" },
+          { time: at(39), level: "debug", source: "vm-hostagent", message: "{\"level\":\"debug\",\"msg\":\"Waiting for the essential requirement 1 of 2: \\\"ssh\\\"\"}" },
+          { time: at(36), level: "info", source: "network-monitor", message: "physical interface Ethernet up, route 0.0.0.0/0 via [ip]" },
+          { time: at(30), level: "warn", source: "proxy", message: "time=\"2026-11-28T10:16:33Z\" level=warning msg=\"dial tcp [ip]:443: i/o timeout\"" },
+          { time: at(20), level: "info", source: "vm-hostagent", message: "{\"level\":\"info\",\"msg\":\"Forwarding TCP from 127.0.0.1:15900 to 127.0.0.1:15900\"}" },
+          { time: at(12), level: "warn", source: "exit-probe", message: "browser exit probe attempt 1 failed: context deadline exceeded" },
+          { time: at(4), level: "error", source: "task/start", message: "did not receive an event with the \"running\" status (timeout 3m0s)" },
+        ];
+        result = { ...result, events: events.filter((event) => levels.indexOf(event.level) >= levels.indexOf(level)) };
+      }
+    }
     else if (path === "/projects/refresh") {
       if (state.failRefresh) return route.fulfill({ status: 502, contentType: "text/plain; charset=utf-8", body: "项目文件未能刷新，请稍后重试" });
       state.projectRefreshes = (state.projectRefreshes || 0) + 1;

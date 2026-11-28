@@ -32,7 +32,7 @@ try {
   await page.getByRole("button", { name: "创建本地账户", exact: true }).click();
   await page.getByRole("button", { name: "设置", exact: true }).click();
   await page.getByRole("button", { name: "环境与恢复", exact: true }).click();
-  await page.getByRole("heading", { name: "日志与诊断" }).waitFor();
+  await page.getByRole("heading", { name: "诊断包" }).waitFor();
   // Exercise browser event handlers, the actual authenticated endpoint and disk.
   const reports = Promise.all(["diagnostic-ui-sentinel", "diagnostic-rejection-sentinel"].map(marker =>
     page.waitForResponse(response => response.url().endsWith("/api/diagnostics/events") && response.request().postData()?.includes(marker) && response.ok())));

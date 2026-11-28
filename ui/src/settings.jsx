@@ -39,6 +39,7 @@ import { EnvironmentCache } from "./environment-cache";
 import { EnvironmentDeviceReset } from "./environment-device-reset";
 import { ResourceSettings } from "./resources";
 import { DiagnosticSettings } from "./diagnostics.jsx";
+import { LogLevelSettings } from "./log-level";
 import { AccountSettings } from "./account";
 import { AboutSettings } from "./about-settings";
 import { useTranslation } from "./interface-language.mjs";
@@ -70,6 +71,7 @@ export function SettingsPanel({
   onSaved,
   onConfirm,
   initialSection = "keyboard",
+  sectionRequest = 0,
   appUpdates,
 }) {
   const tr = useTranslation();
@@ -237,6 +239,16 @@ export function SettingsPanel({
     [],
   );
   const contentRef = useRef();
+  const goToSection = async (id) => {
+    if (id !== section && accountDirty && !(await onConfirm({ title: "放弃尚未保存的修改？", body: "已保存的资料和密码保持不变。", confirm: "放弃修改" }))) return;
+    if (id !== section && proxyDirty && !(await onConfirm({ title: "放弃尚未应用的代理修改？", body: "当前代理仍按已应用的链路运行。离开会丢弃这次节点选择。", confirm: "放弃修改" }))) return;
+    setSection(id);
+  };
+  // A link from the status bar while settings are open.
+  const firstRequest = useRef(sectionRequest);
+  useEffect(() => {
+    if (sectionRequest !== firstRequest.current) goToSection(initialSection);
+  }, [sectionRequest]);
   useEffect(() => {
     contentRef.current?.scrollTo(0, 0);
   }, [section]);
@@ -284,11 +296,7 @@ export function SettingsPanel({
                   key={id}
                   className={section === id ? "selected" : ""}
                   aria-current={section === id ? "page" : undefined}
-                  onClick={async () => {
-                    if (id !== section && accountDirty && !(await onConfirm({ title: "放弃尚未保存的修改？", body: "已保存的资料和密码保持不变。", confirm: "放弃修改" }))) return;
-                    if (id !== section && proxyDirty && !(await onConfirm({ title: "放弃尚未应用的代理修改？", body: "当前代理仍按已应用的链路运行。离开会丢弃这次节点选择。", confirm: "放弃修改" }))) return;
-                    setSection(id);
-                  }}
+                  onClick={() => goToSection(id)}
                 >
                   <Icon size={16} />
                   {tr(label)}
@@ -770,6 +778,7 @@ export function SettingsPanel({
                   />
                 )}
                 {!status.storage_recovery?.required && <ResourceSettings status={status} onConfirm={onConfirm} onDirtyChange={setResourceDirty} />}
+                <LogLevelSettings />
                 <DiagnosticSettings />
                 {status.can_restore && (
                   <button

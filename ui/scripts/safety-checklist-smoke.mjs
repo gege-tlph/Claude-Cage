@@ -61,18 +61,18 @@ for (const platform of platforms) {
     assert.equal(postCount(), beforeOpening, "viewing a checklist must not start checks or open networking");
     assert.equal(await link(homeError).evaluate(node => node === document.activeElement), true);
 
-    const feedback = page.locator(".status-feedback");
+    const feedback = page.locator(".status-activity");
     state.status.job = { ...state.status.job, id: "failed-check-notification" };
     await link(feedback).waitFor();
     await showChecklist(link(feedback));
     await closeChecklist();
 
-    await page.getByRole("button", { name: "查看操作详情", exact: true }).click();
-    const details = page.getByRole("dialog", { name: "操作详情", exact: true });
-    await showChecklist(link(details));
-    await closeChecklist();
-    assert.equal(await details.isVisible(), true, "closing the checklist must preserve operation details");
-    await details.getByRole("button", { name: "关闭面板", exact: true }).click();
+    await page.getByRole("button", { name: "操作日志", exact: true }).click();
+    const log = page.getByRole("dialog", { name: "操作日志", exact: true });
+    await log.getByRole("button", { name: "简易", exact: true }).click();
+    await log.getByText(failure, { exact: true }).waitFor();
+    await page.keyboard.press("Escape");
+    assert.equal(await log.count(), 0);
 
     state.status.job.setup_progress = { phase: "services", label: "环境服务" };
     await page.reload();

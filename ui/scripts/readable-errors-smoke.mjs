@@ -14,8 +14,11 @@ for (const platform of ["darwin", "windows", "linux"]) {
     await page.reload();
     await page.getByText("启动环境失败", { exact: true }).first().waitFor();
     await page.getByRole("alert").filter({ hasText: "等待下载服务器响应超时" }).first().waitFor();
-    await page.getByRole("button", { name: "查看操作详情", exact: true }).first().click();
-    await page.getByRole("dialog", { name: "操作详情", exact: true }).getByText("fixture download timeout", { exact: true }).waitFor();
+    await page.getByRole("button", { name: "操作日志", exact: true }).click();
+    const log = page.getByRole("dialog", { name: "操作日志", exact: true });
+    await log.getByRole("button", { name: "高级", exact: true }).click();
+    await log.getByText("fixture download timeout").waitFor();
+    await log.getByRole("button", { name: "简易", exact: true }).click();
     await page.keyboard.press("Escape");
     await page.screenshot({ path: `${output}/${platform}-startup.png` });
 

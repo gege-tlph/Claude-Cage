@@ -1,0 +1,131 @@
+/* The global status bar's message, its 操作日志 icon and window
+   (status-activity.jsx, operation-log.jsx). */
+
+/* Settings stop above the status bar instead of covering it; the bar then
+   spans the window's bottom edge (StatusBarHost). */
+.settings-page { bottom: var(--status-bar-height, 0px); }
+.status-bar-slot, .status-bar-host { display: contents; }
+.status-bar-slot.is-empty { display: block; flex: none; height: var(--status-bar-height, 0px); }
+.status-bar-host.is-overlay { display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; }
+
+/* First run: the page scrolls above a status bar with only the message and
+   the log icon. */
+.initialization-shell { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.initialization-shell > .initialization { flex: 1; height: auto; }
+
+.status-activity { display: flex; align-items: center; justify-content: flex-end; gap: 2px; min-width: 0; }
+.status-bar button.status-message { min-width: 0; max-width: 48vw; padding-inline: 4px; color: var(--muted); }
+.status-bar button.status-message:hover:not(:disabled) { background: none; color: var(--strong); }
+.status-bar button.status-message:hover:not(:disabled) .status-message-text { text-decoration: underline; text-underline-offset: 3px; }
+.status-message-text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; animation: status-message-in 150ms ease-out; }
+@keyframes status-message-in { from { opacity: 0; transform: translateY(4px); } }
+.status-bar button.status-message.is-fail { color: var(--danger); }
+/* While a job runs, a light sweeps over its stage. */
+.status-message.is-busy .status-message-text {
+  color: transparent;
+  background: linear-gradient(90deg, var(--muted) 0%, var(--muted) 38%, var(--strong) 50%, var(--muted) 62%, var(--muted) 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: status-message-in 150ms ease-out, status-message-shine 1.7s linear infinite;
+}
+@keyframes status-message-shine { from { background-position: 100% 0; } to { background-position: 0% 0; } }
+
+.status-bar button.status-log-button { position: relative; flex: none; justify-content: center; width: 26px; padding: 0; color: var(--muted); }
+.status-bar button.status-log-button[aria-expanded="true"] { background: var(--hover); color: var(--strong); }
+.status-log-dot { position: absolute; top: 3px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--danger); box-shadow: 0 0 0 1.5px var(--paper); }
+
+.status-announcer { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* The window opens above the status bar's right end. */
+.operation-log {
+  position: fixed; z-index: 25;
+  right: 12px; bottom: calc(var(--status-bar-height, 32px) + 8px);
+  width: min(520px, calc(100vw - 24px)); max-height: min(60dvh, 460px);
+  display: flex; flex-direction: column;
+  background: var(--paper); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.16), var(--shadow-xs, none);
+  overflow: hidden; outline: none;
+  transform-origin: bottom right;
+  animation: operation-log-in 170ms ease-out;
+}
+@keyframes operation-log-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } }
+.operation-log-head { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; border-bottom: 1px solid var(--line); flex: none; }
+.operation-log-head h2 { margin: 0 auto 0 0; font-size: 0.9286rem; font-weight: 600; color: var(--strong); }
+.operation-log-views { display: inline-flex; padding: 2px; border-radius: 7px; background: var(--hover); }
+.operation-log-views button { min-height: 24px; padding: 0 10px; border: 0; border-radius: 5px; background: none; color: var(--muted); font-size: 0.8571rem; }
+.operation-log-views button[aria-pressed="true"] { background: var(--paper); color: var(--strong); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); }
+.operation-log-views button:hover:not([aria-pressed="true"]) { color: var(--strong); background: none; }
+.operation-log-close { display: inline-grid; place-items: center; width: 28px; height: 28px; min-height: 0; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--muted); }
+.operation-log-close:hover { background: var(--hover); color: var(--strong); }
+/* The log and its copy button in the top-right corner, which stays put while
+   the log scrolls. */
+.operation-log-content { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.operation-log-body { flex: 1; min-height: 72px; overflow: auto; padding: 8px 44px 12px 14px; font-size: 0.9286rem; line-height: 1.5; }
+.operation-log-copy {
+  position: absolute; top: 6px; right: 14px;
+  display: inline-grid; place-items: center; width: 28px; height: 28px; min-height: 0; padding: 0;
+  border: 1px solid var(--line); border-radius: 7px;
+  background: color-mix(in srgb, var(--paper) 88%, transparent); color: var(--muted);
+  transition: background 120ms, color 120ms, border-color 200ms;
+}
+.operation-log-copy:hover:not(:disabled) { background: var(--hover); color: var(--strong); }
+.operation-log-copy:disabled { opacity: 0.4; }
+.operation-log-copy > * { grid-area: 1 / 1; }
+.operation-log-copy-icon { transition: opacity 150ms, transform 150ms ease-out; }
+.operation-log-copy-check { width: 16px; height: 16px; opacity: 0; fill: none; stroke: var(--status-green); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: opacity 150ms; }
+.operation-log-copy-check path { stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 220ms ease-out; }
+/* Copied: the copy icon shrinks away, the green check draws with a slight pop. */
+.operation-log-copy.is-copied { border-color: color-mix(in srgb, var(--status-green) 45%, var(--line)); }
+.operation-log-copy.is-copied .operation-log-copy-icon { opacity: 0; transform: scale(0.6); }
+.operation-log-copy.is-copied .operation-log-copy-check { opacity: 1; animation: operation-log-copy-pop 300ms cubic-bezier(0.34, 1.56, 0.64, 1) 200ms; }
+.operation-log-copy.is-copied .operation-log-copy-check path { stroke-dashoffset: 0; transition-delay: 90ms; }
+@keyframes operation-log-copy-pop { 0% { transform: scale(1); } 45% { transform: scale(1.18); } 100% { transform: scale(1); } }
+.operation-log-job { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; }
+.operation-log-job + .operation-log-job { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line-subtle, var(--line)); }
+.operation-log-job li { display: flex; gap: 12px; min-width: 0; }
+.operation-log-job li > span { min-width: 0; overflow-wrap: anywhere; }
+.operation-log-job time { flex: none; padding-top: 1px; color: var(--muted); font-family: var(--code-font-family, ui-monospace, monospace); font-size: 0.8571rem; font-variant-numeric: tabular-nums; }
+.operation-log-name > span { color: var(--strong); font-weight: 600; }
+.operation-log-failed > span { color: var(--danger); }
+.operation-log-canceled > span { color: var(--muted); }
+.operation-log-raw { padding: 0; background: var(--chrome); }
+.operation-log-raw pre { margin: 0; padding: 10px 44px 12px 14px; font: 0.8214rem/1.6 var(--code-font-family, ui-monospace, monospace); color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+/* Events of the advanced view: time, level, source, message. */
+.operation-log-event time { color: var(--muted); }
+.operation-log-event b { font-weight: 600; }
+.operation-log-event i { font-style: normal; color: var(--muted); }
+.operation-log-event.is-debug { color: var(--muted); }
+.operation-log-event.is-warn b { color: var(--warning, #b25000); }
+.operation-log-event.is-error, .operation-log-event.is-error i { color: var(--danger); }
+.operation-log-empty { margin: 8px 0; color: var(--muted); }
+.operation-log-raw .operation-log-empty { margin: 0; padding: 10px 14px; }
+.operation-log-error { margin: 0; color: var(--danger); font-size: 0.8571rem; }
+.operation-log > .operation-log-error { padding: 8px 14px 0; }
+.operation-log-foot { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--line); flex: none; }
+.operation-log-foot .operation-log-error { margin-right: auto; }
+
+/* No sweep where motion or colour should stay still. */
+:root[data-reduced-motion="true"] .status-message-text, :root[data-reduced-motion="true"] .operation-log { animation: none; }
+:root[data-reduced-motion="true"] .operation-log-copy *, :root[data-reduced-motion="true"] .operation-log-copy { transition: none; animation: none; }
+:root[data-reduced-motion="true"] .status-message.is-busy .status-message-text,
+:root[data-preset="high-contrast"] .status-message.is-busy .status-message-text { color: var(--muted); background: none; animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .status-message-text, .operation-log { animation: none; }
+  .operation-log-copy, .operation-log-copy * { transition: none; animation: none; }
+  .status-message.is-busy .status-message-text { color: var(--muted); background: none; animation: none; }
+}
+@media (forced-colors: active) {
+  .status-message.is-busy .status-message-text { color: CanvasText; background: none; animation: none; }
+  .status-log-dot { background: Highlight; box-shadow: none; }
+  .operation-log-views button[aria-pressed="true"] { outline: 1px solid Highlight; }
+  .operation-log-copy-check { stroke: CanvasText; }
+}
+
+/* Narrow windows and phones keep the message and the icon; the latency, speed
+   and clock go first. */
+@media (max-width: 720px) {
+  .status-bar .status-latency, .status-bar .status-network-speed, .status-bar .status-clock { display: none; }
+  .status-bar button.status-message { max-width: 40vw; }
+}
