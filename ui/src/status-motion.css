@@ -80,6 +80,9 @@ button.action-button[aria-busy="true"]:disabled { opacity: 1; cursor: progress; 
 button.action-button[aria-disabled="true"] { cursor: progress; pointer-events: auto; }
 button.primary.action-button .status-icon[data-state="busy"] .status-icon-ring { stroke: var(--button-ink); }
 button.action-button.quiet-button.has-icon .action-button-slot { width: 13px; margin-right: 5px; }
+/* The status icon is sized inline (16px); in the smaller slot it would be
+   clipped on the right and run into the text. */
+button.action-button.quiet-button .action-button-slot .status-icon { width: 13px !important; height: 13px !important; }
 
 :root[data-reduced-motion="true"] .status-icon *, :root[data-reduced-motion="true"] .action-button,
 :root[data-reduced-motion="true"] .action-button * { transition: none !important; animation: none !important; }

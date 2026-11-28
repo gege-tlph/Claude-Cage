@@ -20,6 +20,13 @@ try {
   await page.getByRole("button", { name: /^设置/ }).click();
   await page.getByRole("button", { name: "时区与语言", exact: true }).click();
   await page.getByRole("button", { name: "现在检测", exact: true }).first().click();
+  // The status icon fits the small button's slot instead of being cut off.
+  const fits = await page.locator(".settings-switch-row .action-button").first().evaluate((button) => {
+    const slot = button.querySelector(".action-button-slot").getBoundingClientRect();
+    const icon = button.querySelector(".status-icon").getBoundingClientRect();
+    return icon.width <= slot.width + 0.5;
+  });
+  assert.ok(fits, "the busy icon fits its slot");
   await page.getByRole("alert").filter({ hasText: "位置查询均失败" }).waitFor();
   await page.getByRole("button", { name: "手动设置时区和语言", exact: true }).click();
   assert.equal(await page.getByRole("switch").nth(0).isChecked(), false);
