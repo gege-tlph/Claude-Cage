@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -236,6 +237,49 @@ func TestFerryUpdateMovesTheRouteToFerrysNewExit(t *testing.T) {
 	if _, followed = s.ferryFollowExit(own, index(own), update, renamed, ""); followed {
 		t.Fatal("moved the user's own exit")
 	}
+	// An auto 前置 over the relay subscription stays; the exit moves.
+	group := func(relay managedproxy.RelayGroup) managedproxy.Store {
+		t.Helper()
+		g := p
+		if err := g.SetRouteHops([]managedproxy.RouteHop{{Relay: &relay}, {NodeID: p.Selected}}); err != nil {
+			t.Fatal(err)
+		}
+		return g
+	}
+	grouped := group(managedproxy.RelayGroup{Strategy: managedproxy.RelayStrategyFallback, SourceID: "relay"})
+	next, followed = s.ferryFollowExit(grouped, index(grouped), update, renamed, "")
+	if !followed || next.Selected != ferryNodeID(t, next, "ferry", "🇦🇺 悉尼") || next.Chain != nil || len(next.RouteHops) != 2 ||
+		next.RouteHops[0].Relay == nil || next.RouteHops[0].Relay.SourceID != "relay" || next.RouteHops[1].NodeID != next.Selected {
+		t.Fatalf("followed=%v selected=%q chain=%q hops=%+v", followed, next.Selected, next.Chain, next.RouteHops)
+	}
+	if grouped.RouteHops[1].NodeID != p.Selected {
+		t.Fatal("the store given was changed")
+	}
+	// Ferry reached through the auto 前置: the node it uses now, or its
+	// first candidate while the core does not say.
+	sydney, tokyo := ferryNodeID(t, next, "relay", "🇦🇺 悉尼 01"), ferryNodeID(t, next, "relay", "🇯🇵 东京 01")
+	for _, c := range []struct{ active, want string }{{tokyo, tokyo}, {"", sydney}, {"CAGE-RELAY-0", sydney}} {
+		want, _ := next.NodeEndpoint(c.want)
+		got, err := ferryHopEndpoint(next, next.Endpoint(), func(name string) string {
+			if name != "CAGE-RELAY-0" {
+				t.Errorf("asked the core for group %q", name)
+			}
+			return c.active
+		})
+		if err != nil || got != want {
+			t.Fatalf("active %q: got %q, %v; want the endpoint of %q", c.active, got, err, c.want)
+		}
+	}
+	// Chosen nodes Ferry dropped leave the pool with the old exit.
+	soloSS := ferryNodeID(t, p, "ferry", "🇦🇺 AU · SS")
+	grouped = group(managedproxy.RelayGroup{Strategy: managedproxy.RelayStrategyFallback, NodeIDs: []string{p.Chain[0], soloSS}})
+	next, followed = s.ferryFollowExit(grouped, index(grouped), update, renamed, "")
+	if !followed || next.Selected != ferryNodeID(t, next, "ferry", "🇦🇺 悉尼") || !slices.Equal(next.RouteHops[0].Relay.NodeIDs, []string{p.Chain[0]}) {
+		t.Fatalf("followed=%v selected=%q hops=%+v", followed, next.Selected, next.RouteHops)
+	}
+	if len(grouped.RouteHops[0].Relay.NodeIDs) != 2 {
+		t.Fatal("the store given was changed")
+	}
 	s, p = setup(t, "other")
 	if _, followed = s.ferryFollowExit(p, index(p), update, renamed, ""); followed {
 		t.Fatal("followed a source that is not Ferry's")
@@ -306,12 +350,13 @@ func TestFerryIsReachedThroughTheRelayHop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, err := ferryHopEndpoint(p, p.Endpoint()); err != nil || got != relayEndpoint || got == p.Endpoint() {
+	none := func(string) string { return "" }
+	if got, err := ferryHopEndpoint(p, p.Endpoint(), none); err != nil || got != relayEndpoint || got == p.Endpoint() {
 		t.Fatal("a chain does not reach Ferry through its relay:", got, err)
 	}
 	single := p
 	single.Chain = nil
-	if got, err := ferryHopEndpoint(single, p.Endpoint()); err != nil || got != p.Endpoint() {
+	if got, err := ferryHopEndpoint(single, p.Endpoint(), none); err != nil || got != p.Endpoint() {
 		t.Fatal("a route of one node is not used as it is:", got, err)
 	}
 	if _, err := s.ferryHopClient(); err != nil {

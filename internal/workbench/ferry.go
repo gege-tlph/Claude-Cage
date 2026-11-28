@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -118,8 +119,8 @@ func (s *Server) ferryRememberSource(id string) {
 // the route uses: the organisation renamed it or moved the user to another
 // exit. Instead of the update being refused while the old exit may stop
 // working, the route moves to Ferry's new exit (same region, then same
-// protocol, then Ferry's order) and keeps its relay hops. A route whose exit
-// is not Ferry's is the user's choice and is left alone.
+// protocol, then Ferry's order) and keeps its relay hops, fixed or auto. A
+// route whose exit is not Ferry's is the user's choice and is left alone.
 func (s *Server) ferryFollowExitOn(action string, p managedproxy.Store, index int, in proxyInput, data []byte, usage string) (managedproxy.Store, bool) {
 	if action != "refresh" {
 		return p, false
@@ -148,18 +149,45 @@ func (s *Server) ferryFollowExit(p managedproxy.Store, index int, in proxyInput,
 	next := p
 	next.Sources = append([]managedproxy.Source(nil), p.Sources...)
 	chain := append([]string(nil), p.Chain...)
-	next.Selected, next.Chain = "", nil
+	hops := copyRouteHops(p.RouteHops)
+	next.Selected, next.Chain, next.RouteHops = "", nil, nil
 	if err := next.Import(in.Name, in.URL, data, in.ID, in.Interval, usage); err != nil {
 		return p, false
 	}
 	if _, kept := next.Find(old.ID); kept {
 		return p, false
 	}
+	// An auto 前置's chosen nodes lose the ones this update dropped, as a
+	// plain update of the source does; the new exit is none of them.
+	gone := map[string]bool{}
+	for _, n := range src.Nodes {
+		gone[n.ID] = true
+	}
+	for _, n := range next.Sources[index].Nodes {
+		delete(gone, n.ID)
+	}
+	pooled := map[string]bool{}
+	for _, hop := range hops {
+		if hop.Relay == nil || len(hop.Relay.NodeIDs) == 0 {
+			continue
+		}
+		kept := make([]string, 0, len(hop.Relay.NodeIDs))
+		for _, id := range hop.Relay.NodeIDs {
+			if !gone[id] {
+				kept = append(kept, id)
+				pooled[id] = true
+			}
+		}
+		if len(kept) == 0 {
+			return p, false
+		}
+		hop.Relay.NodeIDs = kept
+	}
 	blocked := next.BlockedNodes()
 	region := flagRegion(old.Name)
 	exit, best := "", -1
 	for _, n := range next.Sources[index].Nodes {
-		if blocked[n.ID] != "" {
+		if blocked[n.ID] != "" || pooled[n.ID] {
 			continue
 		}
 		score := 0
@@ -176,15 +204,35 @@ func (s *Server) ferryFollowExit(p managedproxy.Store, index int, in proxyInput,
 	if exit == "" {
 		return p, false
 	}
-	if len(chain) > 0 {
-		chain[len(chain)-1] = exit
+	if len(hops) > 0 {
+		hops[len(hops)-1].NodeID = exit
+		next.Selected, next.RouteHops = exit, hops
+	} else {
+		if len(chain) > 0 {
+			chain[len(chain)-1] = exit
+		}
+		next.Selected, next.Chain = exit, chain
 	}
-	next.Selected, next.Chain = exit, chain
 	if _, err := next.Route(); err != nil {
 		return p, false
 	}
 	diagnostics.Log("info", "ferry", "Ferry 的出口已变更，代理链改用新出口")
 	return next, true
+}
+
+// copyRouteHops copies hops deep enough to change a hop's node or a group's
+// chosen nodes without touching the store they came from.
+func copyRouteHops(hops []managedproxy.RouteHop) []managedproxy.RouteHop {
+	out := make([]managedproxy.RouteHop, len(hops))
+	for i, h := range hops {
+		out[i].NodeID = h.NodeID
+		if h.Relay != nil {
+			relay := *h.Relay
+			relay.NodeIDs = append([]string(nil), h.Relay.NodeIDs...)
+			out[i].Relay = &relay
+		}
+	}
+	return out
 }
 
 // flagRegion reads the flag a Ferry node name starts with ("🇦🇺 悉尼") as
@@ -463,7 +511,12 @@ func (s *Server) ferryHopClient() (*http.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	if cfg.ProxyURL, err = ferryHopEndpoint(p, cfg.ProxyURL); err != nil {
+	active := func(group string) string {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		return readRelayGroupActive(ctx, s.profile, group)
+	}
+	if cfg.ProxyURL, err = ferryHopEndpoint(p, cfg.ProxyURL, active); err != nil {
 		return nil, err
 	}
 	e, err := cage.NewEgress(cfg)
@@ -475,7 +528,23 @@ func (s *Server) ferryHopClient() (*http.Client, error) {
 
 // ferryHopEndpoint is the core endpoint of the route without its exit: the
 // credentials of the hop before the exit, or the route's own for one node.
-func ferryHopEndpoint(p managedproxy.Store, route string) (string, error) {
+// For an auto 前置 there that is the node it uses now (active names it from
+// the core's group), or its first candidate while the core does not say.
+func ferryHopEndpoint(p managedproxy.Store, route string, active func(group string) string) (string, error) {
+	if len(p.RouteHops) >= 2 {
+		hops, err := p.ResolveRoute()
+		if err != nil {
+			return "", err
+		}
+		hop := hops[len(hops)-2]
+		if hop.Relay == nil {
+			return p.NodeEndpoint(hop.NodeID)
+		}
+		if id := active(hop.GroupName); slices.Contains(hop.Candidates, id) {
+			return p.NodeEndpoint(id)
+		}
+		return p.NodeEndpoint(hop.Candidates[0]) // ResolveRoute leaves a group one at least
+	}
 	if len(p.Chain) < 2 {
 		return route, nil
 	}
