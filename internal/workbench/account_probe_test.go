@@ -307,7 +307,13 @@ func TestClassifyAccountProbeError(t *testing.T) {
 		{
 			name:   "guest helper missing",
 			err:    exit127,
-			stderr: "/bin/bash: line 1: /usr/local/bin/cage-claude-account: No such file or directory\n",
+			stderr: "/bin/bash: line 1: /usr/local/libexec/claude-account: No such file or directory\n",
+			want:   "客机账号组件缺失或不可执行",
+		},
+		{
+			name:   "guest helper not executable",
+			err:    exit1,
+			stderr: "/bin/bash: line 1: /usr/local/libexec/claude-account: Permission denied\n",
 			want:   "客机账号组件缺失或不可执行",
 		},
 		{

@@ -635,7 +635,7 @@ func classifyAccountProbeError(err error, stderr string) *accountProbeError {
 			cause:    err,
 			exitCode: exitCode,
 		}
-	case strings.Contains(lower, "/usr/local/bin/cage-claude-account") &&
+	case strings.Contains(lower, "/usr/local/libexec/claude-account") &&
 		(strings.Contains(lower, "no such file") || strings.Contains(lower, "not found") || strings.Contains(lower, "permission denied")),
 		exitCode == 127 && !strings.Contains(lower, "unshare"):
 		return &accountProbeError{

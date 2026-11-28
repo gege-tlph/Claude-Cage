@@ -5607,7 +5607,7 @@
   "审批已结束，请重新读取会话": "The approval has ended. Reload the session",
   "会话通道已在运行": "The session channel is already running",
   "这台主机的 Claude Code 管理策略关闭了 Channels，请由主机管理员处理。": "This host's Claude Code managed policy turned off Channels. Ask the host administrator.",
-  "Cage 默认环境的通道配置未能更新，请在电脑更新环境组件。": "The channel configuration of the Cage default environment couldn't be updated. Update the environment components on the computer.",
+  "默认环境的通道配置未能更新，请在电脑更新环境组件。": "The channel configuration of the default environment couldn't be updated. Update the environment components on the computer.",
   "正在核对这个终端已更改的 Claude 登录，请稍后继续。": "Checking the Claude sign-in this terminal changed. Continue in a moment.",
   "正在切换账号，请在目标会话中继续。": "Switching accounts. Continue in the target session.",
   "正在切换账号。": "Switching accounts.",
