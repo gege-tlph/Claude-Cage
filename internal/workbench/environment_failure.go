@@ -69,8 +69,9 @@ func environmentFailure(op, action string, cause error, output string, facts fai
 	// does not have. A stop ends that hostagent, then the start goes on.
 	case strings.Contains(output, vm.ErrHostAgentRunning.Error()):
 		return usererror.Fail(action, "原因是上次的环境后台仍在运行", "重启环境", cause, usererror.ToolRestart, usererror.ToolDiagnostics)
-	case strings.Contains(lower, "is still running, or lima cannot say"):
-		return usererror.Fail("停止环境", "原因是无法确认虚拟机已停止", "重试停止，不要手动删除环境目录", cause, usererror.ToolStop, usererror.ToolDiagnostics)
+	// Only `cage stop` says it (internal/cli/vms.go).
+	case op != "up" && strings.Contains(lower, "is still running, or lima cannot say"):
+		return fail("原因是无法确认虚拟机已停止", "重试停止，不要手动删除环境目录", usererror.ToolStop, usererror.ToolDiagnostics)
 	case containsAny(lower, `qemu-img": executable file not found`, `qemu-img\": executable file not found`, `qemu-system-x86_64": executable file not found`, `qemu-system-x86_64\": executable file not found`, "lima needs 'qemu-"):
 		return fail("原因是找不到随附的 QEMU", "重新安装 Cage lite", usererror.ToolDiagnostics)
 	case containsAny(lower, "base vm not found", "base vm setup did not complete"):
