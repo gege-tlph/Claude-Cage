@@ -208,11 +208,15 @@ func probeExitIPServices(ctx context.Context, client *http.Client, services []ex
 	if errors.Is(ctx.Err(), context.Canceled) {
 		return "", usererror.Wrap("通过所选代理查询出口 IP", ctx.Err(), "")
 	}
-	if failed, hop := coreRealityAuthFailure(probeStarted); failed {
+	selected, _ := ctx.Value(selectedRouteProbe{}).(bool)
+	// Through the applied route only a failure at one of its hops counts: the
+	// core dials other nodes meanwhile (speed tests, other accounts' exits),
+	// and their REALITY failures are not this probe's.
+	if failed, onRoute, hop := coreRealityAuthFailure(probeStarted); failed && (onRoute || !selected) {
 		// The core failed to authenticate with the proxy server itself, so
 		// the tunnel never reached a target site; any timeout or EOF seen by
 		// the services is a consequence, and ClientHello hints would not help.
-		if selected, _ := ctx.Value(selectedRouteProbe{}).(bool); !selected {
+		if !selected {
 			hop = ""
 		}
 		return "", probeReality(hop, ErrRealityAuthFailed)
@@ -263,16 +267,17 @@ func probeExitIPServices(ctx context.Context, client *http.Client, services []ex
 }
 
 // coreRealityAuthFailure reports whether the managed proxy core logged a
-// REALITY authentication failure since the probe started, and the hop role
+// REALITY authentication failure since the probe started, whether a failed
+// endpoint was a hop of the applied route (a hop record), and the hop role
 // when every hop record in that window names the same one.
-func coreRealityAuthFailure(since time.Time) (failed bool, hop string) {
+func coreRealityAuthFailure(since time.Time) (failed, onRoute bool, hop string) {
 	store := diagnostics.Default()
 	if store == nil {
-		return false, ""
+		return false, false, ""
 	}
 	events, err := store.EventsSince(since, "proxy")
 	if err != nil {
-		return false, ""
+		return false, false, ""
 	}
 	hops := map[string]bool{}
 	for _, event := range events {
@@ -287,7 +292,7 @@ func coreRealityAuthFailure(since time.Time) (failed bool, hop string) {
 			hop = role
 		}
 	}
-	return failed, hop
+	return failed, len(hops) > 0, hop
 }
 
 // proxyReaches reports whether one GET to endpoint returned HTTP 204 through

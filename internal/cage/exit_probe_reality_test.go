@@ -63,7 +63,6 @@ func TestExitProbeReportsCoreRealityAuthFailure(t *testing.T) {
 		{"exit on applied route", true, []string{managedproxy.RealityHopExit}, "原因是代理链出口节点的", []string{"前置节点"}},
 		{"single node", true, []string{managedproxy.RealityHopSingle}, "原因是所选节点的", []string{"前置节点", "出口节点"}},
 		{"conflicting hops", true, []string{managedproxy.RealityHopRelay, managedproxy.RealityHopExit}, "原因是代理节点的", []string{"前置节点", "出口节点"}},
-		{"unconfirmed hop", true, nil, "原因是代理节点的", []string{"前置节点", "出口节点"}},
 		{"other route", false, []string{managedproxy.RealityHopRelay}, "原因是代理节点的", []string{"前置节点", "出口节点"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -106,6 +105,20 @@ func TestExitProbeReportsCoreRealityAuthFailure(t *testing.T) {
 				t.Fatalf("diagnostic reason = %q", reason)
 			}
 		})
+	}
+}
+
+// Through the applied route, a REALITY failure no hop of the route accounts
+// for belongs to another node the core dialed meanwhile (a speed test, another
+// account's exit): the probe keeps its own classification.
+func TestExitProbeIgnoresRealityFailureOffTheRoute(t *testing.T) {
+	store := useDiagnosticStore(t)
+	services := stallingTLSServices(t, func() {
+		_ = store.Record("warn", "proxy", "[TCP] dial other --> www.gstatic.com:443 error: 198.51.100.9:443 connect error: REALITY authentication failed")
+	})
+	ip, err := probeExitIPServices(context.WithValue(context.Background(), selectedRouteProbe{}, true), &http.Client{Timeout: 150 * time.Millisecond}, services, time.Minute, "")
+	if ip != "" || errors.Is(err, ErrRealityAuthFailed) || !errors.Is(err, ErrTLSHandshakeFailed) {
+		t.Fatalf("a failure off the route must not be this probe's: ip=%q err=%v", ip, err)
 	}
 }
 
