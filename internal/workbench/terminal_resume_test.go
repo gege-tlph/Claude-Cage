@@ -127,6 +127,19 @@ func TestTerminalStreamResumesAfterOffsetAndAnswersPing(t *testing.T) {
 	if pong := readTerminalFrame(t, ws); pong.Type != "pong" {
 		t.Fatalf("ping answered with %+v", pong)
 	}
+	// The heartbeat is answered while the host terminal has the input (B15).
+	session.mu.Lock()
+	session.hostInput = true
+	session.mu.Unlock()
+	if err := ws.WriteJSON(map[string]string{"type": "ping"}); err != nil {
+		t.Fatal(err)
+	}
+	if pong := readTerminalFrame(t, ws); pong.Type != "pong" {
+		t.Fatalf("ping during host input answered with %+v", pong)
+	}
+	session.mu.Lock()
+	session.hostInput = false
+	session.mu.Unlock()
 	_ = ws.Close()
 
 	// Output written while disconnected arrives alone after a resume.

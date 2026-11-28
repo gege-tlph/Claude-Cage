@@ -144,6 +144,15 @@ func (s *Server) terminalStream(w http.ResponseWriter, r *http.Request) {
 		if json.Unmarshal(data, &input) != nil {
 			continue
 		}
+		// The heartbeat keeps counting while the host terminal has the input;
+		// only the viewer's keys and size are set aside then.
+		if input.Type == "ping" {
+			select {
+			case pongs <- struct{}{}:
+			default:
+			}
+			continue
+		}
 		session.mu.Lock()
 		hostInput := session.hostInput
 		session.mu.Unlock()
@@ -151,11 +160,6 @@ func (s *Server) terminalStream(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		switch input.Type {
-		case "ping":
-			select {
-			case pongs <- struct{}{}:
-			default:
-			}
 		case "input":
 			if err := session.enqueueInputWait(r.Context(), input.Data, terminalInputWait); err != nil {
 				return
