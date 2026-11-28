@@ -100,6 +100,10 @@ export function ActionButton({
     return () => clearTimeout(timer);
   }, [text, withIcon]);
   const working = phase !== "idle";
+  // While it works the button stays focusable (aria-disabled, not disabled):
+  // a disabled button drops the keyboard focus to the page. Clicks, and a
+  // form's submit, are held back instead.
+  const hold = (event) => event.preventDefault();
   return (
     <button
       ref={ref}
@@ -107,8 +111,9 @@ export function ActionButton({
       {...rest}
       className={["action-button", className, withIcon && "has-icon"].filter(Boolean).join(" ")}
       aria-busy={working || undefined}
-      disabled={disabled || working}
-      onClick={working ? undefined : onClick}
+      aria-disabled={working && !disabled ? true : undefined}
+      disabled={disabled}
+      onClick={working ? hold : onClick}
     >
       <span className="action-button-slot">
         {icon && <span className={`action-button-icon${phase === "idle" ? "" : " is-hidden"}`} aria-hidden="true">{icon}</span>}
