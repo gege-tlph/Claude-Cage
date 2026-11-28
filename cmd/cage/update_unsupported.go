@@ -1,4 +1,4 @@
-//go:build !darwin && !windows && !linux
+//go:build !linux
 
 package main
 
@@ -10,6 +10,9 @@ import (
 	"github.com/sylvinus/agent-vm/internal/appupdate"
 )
 
+// Cage lite installs updates from the app only: its Windows updater keeps the
+// install, rollback and confirmation steps in one place. `cage update --check`
+// still reports a newer release.
 func installHostUpdate(context.Context, string, appupdate.State, *os.File, *os.File, *os.File, bool) error {
-	return errors.New("请通过此平台的原安装渠道更新 Cage。")
+	return errors.New("请在 Cage lite 应用的「设置 > 关于」中安装更新")
 }
