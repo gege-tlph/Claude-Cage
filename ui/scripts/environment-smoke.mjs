@@ -56,7 +56,7 @@ try {
   await page.getByRole("menuitem", { name: "设置", exact: true }).click();
   await page.getByLabel("新标签页地址", { exact: true }).fill("https://example.com/start");
   assert.equal(
-    await page.getByRole("button", { name: "保存并重启", exact: true }).count(),
+    await page.getByRole("button", { name: "应用并重启", exact: true }).count(),
     0,
   );
   const starts = state.requests.filter((r) => r.path === "/start").length;

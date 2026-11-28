@@ -24,7 +24,7 @@ async function open() {
 try {
   await open();
   assert.equal(await page.getByRole("button", { name: "保存资源配置", exact: true }).isDisabled(), true);
-  assert.equal(await page.getByRole("button", { name: "恢复默认", exact: true }).isDisabled(), true);
+  assert.equal(await page.getByRole("button", { name: "恢复默认资源", exact: true }).isDisabled(), true);
   if (windowsRuntime) {
     assert.equal(await page.getByLabel("内存上限（GiB）", { exact: true }).getAttribute("min"), "4");
     assert.equal(await page.getByLabel("CPU 逻辑核心数", { exact: true }).getAttribute("min"), "2");
@@ -62,7 +62,7 @@ try {
   assert.equal(await page.getByRole("alert").filter({ hasText: "资源配置保存失败" }).isVisible(), true);
   assert.equal(await page.getByLabel("内存上限（GiB）", { exact: true }).inputValue(), "6");
   rejectSave = false;
-  await page.getByRole("button", { name: "恢复默认", exact: true }).click();
+  await page.getByRole("button", { name: "恢复默认资源", exact: true }).click();
   assert.equal(await page.getByLabel("内存上限（GiB）", { exact: true }).inputValue(), "12");
   assert.equal(await page.getByLabel("CPU 逻辑核心数", { exact: true }).inputValue(), "5");
   assert.equal(allocation.automatic, false, "reset stays a draft until saved");
@@ -71,7 +71,7 @@ try {
   assert.equal(allocation.automatic, true);
   await page.reload();
   await open();
-  assert.equal(await page.getByRole("button", { name: "恢复默认", exact: true }).isDisabled(), true);
+  assert.equal(await page.getByRole("button", { name: "恢复默认资源", exact: true }).isDisabled(), true);
   assert.equal(await page.getByLabel("内存上限（GiB）", { exact: true }).inputValue(), "12");
   assert.equal(await page.getByRole("alert").filter({ hasText: "资源配置保存失败" }).count(), 0);
   assert.deepEqual(errors, []);

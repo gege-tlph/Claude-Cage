@@ -213,25 +213,23 @@ try {
     .getByRole("button", { name: "返回工作台", exact: true })
     .first()
     .click();
-  await page.getByRole("dialog", { name: "放弃尚未保存的修改？" }).waitFor();
-  await page
-    .getByRole("dialog")
-    .last()
-    .getByRole("button", { name: "取消", exact: true })
-    .click();
+  // Leaving with unapplied changes stays; the submit bar flashes.
+  await page.locator(".settings-submit-bar.is-attention").waitFor();
   assert.equal(
     await page.getByRole("radio", { name: /^原生 Linux/ }).isChecked(),
     true,
   );
   state.failSave = true;
-  await page.getByRole("button", { name: "保存设置", exact: true }).click();
+  await page.locator(".settings-submit-bar").getByRole("button", { name: /^(保存|应用)$/ }).click();
   await page.getByRole("alert").filter({ hasText: "保存失败" }).waitFor();
   assert.equal(
     await page.getByRole("radio", { name: /^原生 Linux/ }).isChecked(),
     true,
   );
   state.failSave = false;
-  await page.getByRole("button", { name: "保存设置", exact: true }).click();
+  await page.locator(".settings-submit-bar").getByRole("button", { name: /^(保存|应用)$/ }).click();
+  await page.locator(".settings-submit.open").waitFor({ state: "detached" });
+  await page.getByRole("button", { name: "返回工作台", exact: true }).first().click();
   await page
     .getByRole("region", { name: "设置", exact: true })
     .waitFor({ state: "hidden" });
@@ -245,7 +243,7 @@ try {
   await page.getByRole("button", { name: "时区与语言", exact: true }).click();
   await page.getByRole("switch", { name: /跟随出口 IP 的时区/ }).uncheck();
   await page.getByLabel("系统时区", { exact: true }).fill("Etc/UTC");
-  await page.getByRole("button", { name: "保存并重启", exact: true }).click();
+  await page.getByRole("button", { name: "应用并重启", exact: true }).click();
   await page.getByRole("dialog", { name: "应用设置并重启环境？" }).waitFor();
   await page
     .getByRole("dialog")

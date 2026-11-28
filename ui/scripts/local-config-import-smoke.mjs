@@ -55,7 +55,9 @@ for (const platform of ["darwin", "windows", "linux"]) {
     await local.getByRole("button", { name: "重新检测", exact: true }).click();
     stale = false;
     await button.click();
-    await local.getByRole("button", { name: "已导入", exact: true }).waitFor();
+    // After an import the page goes to 节点 (外部导入 stays one tab away).
+    await page.getByRole("button", { name: "选择节点 独立出口", exact: true }).waitFor();
+    assert.equal(await page.getByRole("tab", { name: "节点", exact: true }).getAttribute("aria-selected"), "true");
     assert.equal(imports, 2);
     assert.equal(applies, 0, "import must leave exit selection explicit");
     assert.ok(await page.getByRole("button", { name: "开始安装", exact: true }).isDisabled());

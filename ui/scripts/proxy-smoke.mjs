@@ -63,7 +63,7 @@ try {
   await page.goto(launch.url); console.log("QA: workbench loaded");
   await page.getByRole("button", { name: /^设置/ }).click();
   await page.getByRole("button", { name: "网络与代理", exact: true }).click();
-  await page.getByRole("heading", { name: "内置代理", exact: true }).waitFor();
+  await page.getByRole("tab", { name: "节点", exact: true }).waitFor();
   await page.screenshot({ path: path.join(output, "empty.png") });
   await page.getByRole("button", { name: "添加来源", exact: true }).click();
   await page.getByRole("button", { name: "本地 YAML", exact: true }).click();
@@ -76,10 +76,9 @@ try {
   await page.getByLabel("独立代理端口", { exact: true }).fill(String(port));
   await page.getByRole("tab", { name: "节点", exact: true }).click();
   await page.getByRole("button", { name: "选择节点 QA A", exact: true }).click();
-  await page.getByRole("button", { name: "应用代理", exact: true }).click();
-  await page.getByText("核心运行中", { exact: false }).waitFor();
-  await page.waitForFunction(() => !document.querySelector(".proxy-progress"));
-  await page.getByText("没有未保存的修改", { exact: true }).waitFor();
+  // Settings commit through the submit bar (保存 / 应用 / 应用并重启).
+  await page.locator(".settings-submit-bar").getByRole("button", { name: /^(保存|应用|应用并重启)$/ }).click();
+  await page.locator(".settings-submit.open").waitFor({ state: "detached" });
   async function state() { return page.evaluate(() => fetch("/api/proxy").then((r) => r.json())); }
   let p = await state(); assert.equal(p.running, true); assert.equal(p.active, true); assert.equal(p.port, port);
   const firstRevision = p.revision;
@@ -94,7 +93,7 @@ try {
   await page.getByLabel("搜索节点", { exact: true }).fill("");
   await page.screenshot({ path: path.join(output, "nodes.png") });
   await page.getByRole("button", { name: "选择节点 QA B", exact: true }).click();
-  await page.getByRole("button", { name: "应用代理", exact: true }).click();
+  await page.locator(".settings-submit-bar").getByRole("button", { name: /^(保存|应用|应用并重启)$/ }).click();
   await page.waitForFunction(() => !document.querySelector(".proxy-progress"));
   p = await state(); assert.notEqual(p.revision, firstRevision);
   assert.equal(await through(), "via-B"); assert.ok(b.requests() > 0);
@@ -137,7 +136,7 @@ try {
     const imported = (await state()).sources.find((s) => s.name === "Real egress QA");
     await page.getByRole("tab", { name: "节点", exact: true }).click();
     await page.getByRole("button", { name: `选择节点 ${imported.nodes.at(-1).name}`, exact: true }).click();
-  await page.getByRole("button", { name: "应用代理", exact: true }).click();
+  await page.locator(".settings-submit-bar").getByRole("button", { name: /^(保存|应用|应用并重启)$/ }).click();
     await page.waitForFunction(() => !document.querySelector(".proxy-progress"));
     const stored = JSON.parse(await fs.readFile(path.join(profile, "proxy/sources.json")));
     const file=path.join(profile,"curl.conf");await fs.writeFile(file,`proxy = "socks5h://cage:${stored.auth}@127.0.0.1:${stored.port}"\n`,{mode:0o600});

@@ -137,7 +137,9 @@ try {
   await page
     .getByLabel("Claude 终端启动命令", { exact: true })
     .fill("claude --continue --model sonnet");
-  await page.getByRole("button", { name: "保存设置", exact: true }).click();
+  await page.locator(".settings-submit-bar").getByRole("button", { name: /^(保存|应用)$/ }).click();
+  await page.locator(".settings-submit.open").waitFor({ state: "detached" });
+  await page.getByRole("button", { name: "返回工作台", exact: true }).click();
   await page
     .getByLabel("Claude 终端启动命令", { exact: true })
     .waitFor({ state: "hidden" });

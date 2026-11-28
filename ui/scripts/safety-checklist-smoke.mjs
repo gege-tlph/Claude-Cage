@@ -88,7 +88,7 @@ for (const platform of platforms) {
     const settings = page.getByRole("region", { name: "设置", exact: true });
     const dns = settings.getByLabel("加密 DNS", { exact: true });
     await dns.fill("https://example.com/dns-query");
-    await settings.getByRole("button", { name: "验证出口", exact: true }).click();
+    await settings.getByRole("button", { name: "检测出口", exact: true }).click();
     const settingsError = settings.getByRole("alert").filter({ hasText: failure });
     await showChecklist(link(settingsError), true);
     await closeChecklist();

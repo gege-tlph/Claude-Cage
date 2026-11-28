@@ -26,8 +26,8 @@ try {
   await chooseInline(page.getByRole("combobox", { name: "网页首选语言", exact: true }), "ja-JP");
   await page.getByText("国家、城市限制仍须检测出口所在地。", { exact: false }).waitFor();
   await page.screenshot({ path: fileURLToPath(new URL("manual-settings.png", output)) });
-  await page.getByRole("button", { name: "保存设置", exact: true }).click();
-  await page.getByRole("heading", { name: "时区与语言", exact: true }).waitFor({ state: "hidden" });
+  await page.locator(".settings-submit-bar").getByRole("button", { name: /^(保存|应用)$/ }).click();
+  await page.locator(".settings-submit.open").waitFor({ state: "detached" });
   assert.equal(state.settings.auto_timezone, false);
   assert.equal(state.settings.auto_language, false);
   assert.equal(state.settings.timezone, "Asia/Tokyo");

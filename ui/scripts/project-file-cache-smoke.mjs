@@ -43,7 +43,9 @@ try {
       assert.equal(await toggle.isChecked(),true);
       await page.screenshot({path:`${screenshots}/${platform}-setting.png`});
       await toggle.uncheck();
-      await page.getByRole("button",{name:"保存设置",exact:true}).click();
+      await page.locator(".settings-submit-bar").getByRole("button", { name: /^(保存|应用)$/ }).click();
+      await page.locator(".settings-submit.open").waitFor({ state: "detached" });
+      await page.getByRole("button",{name:"返回工作台",exact:true}).click();
       await page.getByRole("region",{name:"设置",exact:true}).waitFor({state:"hidden"});
       assert.equal(state.settings.project_file_cache,false);
       await refresh.waitFor({state:"hidden"});

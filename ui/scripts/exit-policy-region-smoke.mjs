@@ -42,12 +42,12 @@ try {
   await page.getByLabel("允许的城市", { exact: true }).waitFor({ state: "hidden" });
   assert.equal(await picker.getAttribute("value"), "region");
   assert.equal(await page.getByLabel("所属州／省", { exact: true }).inputValue(), "Kanagawa");
-  await page.getByRole("button", { name: "检测当前出口", exact: true }).click();
+  await page.getByRole("button", { name: "检测出口", exact: true }).click();
   await page.getByText("Japan · Kanagawa · Kawasaki", { exact: true }).waitFor();
   await page.getByRole("button", { name: "用检测结果填写", exact: true }).click();
   await page.screenshot({ path: fileURLToPath(new URL("region-settings.png", output)), fullPage: true });
-  await page.getByRole("button", { name: "保存设置", exact: true }).click();
-  await page.getByRole("heading", { name: "网络与代理", exact: true }).waitFor({ state: "hidden" });
+  await page.locator(".settings-submit-bar").getByRole("button", { name: /^(保存|应用)$/ }).click();
+  await page.locator(".settings-submit.open").waitFor({ state: "detached" });
   assert.equal(state.settings.exit_policy.scope, "region");
   assert.equal(state.settings.exit_policy.region, "Kanagawa");
   assert.equal(state.settings.exit_policy.country_code, "JP");
