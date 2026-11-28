@@ -22,8 +22,12 @@ func sum(s string) string {
 }
 
 func inRelease(label, suite string, indexes map[string]string) string {
+	return inReleaseFrom("Debian", label, suite, indexes)
+}
+
+func inReleaseFrom(origin, label, suite string, indexes map[string]string) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA512\n\nOrigin: Debian\nLabel: %s\nSuite: %s\nCodename: %s\nSHA256:\n", label, suite, suite)
+	fmt.Fprintf(&b, "-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA512\n\nOrigin: %s\nLabel: %s\nSuite: %s\nCodename: %s\nSHA256:\n", origin, label, suite, suite)
 	for p, content := range indexes {
 		fmt.Fprintf(&b, " %s %d %s\n", sum(content), len(content), p)
 	}
@@ -34,17 +38,23 @@ func inRelease(label, suite string, indexes map[string]string) string {
 // collectedTar is what collect.sh writes for one Debian suite, the security
 // suite and the three tool releases.
 func collectedTar(t *testing.T, deb string, extraDeb string) (string, map[string]string) {
-	main := fmt.Sprintf("Package: a\nSource: a-src\nVersion: 1\nFilename: pool/main/a/a_1_amd64.deb\nSHA256: %s\n\nPackage: b\nVersion: 2\nFilename: pool/main/b/b_2_amd64.deb\nSHA256: %s\n", sum(deb), sum("other"))
+	main := fmt.Sprintf("Package: a\nSource: a-src\nVersion: 1\nFilename: pool/main/a/a_1_amd64.deb\nSHA256: %s\n\nPackage: b\nVersion: 2\nFilename: pool/main/b/b_2_amd64.deb\nSHA256: %s\n\n"+
+		"Package: d\nSource: d-src (4-1)\nVersion: 4-1+b1\nFilename: pool/main/d/d_4-1+b1_amd64.deb\nSHA256: %s\n", sum(deb), sum("other"), sum("d-deb"))
 	security := "Package: apt\nVersion: 3.0.4\nFilename: pool/updates/main/a/apt/apt_3.0.4_amd64.deb\nSHA256: " + sum("apt") + "\n"
+	backports := "Package: c\nVersion: 3~bpo13\nFilename: pool/main/c/c_3~bpo13_amd64.deb\nSHA256: " + sum("unused") + "\n"
 	tools := map[string]string{"gh.deb": "gh", "mise.tar.gz": "mise", "code-server.deb": "cs"}
 	files := map[string]string{
 		"arch": "amd64\n",
+		// The cloud image's own sources: backports sorts before trixie.
+		"lists/deb.debian.org_debian_dists_trixie-backports_InRelease":                          inReleaseFrom("Debian Backports", "Debian Backports", "trixie-backports", map[string]string{"main/binary-amd64/Packages": backports}),
+		"lists/deb.debian.org_debian_dists_trixie-backports_main_binary-amd64_Packages":         backports,
 		"lists/deb.debian.org_debian_dists_trixie_InRelease":                                    inRelease("Debian", "trixie", map[string]string{"main/binary-amd64/Packages": main}),
 		"lists/deb.debian.org_debian_dists_trixie_main_binary-amd64_Packages":                   main,
 		"lists/deb.debian.org_debian-security_dists_trixie-security_InRelease":                  inRelease("Debian-Security", "trixie-security", map[string]string{"main/binary-amd64/Packages": security}),
 		"lists/deb.debian.org_debian-security_dists_trixie-security_main_binary-amd64_Packages": security,
 		"archives/a_1_amd64.deb":                    deb,
 		"archives/apt_3.0.4.deb":                    "apt",
+		"archives/d_4-1+b1_amd64.deb":               "d-deb",
 		"schemas/code-server-machine-settings.json": "{}",
 	}
 	if extraDeb != "" {
@@ -105,7 +115,7 @@ func TestAssembleBuildsSignedLocalRepositories(t *testing.T) {
 	}
 	sources, _ := os.ReadFile(filepath.Join(out, "apt", "sources.list"))
 	want := "deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg check-valid-until=no check-date=no by-hash=no] file:/var/cache/cage-offline/apt/debian trixie main\n"
-	if !strings.Contains(string(sources), want) || strings.Contains(string(sources), "trusted=yes") {
+	if !strings.Contains(string(sources), want) || !strings.Contains(string(sources), "apt/debian trixie-backports main\n") || strings.Contains(string(sources), "trusted=yes") {
 		t.Fatalf("sources.list:\n%s", sources)
 	}
 	security, _ := os.ReadFile(filepath.Join(out, "apt", "security.list"))
@@ -113,7 +123,7 @@ func TestAssembleBuildsSignedLocalRepositories(t *testing.T) {
 		t.Fatalf("security.list:\n%s", security)
 	}
 	listed, _ := os.ReadFile(out + ".packages.tsv")
-	if !strings.Contains(string(listed), "a-src\t1\tDebian") {
+	if !strings.Contains(string(listed), "a-src\t1\tDebian") || !strings.Contains(string(listed), "d-src\t4-1\tDebian") {
 		t.Fatalf("sources list:\n%s", listed)
 	}
 }

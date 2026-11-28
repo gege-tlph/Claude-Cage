@@ -156,6 +156,11 @@ func parsePackages(data []byte, rel *release, into map[string]debEntry) {
 		if source == "" {
 			source = pkg
 		}
+		// A rebuilt binary names its source with the source's own version:
+		// "Source: pulseaudio (17.0+dfsg1-2)" for Version 17.0+dfsg1-2+b1.
+		if name, sourceVersion, ok := strings.Cut(source, " ("); ok {
+			source, ver = name, strings.TrimSuffix(sourceVersion, ")")
+		}
 		if sum != "" && filename != "" {
 			if _, seen := into[sum]; !seen {
 				into[sum] = debEntry{rel: rel, filename: filename, source: source, version: ver}
@@ -364,9 +369,19 @@ func assemble(collected, imageEntry, version, toolVersions, out string, log io.W
 	}
 
 	// One local repository per source: the suites of one archive share its pool.
+	// The main suite (the shortest name: trixie, not trixie-backports) names it.
 	used := map[string]bool{}
 	byPrefix := map[string]string{}
-	sort.Slice(releases, func(i, j int) bool { return releases[i].file < releases[j].file })
+	sort.Slice(releases, func(i, j int) bool {
+		a, b := releases[i], releases[j]
+		if a.prefix != b.prefix {
+			return a.prefix < b.prefix
+		}
+		if len(a.suite) != len(b.suite) {
+			return len(a.suite) < len(b.suite)
+		}
+		return a.file < b.file
+	})
 	for _, r := range releases {
 		if len(r.indexes) == 0 {
 			continue
@@ -426,7 +441,8 @@ func assemble(collected, imageEntry, version, toolVersions, out string, log io.W
 			components[strings.Split(ix.path, "/")[0]] = true
 		}
 		keyring := debianKeyring
-		if r.fields["Origin"] != "Debian" {
+		// The Debian cloud image also lists trixie-backports; the archive key signs it.
+		if origin := r.fields["Origin"]; origin != "Debian" && origin != "Debian Backports" {
 			if !strings.Contains(strings.ToLower(r.prefix), "nodesource") {
 				return fmt.Errorf("no keyring known for %s (%s)", r.file, r.fields["Origin"])
 			}
