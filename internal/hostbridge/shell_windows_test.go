@@ -5,12 +5,14 @@ package hostbridge
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestResolveHostCommandSkipsWindowsAppsStubForPython3(t *testing.T) {
@@ -249,5 +251,23 @@ func TestResolveWindowsGitBashSkipsStandaloneSystem32Stub(t *testing.T) {
 	}
 	if got, ok := resolveWindowsGitBash(env); ok {
 		t.Fatalf("System32 bash.exe stub should not be selected, got %q", got)
+	}
+}
+
+// cmd gets quoted paths and arguments as written.
+func TestCmdShellKeepsQuotes(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, "a b"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct{ command, want string }{
+		{`echo "a b"`, `"a b"`},
+		{fmt.Sprintf(`if exist "%s" (echo yes) else (echo no)`, filepath.Join(dir, "a b")), "yes"},
+		{`if exist "C:\no such dir" (echo yes) else (echo no)`, "no"},
+	} {
+		out, err := execute(context.Background(), c.command, "cmd", dir, 30*time.Second, &cappedBuffer{limit: commandOutputLimit})
+		if err != nil || out.ExitCode != 0 || strings.TrimSpace(out.Output) != c.want {
+			t.Errorf("%s: %q exit %d, %v; want %q", c.command, out.Output, out.ExitCode, err, c.want)
+		}
 	}
 }

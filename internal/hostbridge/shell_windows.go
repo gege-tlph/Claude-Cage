@@ -28,6 +28,7 @@ func normalizeShell(raw string) (string, error) {
 func shellCommand(command, shell string) (*exec.Cmd, error) {
 	env := userEnv()
 	var cmd *exec.Cmd
+	cmdLine := ""
 	switch shell {
 	case "", "powershell":
 		cmd = exec.Command("powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command)
@@ -42,7 +43,11 @@ func shellCommand(command, shell string) (*exec.Cmd, error) {
 		if comspec == "" {
 			comspec = "cmd.exe"
 		}
-		cmd = exec.Command(comspec, "/d", "/s", "/c", command)
+		// cmd.exe does not read the \" escapes Go writes for quotes in
+		// an argument: the command goes on the line as written, which /s
+		// takes between the outer quotes.
+		cmd = exec.Command(comspec)
+		cmdLine = syscall.EscapeArg(comspec) + ` /d /s /c "` + command + `"`
 	case "bash":
 		program, ok := resolveWindowsGitBash(env)
 		if !ok {
@@ -54,6 +59,9 @@ func shellCommand(command, shell string) (*exec.Cmd, error) {
 	}
 	cmd.Env = env
 	hideWindow(cmd)
+	if cmdLine != "" {
+		cmd.SysProcAttr.CmdLine = cmdLine
+	}
 	return cmd, nil
 }
 
