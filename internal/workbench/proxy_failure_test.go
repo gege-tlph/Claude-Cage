@@ -134,6 +134,12 @@ func TestJobDescribesTheFailure(t *testing.T) {
 	if err := s.describeFailure("proxy", "", &copied); err.Error() != want {
 		t.Fatalf("%q", err.Error())
 	}
+	// A start retries as a start, not by applying the node alone.
+	startProbe := *probe
+	startProbe.Tools = []string{usererror.ToolSettingsNetwork, usererror.ToolReapply, usererror.ToolDiagnostics}
+	if f, _ := usererror.AsFailure(s.describeFailure("start", "", &startProbe)); !reflect.DeepEqual(f.Tools, []string{"settings:network", "start", "diagnostics"}) {
+		t.Fatalf("start tools: %v", f.Tools)
+	}
 	bare := usererror.Because("原因是连接网络后", "重试", nil)
 	if f, _ := usererror.AsFailure(s.describeFailure("start", "", bare)); !reflect.DeepEqual(f.Tools, []string{"start"}) {
 		t.Fatalf("retry tool: %+v", f)

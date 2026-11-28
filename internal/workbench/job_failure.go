@@ -37,6 +37,15 @@ func (s *Server) describeFailure(kind, initiator string, err error) error {
 			f.Lead = usererror.LeadOf(jobName(kind))
 		}
 	}
+	// A start carries on as a start: applying the node again alone would end
+	// at 「节点已应用」 with the environment still stopped.
+	if kind == "start" {
+		for i, tool := range f.Tools {
+			if tool == usererror.ToolReapply {
+				f.Tools[i] = usererror.ToolStart
+			}
+		}
+	}
 	// First run calls a start 「安装」, carried on by 「继续安装」 (group 3).
 	if initiator == jobInitiatorSetup && (kind == "start" || kind == "setup") {
 		if f.Lead == usererror.LeadOf(jobName(kind)) {
