@@ -21,6 +21,7 @@
   font-size: var(--s-sm, 0.9286rem);
   color: var(--muted);
 }
+.settings-submit-announcer { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .settings-submit-text { flex: 1 1 240px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .settings-submit-text b { color: var(--strong); font-weight: 600; }
 .settings-submit-actions { display: flex; gap: 8px; align-items: center; margin-left: auto; }

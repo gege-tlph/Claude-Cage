@@ -6135,6 +6135,7 @@
   "另一个操作仍在进行": "Another operation is still running",
   "链式代理还有待选择的节点": "A hop of the chain still needs a node",
   "待应用的修改": "Changes to apply",
+  "有待应用的修改": "There are changes to apply",
   "待应用：": "To apply: ",
   "链式代理 {0}": "Chain {0}",
   "出口 {0}": "Exit {0}",

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ActionButton } from "./action-button";
 import { useTranslation } from "./interface-language.mjs";
 import { RouteText } from "./route-text";
@@ -25,21 +25,27 @@ export function SettingsSubmitBar({
 }) {
   const tr = useTranslation();
   const bar = useRef(null);
+  // A screen reader hears why ← stayed: the flash is only seen. Emptied
+  // first, so a repeated click is heard again.
+  const [said, setSaid] = useState("");
   useEffect(() => {
     const element = bar.current;
     if (!attention || !element) return;
     element.classList.remove("is-attention");
     void element.offsetWidth; // restart the flash on a repeated click
     element.classList.add("is-attention");
+    setSaid("");
+    const speak = setTimeout(() => setSaid(tr("有待应用的修改")), 60);
     // A timer, not animationend: with reduced motion there is no animation.
     const timer = setTimeout(() => element.classList.remove("is-attention"), 950);
-    return () => clearTimeout(timer);
+    return () => { clearTimeout(timer); clearTimeout(speak); };
   }, [attention]);
   const shown = open || phase !== "idle";
   const busy = phase === "busy";
   return <div className={`settings-submit${shown ? " open" : ""}`} aria-hidden={!shown}>
     <div className="settings-submit-inner">
       <div ref={bar} className="settings-submit-bar" role="region" aria-label={tr("待应用的修改")}>
+        <span className="settings-submit-announcer" role="status" aria-live="polite">{said}</span>
         <span className="settings-submit-text" title={summary}>{summary && <>{tr("待应用：")}<b><RouteText text={summary} /></b></>}</span>
         <span className="settings-submit-actions">
           <button type="button" className="text-button" disabled={busy || !open} onClick={onUndo}>{tr("撤销修改")}</button>
