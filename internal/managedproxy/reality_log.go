@@ -81,7 +81,11 @@ func realityFailedHop(line, runtimePath string) string {
 }
 
 // runtimeRouteEndpoints lists the server endpoints from entry to exit of the
-// group's selected node, following dialer-proxy as the core does.
+// group's selected node, following dialer-proxy as the core does. An auto
+// relay group (CAGE-RELAY-*) is one hop whose endpoint is left empty: the core
+// picks its node at run time, and its candidates are probed by health checks
+// whose failures do not mean the route failed. The route goes on through the
+// dialer its candidates share.
 func runtimeRouteEndpoints(path string) []string {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -103,16 +107,39 @@ func runtimeRouteEndpoints(path string) []string {
 		return nil
 	}
 	selected := ""
+	relayGroups := map[string][]string{}
 	for _, group := range config.Groups {
 		if group.Name == Group && len(group.Proxies) == 1 {
 			selected = group.Proxies[0]
 		}
+		if strings.HasPrefix(group.Name, relayGroupPrefix) {
+			relayGroups[group.Name] = group.Proxies
+		}
+	}
+	dialerOf := func(name string) (string, bool) {
+		for _, proxy := range config.Proxies {
+			if proxy.Name == name {
+				return proxy.Dialer, true
+			}
+		}
+		return "", false
 	}
 	var reversed []string
 	seen := map[string]bool{}
 	for name := selected; name != "" && !seen[name]; {
 		seen[name] = true
 		next := ""
+		if candidates, group := relayGroups[name]; group {
+			reversed = append(reversed, "")
+			for _, candidate := range candidates {
+				if dialer, found := dialerOf(candidate); found {
+					next = dialer
+					break
+				}
+			}
+			name = next
+			continue
+		}
 		for _, proxy := range config.Proxies {
 			if proxy.Name == name {
 				reversed = append(reversed, net.JoinHostPort(strings.Trim(proxy.Server, "[]"), fmt.Sprint(proxy.Port)))
