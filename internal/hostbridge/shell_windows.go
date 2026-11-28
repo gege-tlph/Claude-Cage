@@ -49,6 +49,19 @@ func normalizeShell(raw string) (string, error) {
 	}
 }
 
+// ShellName names the shell a command runs in, for its approval dialog.
+func ShellName(shell string) string {
+	switch shell {
+	case "", "powershell":
+		return "Windows PowerShell"
+	case "pwsh":
+		return "PowerShell 7"
+	case "bash":
+		return "Git Bash"
+	}
+	return shell
+}
+
 func shellCommand(command, shell string) (*exec.Cmd, error) {
 	env := userEnv()
 	var cmd *exec.Cmd

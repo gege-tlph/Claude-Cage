@@ -161,11 +161,9 @@ func (a *hostApprovals) alwaysAllowed(key string, permissions []string) bool {
 	return allowed || a.grants != nil && a.grants.allowed(key, permissions)
 }
 
+// hostApprovalMessage names where the command runs, in which shell, and the
+// consequence of allowing it; names and states only.
 func hostApprovalMessage(request hostbridge.CommandRequest) string {
-	shellLine := ""
-	if request.Shell != "" {
-		shellLine = "\nShell　" + request.Shell
-	}
-	return "项目「" + filepath.Base(request.Project) + "」\n目录　" + request.Dir + shellLine + "\n\n" + request.Command +
-		"\n\n命令以你的用户权限运行，可以访问这台电脑上的任何内容。「始终允许」会记住对该项目的授权，以后在这个项目里运行命令不再询问；可以在插件页随时撤销。"
+	return "项目「" + filepath.Base(request.Project) + "」\n目录　" + request.Dir + "\n命令行　" + hostbridge.ShellName(request.Shell) + "\n\n" + request.Command +
+		"\n\n命令以你的用户权限运行，可以访问这台电脑上的任何内容。"
 }

@@ -380,13 +380,14 @@ func formatRemoteApprovalDialog(hostName string, p remoteApprovalPrompt) (title,
 		if project == "" || project == "." || project == string(filepath.Separator) {
 			project = p.Project
 		}
+		// The remote host's default shell is its own: named only when chosen.
 		shellLine := ""
 		if p.Shell != "" {
-			shellLine = "\nShell　" + p.Shell
+			shellLine = "\n命令行　" + p.Shell
 		}
 		return fmt.Sprintf("允许在远程主机「%s」上运行命令？", label),
 			"远程主机　" + label + "\n项目「" + project + "」\n目录　" + p.Dir + shellLine + "\n\n" + p.Command +
-				"\n\n命令将以远程主机的系统账户权限在该服务器上运行。「始终允许」会记住远程主机上对该项目的授权，以后在该项目中运行命令不再询问；可在插件页随时撤销。"
+				"\n\n命令将以远程主机的系统账户权限在该服务器上运行。"
 	}
 	title = fmt.Sprintf("允许远程主机「%s」上的 Claude 使用插件？", label)
 	source := ""

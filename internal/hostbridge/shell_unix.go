@@ -18,6 +18,14 @@ import (
 // fromConsoleCodePage: shells here write UTF-8, so output is kept as it is.
 func fromConsoleCodePage(b []byte) string { return string(b) }
 
+// ShellName names the shell a command runs in, for its approval dialog.
+func ShellName(shell string) string {
+	if shell == "" {
+		return filepath.Base(userShell())
+	}
+	return shell
+}
+
 func userShell() string {
 	if shell := os.Getenv("SHELL"); shell != "" {
 		return shell
