@@ -17,4 +17,9 @@
   min-inline-size: 0;
   margin-inline-start: auto;
 }
-.environment-picker .startup-language-slot { margin-block-end: 16px; max-inline-size: 13rem; }
+/* The environment picker keeps the language menu where first-run setup has
+   it (StartupBrand): in the top-right corner, not above the logo. */
+.environment-picker { position: relative; padding-block-start: clamp(96px, 12vh, 140px); }
+.environment-picker .startup-language-slot { position: absolute; inset-block-start: 24px; inset-inline-end: 32px; inline-size: 13rem; max-inline-size: calc(100% - 40px); margin: 0; }
+.environment-picker .startup-language-slot .inline-select-trigger { justify-content: space-between; }
+@media (max-width: 600px) { .environment-picker .startup-language-slot { inset-block-start: 18px; inset-inline-end: 20px; } }
