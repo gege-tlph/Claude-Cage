@@ -91,7 +91,7 @@ export const backendMessageKeys = [
   "节点协议暂不支持",
   "Clash Verge Ninja 专用协议，无法导入，请改用标准 Mihomo 节点",
   "Clash Neo 专用协议，无法导入，请改用标准 Mihomo 节点",
-  "MASQUE 节点暂不支持：Cage 目前不能导入 masque 协议节点，请向服务商获取同一出口的其他协议节点后重新导入",
+  "MASQUE 协议，无法导入，请改用其他协议的节点",
   "节点服务器缺失或过长",
   "SSH 节点的 private-key 必须直接填写私钥内容，不能引用本机文件",
   "节点不能引用本机文件、网络接口或额外路由",
@@ -119,7 +119,7 @@ export const backendMessageKeys = [
   "WebSocket 请求头存在大小写不同的冲突写法",
   // Share-link errors
   "分享链接的协议暂不支持；请改用 Clash/Mihomo YAML",
-  "MASQUE 分享链接暂不支持：随附 Mihomo 核心的 masque 节点需要 ECDSA 客户端私钥和服务器公钥，这类链接只提供用户认证和 HTTP/3 传输参数，无法转换。Cage 目前也不能导入 MASQUE 节点，请向服务商获取其他协议的节点",
+  "MASQUE 分享链接缺少 ECDSA 密钥，无法导入，请改用其他协议的节点",
   "分享链接格式无效，缺少服务器、端口或凭据",
   "分享链接的伪装头类型暂不支持；请改用 Clash/Mihomo YAML",
   "分享链接的传输方式暂不支持；请改用 Clash/Mihomo YAML",

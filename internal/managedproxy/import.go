@@ -35,7 +35,7 @@ var clientOnlyTypes = map[string]string{
 // boundary rejects as a possible local file reference, and runs its own
 // userspace network stack.
 var unsupportedCoreTypes = map[string]string{
-	"masque": "MASQUE 节点暂不支持：Cage 目前不能导入 masque 协议节点，请向服务商获取同一出口的其他协议节点后重新导入",
+	"masque": "MASQUE 协议，无法导入，请改用其他协议的节点",
 }
 
 // Parse enforces Cage's import boundaries. Call Validate before committing a

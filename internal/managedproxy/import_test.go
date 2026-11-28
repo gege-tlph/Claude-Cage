@@ -310,7 +310,7 @@ func TestImportNamesClientOnlyNinjaNodes(t *testing.T) {
 func TestImportExplainsMASQUENodes(t *testing.T) {
 	link := "masque://secret-user@proxy.example.test:443?user=secret-user&sni=proxy.example.test&insecure=0&mode=flow&network=h3&ech"
 	_, _, err := parseNodes([]byte(link), "link")
-	if err == nil || !strings.Contains(err.Error(), "MASQUE 分享链接暂不支持") || !strings.Contains(err.Error(), "ECDSA") {
+	if err == nil || !strings.Contains(err.Error(), "MASQUE 分享链接缺少 ECDSA 密钥") || !strings.Contains(err.Error(), "ECDSA") {
 		t.Fatalf("masque link: %v", err)
 	}
 	if strings.Contains(err.Error(), "secret-user") || strings.Contains(err.Error(), "proxy.example.test") {

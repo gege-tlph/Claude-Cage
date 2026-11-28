@@ -2819,6 +2819,8 @@
   "节点协议暂不支持": "Node protocol not supported yet",
   "Clash Verge Ninja 专用协议，无法导入，请改用标准 Mihomo 节点": "Clash Verge Ninja protocol, cannot be imported. Use a standard Mihomo node",
   "Clash Neo 专用协议，无法导入，请改用标准 Mihomo 节点": "Clash Neo protocol, cannot be imported. Use a standard Mihomo node",
+  "MASQUE 协议，无法导入，请改用其他协议的节点": "MASQUE protocol, cannot be imported. Use a node with another protocol",
+  "MASQUE 分享链接缺少 ECDSA 密钥，无法导入，请改用其他协议的节点": "MASQUE share link has no ECDSA keys, cannot be imported. Use a node with another protocol",
   "节点名称为空或过长": "Node name is empty or too long",
   "节点名称重复，无法确定代理链引用": "Duplicate node names make the chain reference ambiguous",
   "节点字段 {0} 存在重复写法，请仅保留一种": "Node field {0} is written more than one way. Keep only one",

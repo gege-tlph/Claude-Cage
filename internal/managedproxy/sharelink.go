@@ -111,7 +111,7 @@ var errShareLinkUnsupported = errors.New("分享链接的协议暂不支持；�
 
 // The bundled core's masque type needs an ECDSA client private key and the
 // server public key, which MASQUE share links do not carry.
-var errShareLinkMASQUE = errors.New("MASQUE 分享链接暂不支持：随附 Mihomo 核心的 masque 节点需要 ECDSA 客户端私钥和服务器公钥，这类链接只提供用户认证和 HTTP/3 传输参数，无法转换。Cage 目前也不能导入 MASQUE 节点，请向服务商获取其他协议的节点")
+var errShareLinkMASQUE = errors.New("MASQUE 分享链接缺少 ECDSA 密钥，无法导入，请改用其他协议的节点")
 
 func parseShareLink(line string) (map[string]any, error) {
 	switch shareLinkScheme(line) {
