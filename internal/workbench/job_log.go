@@ -3,16 +3,20 @@ package workbench
 import (
 	"net/http"
 	"time"
+
+	"github.com/sylvinus/agent-vm/internal/diagnostics"
 )
 
 // The operation log (操作日志) of this run: each job's progress messages with
-// their time for the simple view, and each job's raw output for the advanced
-// view. Only the last hour is kept, and nothing is written to disk; the
-// diagnostics store keeps its own record.
+// their time for the simple view, and each job's raw output. Only the last
+// hour is kept, and nothing is written to disk; the diagnostics store keeps
+// its own record. With ?level= the advanced view also gets the store's events
+// of the last hour at that level or above (diagnostics.Recent).
 const (
 	jobLogAge     = time.Hour
 	jobLogEntries = 1000
 	jobLogOutputs = 20
+	jobLogEvents  = 3000
 )
 
 type jobLogEntry struct {
@@ -34,8 +38,9 @@ type jobLogOutput struct {
 }
 
 type jobLogView struct {
-	Entries []jobLogEntry  `json:"entries"`
-	Outputs []jobLogOutput `json:"outputs"`
+	Entries []jobLogEntry       `json:"entries"`
+	Outputs []jobLogOutput      `json:"outputs"`
+	Events  []diagnostics.Event `json:"events,omitempty"`
 }
 
 type jobLog struct {
@@ -125,4 +130,10 @@ func (m *jobManager) logView() jobLogView {
 	return view
 }
 
-func (s *Server) jobLog(w http.ResponseWriter, r *http.Request) { jsonReply(w, s.jobs.logView()) }
+func (s *Server) jobLog(w http.ResponseWriter, r *http.Request) {
+	view := s.jobs.logView()
+	if level := r.URL.Query().Get("level"); level != "" {
+		view.Events = append([]diagnostics.Event{}, diagnostics.Recent(level, jobLogEvents)...)
+	}
+	jsonReply(w, view)
+}

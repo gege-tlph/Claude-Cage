@@ -222,6 +222,7 @@ func (s *Store) appendEvents(events []Event) error {
 		return nil
 	}
 	records := make([][]byte, 0, len(events))
+	kept := make([]Event, 0, len(events))
 	var size int64
 	for _, event := range events {
 		switch event.Level {
@@ -246,7 +247,11 @@ func (s *Store) appendEvents(events []Event) error {
 		}
 		b = append(b, '\n')
 		records = append(records, b)
+		kept = append(kept, event)
 		size += int64(len(b))
+	}
+	if s == Default() {
+		recent.add(kept)
 	}
 	return s.withLock(func() error {
 		// Oversized batches are split by Stream; cap reserve for small test stores.
