@@ -22,6 +22,15 @@ const publish = async value => {
   await page.evaluate(detail => window.dispatchEvent(new CustomEvent("cage-app-update", { detail })), value);
 };
 const count = operation => calls.filter(value => value === operation).length;
+// The button re-renders after the event: wait for the new title (under load
+// the old one was sometimes read).
+const titleOf = async (locator, pattern) => {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    if (pattern.test(await locator.getAttribute("title") || "")) break;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  return locator.getAttribute("title");
+};
 try {
   await page.clock.install();
   calls.length = 0;
@@ -136,13 +145,13 @@ try {
   assert.deepEqual(references, ["releases"], "a system package update opens the release page");
   assert.equal(count("install"), installs, "a system package update must not start an automatic installation");
   await publish({ phase: "manual", currentVersion: "0.1.8-rc", latestVersion: "0.1.8", message: "当前 Windows 程序未签名或签名无法验证，请从官方发布页下载安装包。" });
-  assert.match(await view.getAttribute("title"), /0.1.8.*Windows.*未签名.*官方发布页/);
+  assert.match(await titleOf(view, /0.1.8.*Windows/), /0.1.8.*Windows.*未签名.*官方发布页/);
   await view.click();
   for (let attempt = 0; attempt < 50 && references.length < 2; attempt++) await new Promise(resolve => setTimeout(resolve, 100));
   assert.deepEqual(references, ["releases", "releases"], "an unsigned Windows build opens the release page");
   assert.equal(count("install"), installs, "an unsigned Windows build must not start an automatic installation");
   await publish({ phase: "manual", currentVersion: "0.2.0-rc", latestVersion: "0.2.0", message: "当前 macOS 应用未签名或签名无法验证，请从官方发布页下载安装包，退出 Cage lite 后替换原应用；配置、凭据、项目和虚拟机磁盘会保留。" });
-  assert.match(await view.getAttribute("title"), /0.2.0.*macOS.*未签名.*官方发布页/);
+  assert.match(await titleOf(view, /0.2.0.*macOS/), /0.2.0.*macOS.*未签名.*官方发布页/);
   await view.click();
   for (let attempt = 0; attempt < 50 && references.length < 3; attempt++) await new Promise(resolve => setTimeout(resolve, 100));
   assert.deepEqual(references, ["releases", "releases", "releases"], "an unsigned macOS build opens the release page");
