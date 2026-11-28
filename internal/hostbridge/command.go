@@ -286,7 +286,7 @@ func (b *cappedBuffer) String() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if !b.dropped {
-		return b.head.String() + string(b.tail)
+		return readableOutput(b.head.Bytes()) + readableOutput(b.tail)
 	}
-	return b.head.String() + "\n[... output truncated ...]\n" + string(b.tail)
+	return readableOutput(b.head.Bytes()) + "\n[... output truncated ...]\n" + readableOutput(b.tail)
 }

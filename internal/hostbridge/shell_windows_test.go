@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"golang.org/x/sys/windows"
 )
 
 func TestResolveHostCommandSkipsWindowsAppsStubForPython3(t *testing.T) {
@@ -268,6 +270,23 @@ func TestCmdShellKeepsQuotes(t *testing.T) {
 		out, err := execute(context.Background(), c.command, "cmd", dir, 30*time.Second, &cappedBuffer{limit: commandOutputLimit})
 		if err != nil || out.ExitCode != 0 || strings.TrimSpace(out.Output) != c.want {
 			t.Errorf("%s: %q exit %d, %v; want %q", c.command, out.Output, out.ExitCode, err, c.want)
+		}
+	}
+}
+
+// Windows PowerShell and cmd write Chinese in the console code page (GBK on
+// Chinese Windows); the output reaches Claude as text.
+func TestWindowsShellChineseOutput(t *testing.T) {
+	if cp, _, _ := windows.NewLazySystemDLL("kernel32.dll").NewProc("GetOEMCP").Call(); cp != 936 {
+		t.Skipf("console code page %d, not 936", cp)
+	}
+	if got := readableOutput([]byte("\xd6\xd0\xce\xc4")); got != "中文" {
+		t.Fatalf("GBK read as %q", got)
+	}
+	for _, shell := range []string{"", "cmd"} {
+		out, err := execute(context.Background(), "echo 中文", shell, t.TempDir(), 30*time.Second, &cappedBuffer{limit: commandOutputLimit})
+		if err != nil || strings.TrimSpace(out.Output) != "中文" {
+			t.Errorf("shell %q: %q, %v", shell, out.Output, err)
 		}
 	}
 }

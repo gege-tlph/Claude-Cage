@@ -12,7 +12,31 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unicode/utf16"
+
+	"golang.org/x/sys/windows"
 )
+
+// cpOEM is CP_OEMCP: the system's console code page (936 on Chinese
+// Windows), which Windows PowerShell, cmd and their tools write to a pipe.
+const cpOEM = 1
+
+// fromConsoleCodePage reads b in the console code page, or keeps it as it is
+// when Windows cannot.
+func fromConsoleCodePage(b []byte) string {
+	if len(b) == 0 {
+		return ""
+	}
+	n, err := windows.MultiByteToWideChar(cpOEM, 0, &b[0], int32(len(b)), nil, 0)
+	if err != nil || n <= 0 {
+		return string(b)
+	}
+	wide := make([]uint16, n)
+	if n, err = windows.MultiByteToWideChar(cpOEM, 0, &b[0], int32(len(b)), &wide[0], n); err != nil || n <= 0 {
+		return string(b)
+	}
+	return string(utf16.Decode(wide[:n]))
+}
 
 func normalizeShell(raw string) (string, error) {
 	switch name := strings.ToLower(strings.TrimSpace(raw)); name {

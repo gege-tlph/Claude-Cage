@@ -108,7 +108,7 @@ func (b *jobBuffer) readFrom(offset, maxChunk int) (chunk string, nextOffset, sk
 		avail = avail[:maxChunk]
 		truncated = true
 	}
-	return string(avail), offset + len(avail), skipped, truncated || skipped > 0
+	return readableOutput(avail), offset + len(avail), skipped, truncated || skipped > 0
 }
 
 // NewJobs returns an empty set of background commands.
