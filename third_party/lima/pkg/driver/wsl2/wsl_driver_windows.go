@@ -62,7 +62,10 @@ var _ driver.Driver = (*LimaWslDriver)(nil)
 func New() *LimaWslDriver {
 	port, err := freeport.VSock()
 	if err != nil {
-		logrus.WithError(err).Error("failed to get free VSock port")
+		// The driver registers at start-up of every command, also on PCs
+		// without Hyper-V (Windows Home), where this always fails; Cage lite
+		// runs QEMU, so it stays out of stderr.
+		logrus.WithError(err).Debug("failed to get free VSock port")
 	}
 
 	return &LimaWslDriver{
