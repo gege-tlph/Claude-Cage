@@ -135,10 +135,61 @@ jobs:
             ${{ runner.temp }}/cage-build-ui-*/*.png
           if-no-files-found: ignore
           retention-days: 14
+  # The full package: the installation data a first start downloads,
+  # collected from an online installation of this commit on Linux (KVM)...
+  full-data:
+    needs: check
+    if: inputs.reuse_run == ''
+    uses: ./.github/workflows/full-package-data.yml
+    with:
+      ref: ${{ needs.check.outputs.sha }}
+      artifact_name: cage-lite-full-data
+  # ...packed beside the signed program files of the normal installer and
+  # signed with the same certificate. In-app updates keep the normal one.
+  windows-full:
+    needs: [check, windows, full-data]
+    if: inputs.reuse_run == ''
+    runs-on: windows-2025
+    environment: cage-release
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Trust the Cage lite publisher on this runner
+        run: Import-Certificate -FilePath packaging/windows/cage-lite-signing.cer -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
+      - uses: actions/download-artifact@v4
+        with:
+          name: cage-lite-release-windows
+          path: ${{ runner.temp }}/normal
+      - uses: actions/download-artifact@v4
+        with:
+          name: cage-lite-full-data
+          path: ${{ runner.temp }}/data
+      - name: Pack and sign the full package
+        env:
+          CAGE_WINDOWS_PFX_BASE64: ${{ secrets.CAGE_WINDOWS_PFX_BASE64 }}
+          CAGE_WINDOWS_PFX_PASSWORD: ${{ secrets.CAGE_WINDOWS_PFX_PASSWORD }}
+        run: |
+          $version = '${{ needs.check.outputs.version }}'
+          $installer = @(Get-ChildItem -LiteralPath "$env:RUNNER_TEMP/normal" -Recurse -File -Filter "Cage-$version-windows-amd64-setup.exe")
+          if ($installer.Count -ne 1) { throw 'The signed normal installer of this run is missing.' }
+          ./scripts/ci-windows-full-package.ps1 -Installer $installer[0].FullName -OfflineData "$env:RUNNER_TEMP/data/offline" -OutputDirectory "_output/releases/$version/windows-full"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cage-lite-release-windows-full
+          path: _output/releases/*/windows-full/*
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 14
   publish:
-    needs: [check, windows]
+    needs: [check, windows, windows-full]
     # The build ran and passed here, or is reused from a checked earlier run.
-    if: ${{ !cancelled() && inputs.publish && needs.check.result == 'success' && (needs.windows.result == 'success' || (needs.windows.result == 'skipped' && inputs.reuse_run != '')) }}
+    if: ${{ !cancelled() && inputs.publish && needs.check.result == 'success' && ((needs.windows.result == 'success' && needs.windows-full.result == 'success') || (needs.windows.result == 'skipped' && needs.windows-full.result == 'skipped' && inputs.reuse_run != '')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
@@ -155,6 +206,12 @@ jobs:
           path: ${{ runner.temp }}/release-artifact
           run-id: ${{ inputs.reuse_run || github.run_id }}
           github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: cage-lite-release-windows-full
+          path: ${{ runner.temp }}/release-artifact-full
+          run-id: ${{ inputs.reuse_run || github.run_id }}
+          github-token: ${{ github.token }}
       - name: Assemble and verify the release files
         env:
           VERSION: ${{ needs.check.outputs.version }}
@@ -163,9 +220,14 @@ jobs:
           files="$RUNNER_TEMP/release-files"
           mkdir "$files"
           find "$RUNNER_TEMP/release-artifact" -type f -exec cp {} "$files/" \;
+          # The full package's files, with their checksums in the same SHA256SUMS.
+          find "$RUNNER_TEMP/release-artifact-full" -type f -exec cp {} "$files/" \;
           cp packaging/windows/cage-lite-signing.cer "$files/"
           cd "$files"
           test -f "Cage-$VERSION-windows-amd64-setup.exe"
+          test -f "Cage-$VERSION-windows-amd64-full-setup.exe"
+          cat SHA256SUMS.full >> SHA256SUMS
+          rm SHA256SUMS.full
           sha256sum -c SHA256SUMS
           sha256sum cage-lite-signing.cer >> SHA256SUMS
           # In-app updates read this release from github.com, not the API with
