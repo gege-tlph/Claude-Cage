@@ -899,10 +899,30 @@ function App() {
     )
       await action("/stop");
   };
-  // The tool buttons of a failure card (failure-card.jsx).
+  // Starting as the main button does: with the chosen system while it is not
+  // yet installed.
+  const startOptions = () => (!running && guestSystem ? { guest_system: guestSystem.guest_system } : {});
+  // The tool buttons of a failure card (failure-card.jsx). Each carries the
+  // whole flow through: a start runs every stage to a ready environment, and
+  // 重启环境 stops, waits for the stop to end, then starts.
   const failureTool = async (name) => {
-    if (name === "start" || name === "continue-install") return startEnvironment();
+    if (name === "start" || name === "continue-install") return startEnvironment(startOptions());
     if (name === "stop") return stop();
+    if (name === "restart") {
+      if (!(await confirm({ title: "重启环境？", body: "请先保存文件。当前终端会话会结束，浏览器登录和项目文件会保留。", confirm: "重启环境" }))) return;
+      const stopping = await action("/stop");
+      if (!stopping?.id) return;
+      for (;;) {
+        const current = await api("/status");
+        if (current.job?.id !== stopping.id || !current.job.running) {
+          // A failed or canceled stop shows its own card; nothing to start.
+          if (current.job?.id === stopping.id && (current.job.error || current.job.canceled)) return;
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 800));
+      }
+      return startEnvironment(startOptions());
+    }
     if (name === "settings:network") return openSettings("network");
     if (name === "settings:project" || name === "settings:resources") return openSettings("project");
   };

@@ -60,7 +60,7 @@ func environmentFailure(op, action string, cause error, output, dir string) *use
 	case strings.Contains(output, "容器连接超时"):
 		return fail("原因是连接 Linux 容器超时", next, usererror.ToolStart, usererror.ToolLog)
 	case strings.Contains(output, "容器的项目挂载尚未初始化"):
-		return fail("原因是 Linux 容器的项目文件夹未挂载", "停止环境后重新启动", usererror.ToolStop)
+		return fail("原因是 Linux 容器的项目文件夹未挂载", "重启环境", usererror.ToolRestart)
 	case containsAny(lower, "permission denied", "access is denied"):
 		return fail("原因是系统拒绝访问环境所需的文件或程序", "在安全软件中允许 Cage lite，并检查环境目录的权限", usererror.ToolDiagnostics)
 	}
@@ -100,7 +100,7 @@ func qemuFailure(action string, cause error, output string) *usererror.Failure {
 	}
 	switch {
 	case containsAny(lower, `failed to get "write" lock`, "is another process using the image"):
-		return fail("原因是环境磁盘正被另一个进程使用", "停止环境后重试启动", usererror.ToolStop, usererror.ToolStart)
+		return fail("原因是环境磁盘正被另一个进程使用", "重启环境", usererror.ToolRestart, usererror.ToolDiagnostics)
 	case containsAny(lower, "cannot set up guest memory", "cannot allocate memory"):
 		reason := "原因是电脑可用内存不足"
 		if free := memory.FreeMemory(); free > 0 {

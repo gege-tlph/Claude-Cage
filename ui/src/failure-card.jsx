@@ -1,5 +1,5 @@
-import React from "react";
-import { ArrowDownToLine, Cpu, Globe2, Power, RotateCcw } from "lucide-react";
+import React, { useState } from "react";
+import { ArrowDownToLine, Cpu, Globe2, Power, RotateCcw, RotateCw } from "lucide-react";
 import { ActionButton, usePhase } from "./action-button";
 import { StatusIcon } from "./status-icon";
 import { exportDiagnostics } from "./diagnostics.jsx";
@@ -22,6 +22,7 @@ function LogIcon() {
 const TOOLS = {
   start: { label: "启动环境", icon: <Power size={15} />, busy: "启动中", waits: true },
   stop: { label: "停止环境", icon: <Power size={15} />, busy: "停止中", waits: true },
+  restart: { label: "重启环境", icon: <RotateCw size={15} />, busy: "重启中", waits: true },
   "continue-install": { label: "继续安装", icon: <Power size={15} />, busy: "启动中", waits: true },
   diagnostics: { label: "导出诊断包", icon: <ArrowDownToLine size={15} />, busy: "导出中", waits: true },
   log: { label: "操作日志", icon: <LogIcon /> },
@@ -80,12 +81,20 @@ function Unbroken({ text }) {
 
 // FailureCard shows a job's failure in three lines: what failed and why, the
 // suggestion (下一步 for a notice), and tool buttons, the suggested one first.
-// Its color follows the level. onTool(name) runs start, stop, continue-install
-// and the settings tools; tools listed in hide are left out.
+// Its color follows the level. onTool(name) runs start, stop, restart,
+// continue-install and the settings tools, each carrying the whole flow
+// through; tools listed in hide are left out. After a detour into settings,
+// the button that carries on (start, restart, continue) comes first.
 export function FailureCard({ failure, onTool, hide = [] }) {
   const tr = useTranslation();
+  const [detoured, setDetoured] = useState(false);
   const level = ICON_STATE[failure.level] ? failure.level : "error";
-  const tools = (failure.tools || []).filter((name) => TOOLS[name] && !hide.includes(name));
+  let tools = (failure.tools || []).filter((name) => TOOLS[name] && !hide.includes(name));
+  if (detoured) tools = [...tools.filter((name) => TOOLS[name].waits && name !== "diagnostics"), ...tools.filter((name) => !TOOLS[name].waits || name === "diagnostics")];
+  const runTool = (name) => {
+    if (TOOLS[name]?.settings) setDetoured(true);
+    return onTool(name);
+  };
   const reason = failure.reason ? localizeFailure(failure.reason, tr) : "";
   return <section className="failure-card" data-level={level} role="alert">
     <StatusIcon state={ICON_STATE[level]} size={20} className="failure-card-icon" />
@@ -98,7 +107,7 @@ export function FailureCard({ failure, onTool, hide = [] }) {
       <span>{tr(level === "info" ? "下一步" : "解决建议")}{tr("：")}</span>{localizeFailure(failure.next, tr)}
     </p>}
     {tools.length > 0 && <div className="failure-card-tools">
-      {tools.map((name, index) => <ToolButton key={name} name={name} primary={index === 0} onTool={onTool} />)}
+      {tools.map((name, index) => <ToolButton key={name} name={name} primary={index === 0} onTool={runTool} />)}
     </div>}
   </section>;
 }

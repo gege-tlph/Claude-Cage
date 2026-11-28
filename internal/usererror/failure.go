@@ -22,8 +22,11 @@ const (
 // Tools a failure can offer as buttons. The interface draws each with its
 // icon and runs it; the backend only names them.
 const (
-	ToolStart           = "start"
-	ToolStop            = "stop"
+	ToolStart = "start"
+	ToolStop  = "stop"
+	// ToolRestart stops the environment, waits, then starts it: one button
+	// that carries the flow through.
+	ToolRestart         = "restart"
 	ToolContinueInstall = "continue-install"
 	ToolDiagnostics     = "diagnostics"
 	ToolLog             = "log"

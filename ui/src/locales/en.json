@@ -5832,5 +5832,7 @@
   "{0}：{1}": "{0}: {1}",
   "，": ", ",
   "导出中": "Exporting",
-  "{0} 分": "{0} min"
+  "{0} 分": "{0} min",
+  "重启中": "Restarting",
+  "重启环境？": "Restart the environment?"
 }

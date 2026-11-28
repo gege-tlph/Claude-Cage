@@ -26,7 +26,7 @@ func TestEnvironmentFailureNamesWhereStartingGotStuck(t *testing.T) {
 		{"hostagent slow", "up", "Error: hostagent (`C:\\x\\ha.pid`) did not start up in 1m0s (hint: see `C:\\x\\ha.stderr.log`)",
 			"原因是环境后台启动超时（1 分钟）", []string{"start", "diagnostics"}},
 		{"image locked", "up", "Error: QEMU 启动失败：qemu-system-x86_64: Failed to get \"write\" lock\nIs another process using the image [diffdisk]?",
-			"原因是环境磁盘正被另一个进程使用", []string{"stop", "start"}},
+			"原因是环境磁盘正被另一个进程使用", []string{"restart", "diagnostics"}},
 		{"qemu other", "up", "Error: QEMU 启动失败：qemu-system-x86_64: -accel whpx: injection failed",
 			"原因是虚拟机启动即退出", []string{"start", "diagnostics"}},
 		{"kvm", "up", "Error: QEMU 启动失败：Could not access KVM kernel module: No such file or directory",
@@ -40,7 +40,7 @@ func TestEnvironmentFailureNamesWhereStartingGotStuck(t *testing.T) {
 		{"container ssh", "up", "Error: 容器 SSH 服务 30 秒内未就绪，请稍后重试启动；原容器文件已保留",
 			"原因是 Linux 容器启动后，SSH 连接超时（30 秒）", []string{"start", "diagnostics"}},
 		{"container mount", "up", "Error: 容器的项目挂载尚未初始化，请先完整停止环境再启动；文件和登录状态会保留",
-			"原因是 Linux 容器的项目文件夹未挂载", []string{"stop"}},
+			"原因是 Linux 容器的项目文件夹未挂载", []string{"restart"}},
 		{"unknown", "up", "starting\nlevel=error msg=\"browser display exited, status=1/FAILURE\"\nexit status 1",
 			"原因未识别", []string{"start", "log", "diagnostics"}},
 	} {
