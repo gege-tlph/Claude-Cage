@@ -164,7 +164,7 @@ func Run(configPath string, args []string, output io.Writer) int {
 func managedClient(ctx context.Context, configPath string) (*http.Client, error) {
 	cfg, err := cage.Load(configPath)
 	if err != nil {
-		return nil, errors.New("Cage lite 所选代理尚未配置")
+		return nil, usererror.Notice("下载更新需要代理节点", "原因是还没有可用的代理节点", "在网络与代理中选择节点", nil)
 	}
 	profile := filepath.Dir(configPath)
 	p, err := managedproxy.Applied(profile, cfg.ProxyURL, cfg.ProxyRevision)
@@ -253,11 +253,11 @@ func requestFrom(ctx context.Context, client *http.Client, raw string, offset in
 			if strings.Contains(u.Path, "/compare/") {
 				return nil, errors.New("当前构建提交未被源码仓库收录，无法核对提交关系")
 			}
-			return nil, &notFoundError{errors.New("更新源找不到请求的版本或安装包（HTTP 404）。请稍后检查更新；需要手动安装时，请核对 Cage lite 发布页面中的对应平台文件。")}
+			return nil, &notFoundError{downloadFailure("原因是更新源找不到这个版本的安装包（HTTP 404）", "稍后检查更新")}
 		case 403, 429:
 			return nil, updateSourceError(resp, time.Now())
 		default:
-			err := fmt.Errorf("更新源返回 HTTP %d，请稍后重试", resp.StatusCode)
+			err := downloadFailure(fmt.Sprintf("原因是更新源返回 HTTP %d", resp.StatusCode), "稍后重试更新")
 			if resp.StatusCode >= 500 {
 				return nil, &transientError{err}
 			}
@@ -455,7 +455,7 @@ func download(ctx context.Context, client *http.Client, a asset, digest, path st
 			resp.Body.Close()
 			offset += n
 			if err != nil || offset < a.Size {
-				err = &transientError{errors.New("发行包下载中断或实际大小不匹配")}
+				err = &transientError{downloadFailure("原因是下载中断或大小不符", "重试更新")}
 			}
 		}
 		stalled := attemptCtx.Err() != nil
@@ -466,20 +466,20 @@ func download(ctx context.Context, client *http.Client, a asset, digest, path st
 		}
 		if offset > a.Size {
 			discard = true
-			return errors.New("发行包下载中断或实际大小不匹配")
+			return downloadFailure("原因是下载中断或大小不符", "重试更新")
 		}
 		var transient *transientError
 		if err != nil && !stalled && !errors.As(err, &transient) {
 			return err
 		}
 		if stalled && err != nil {
-			err = errors.New("更新下载长时间没有收到数据，已保留已下载的部分，可稍后继续")
+			err = downloadFailure("原因是长时间没有收到数据（已下载的部分保留，重试时续传）", "重试更新")
 		}
 		last = err
 	}
 	if offset != a.Size || hex.EncodeToString(hash.Sum(nil)) != digest {
 		discard = true
-		return errors.New("发行包 SHA-256 校验失败，请重新下载")
+		return downloadFailure("原因是安装包 SHA-256 校验不符（已丢弃）", "重试更新")
 	}
 	if err := f.Sync(); err != nil {
 		return errors.New("无法保存更新文件")
@@ -509,4 +509,11 @@ func (w *progressWriter) Write(p []byte) (int, error) {
 		w.notify(w.total)
 	}
 	return n, err
+}
+
+// downloadFailure is a failed update download in three parts
+// (notes/failure-text-audit-2026-11-28.md U5): the current version was not
+// touched, so it is a warning without 「仍在用」.
+func downloadFailure(reason, next string) error {
+	return usererror.Fail("下载更新", reason, next, nil).WithLevel(usererror.LevelWarn)
 }

@@ -46,8 +46,8 @@ internal static class Authenticode
             {
                 var code = $"0x{unchecked((uint)result):X8}";
                 if (currentApp)
-                    throw new IOException($"当前 Windows 程序签名无法验证（{code}）。");
-                throw new IOException($"Windows 无法验证安装包签名（{code}）；原应用已保留。请确认系统证书信任状态。");
+                    throw new IOException($"当前程序的签名无法验证（{code}）");
+                throw new IOException($"Windows 验证不了安装包的签名（{code}）");
             }
 #pragma warning disable SYSLIB0057
             using var signed = X509Certificate.CreateFromSignedFile(path);
@@ -75,7 +75,7 @@ internal static class Authenticode
                 string.Equals(actual.Organization, own.Organization, StringComparison.Ordinal)) return;
         }
         catch (Exception error) when (error is IOException or CryptographicException or UnauthorizedAccessException) { }
-        throw new IOException("更新包的发布者签名与当前 Cage lite 不一致");
+        throw new IOException("安装包的发布者与当前 Cage lite 不一致");
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]

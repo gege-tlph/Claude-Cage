@@ -441,10 +441,10 @@ func (c *controllerClient) stopAndHandoff() error {
 		return err
 	}
 	if status == http.StatusLocked {
-		return errors.New("Cage lite 已锁定，后台无法停止环境，已取消本次更新。")
+		return errUpdateLocked
 	}
 	if status != http.StatusOK || requested.ID == "" {
-		return errors.New("后台未接受停止请求，已取消本次更新。")
+		return errUpdateStopRefused()
 	}
 	deadline := time.Now().Add(stopHandoffWait)
 	for {
@@ -457,16 +457,16 @@ func (c *controllerClient) stopAndHandoff() error {
 			return err
 		}
 		if status != http.StatusOK || state.VMRunning == nil || state.Job.ID != requested.ID {
-			return errors.New("停止状态发生变化，未终止后台；请确认现有任务后重试。")
+			return errUpdateStopChanged()
 		}
 		if !state.Job.Running {
 			if state.Job.Error != "" || *state.VMRunning {
-				return errors.New("环境未能安全停止，未继续更新。请在原工作台查看停止结果。")
+				return errUpdateStopFailed()
 			}
 			break
 		}
 		if time.Now().After(deadline) {
-			return errors.New("停止环境超时，后台保持运行，请稍后重试更新。")
+			return errUpdateStopTimeout()
 		}
 		time.Sleep(200 * time.Millisecond)
 	}

@@ -147,13 +147,13 @@ internal static class UpdateInstaller
                     {
                         if (!installer.HasExited) installer.Kill(true);
                         await installer.WaitForExitAsync();
-                        throw new TimeoutException("Windows 安装程序超过 10 分钟未完成");
+                        throw new TimeoutException("Windows 安装程序 10 分钟内没有装完");
                     }
                     progress?.Step(UpdateSteps.Install, InstallPercent(InstallerPhase(diagnostics)));
                     await Task.WhenAny(exited, Task.Delay(500));
                 }
                 if (installer.ExitCode != 0)
-                    throw new IOException($"Windows 安装程序未完成安装（退出码 {installer.ExitCode}，阶段 {InstallerPhase(diagnostics) ?? "未知"}）");
+                    throw new IOException($"Windows 安装程序没有装完就退出了（退出码 {installer.ExitCode}）");
             }
             progress?.Step(UpdateSteps.Install, 100);
             EnsureInstallationComplete(plan.Target);
@@ -183,7 +183,7 @@ internal static class UpdateInstaller
                 }
                 await Task.Delay(500);
             }
-            if (!ready) throw new IOException("新版工作台未能完成启动确认");
+            if (!ready) throw new IOException($"{plan.Version} 启动后 2 分钟内没有完成启动确认");
             succeeded = true;
             Result(true, "Cage lite 已更新至 " + plan.Version);
             // The new version's window shows now: this one closes before the
@@ -213,7 +213,7 @@ internal static class UpdateInstaller
                     if (UpdateRecovery.OriginalIntact(plan.Target, backup))
                     {
                         if (!plan.UnsignedSource) Authenticode.SamePublisher(Path.Combine(plan.Target, "Cage.exe"), plan.Publisher);
-                        Result(false, "更新未完成，原应用已保留：" + detail);
+                        Result(false, UpdateFailure(detail, $"仍在用 {previousVersion}"));
                         UpdateRecovery.CleanupDirectory(backup); backup = null;
                         keepWindow = Finish(progress, plan.Target, "已保留 {0}", previousVersion, detail);
                         return 1;
@@ -266,7 +266,7 @@ internal static class UpdateInstaller
                     await PreserveFiles("cleanup", failed, plan.Target, receipt);
                     EnsureInstallationComplete(plan.Target);
                     UpdateRecovery.CleanupDirectory(backup); backup = null;
-                    Result(false, "更新未完成，已恢复原应用：" + detail);
+                    Result(false, UpdateFailure(detail, $"已恢复 {previousVersion}"));
                     keepWindow = Finish(progress, plan.Target, "已恢复 {0}", previousVersion, detail);
                     return 1;
                 }
@@ -279,7 +279,7 @@ internal static class UpdateInstaller
                     if (backup != null) detail += "。程序备份保留在 " + backup;
                 }
             }
-            Result(false, "更新未完成：" + detail);
+            Result(false, recoveryIncomplete ? "更新未完成：" + detail : UpdateFailure(detail, previousVersion.Length > 0 ? $"仍在用 {previousVersion}" : ""));
             if (recoveryIncomplete && progress != null && plan != null)
             {
                 progress.Fail("恢复未完成", "", detail, plan.Target, false);
@@ -350,6 +350,17 @@ internal static class UpdateInstaller
         try { await PreserveFiles("heal", "", target, receipt); }
         catch (IOException) { }
         UpdateRecovery.EnsureNoPendingTransaction(target);
+    }
+
+    // A failed update in the three-part wording the interface splits back
+    // (ui/src/failure-text.mjs; notes/failure-text-audit-2026-11-28.md U2–U4):
+    // 「更新失败，原因是{reason}，{仍在用 / 已恢复 版本}。解决建议：重试更新。」
+    internal static string UpdateFailure(string reason, string state)
+    {
+        reason = reason.Trim().TrimEnd('。', '；');
+        // A space between Chinese and a Latin word or a number.
+        var gap = reason.Length > 0 && char.IsAsciiLetterOrDigit(reason[0]) ? " " : "";
+        return "更新失败，原因是" + gap + reason + (state.Length > 0 ? "，" + state : "") + "。解决建议：重试更新。";
     }
 
     private static string? InstallerPhase(string diagnostics)

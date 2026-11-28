@@ -25,7 +25,7 @@ func updateSourceError(resp *http.Response, now time.Time) error {
 	after := strings.TrimSpace(resp.Header.Get("Retry-After"))
 	exhausted := strings.TrimSpace(resp.Header.Get("X-RateLimit-Remaining")) == "0"
 	if resp.StatusCode == http.StatusForbidden && after == "" && !exhausted {
-		return errors.New("更新源拒绝访问（HTTP 403），请检查所选代理或稍后重试")
+		return downloadFailure("原因是更新源拒绝访问（HTTP 403）", "稍后重试更新")
 	}
 	var at time.Time
 	if seconds, err := strconv.ParseInt(after, 10, 64); err == nil && seconds >= 0 && seconds <= int64((1<<63-1)/time.Second) {

@@ -207,7 +207,7 @@ internal sealed class AppUpdater : IDisposable
                         _ => property.Value.Clone(),
                     };
                 if (publisher == null && state.GetValueOrDefault("phase") as string == "available")
-                    Change("manual", "当前 Windows 程序未签名或签名无法验证，请从官方发布页下载安装包，退出 Cage lite 后安装到原位置；配置、凭据、项目和虚拟机磁盘会保留。");
+                    Change("manual", "无法自动更新，原因是当前程序未签名或签名无法验证。下一步：从发布页下载安装包，退出 Cage lite 后安装到原位置（配置、项目和环境磁盘会保留）。");
                 else
                 {
                     state["officialUpgrade"] = state.GetValueOrDefault("phase") as string != "current" && unsignedSource;
@@ -270,14 +270,14 @@ internal sealed class AppUpdater : IDisposable
             await helper.StandardInput.WriteLineAsync(JsonSerializer.Serialize(prepared));
             await helper.StandardInput.FlushAsync(token);
             var ready = await helper.StandardOutput.ReadLineAsync(token);
-            if (ready != "READY") throw new IOException("安装程序准备失败，原应用已保留");
+            if (ready != "READY") throw new IOException(UpdateInstaller.UpdateFailure("安装程序准备失败", $"仍在用 {Version}"));
             var (exit, data) = await Backend.Json(["prepare-update", "--json"], token);
             if (data.Text("status") == "stop_required")
             {
-                throw new IOException("环境仍在运行，请在工作台停止环境后重试安装");
+                throw new IOException("更新失败，原因是环境仍在运行。解决建议：在工作台停止环境后重试更新。");
             }
             if (exit != 0 || data.Text("status") != "prepared") throw new IOException(data.Text("message") is { Length: > 0 } detail ? detail : "环境未能安全停止");
-            if (helper.HasExited) throw new IOException("安装程序已退出，原应用已保留");
+            if (helper.HasExited) throw new IOException(UpdateInstaller.UpdateFailure("安装程序已退出", $"仍在用 {Version}"));
             await helper.StandardInput.WriteLineAsync("COMMIT"); await helper.StandardInput.FlushAsync(token);
             helper.StandardInput.Close(); committed = true;
             // This App still has the foreground from the click on install: let
@@ -286,7 +286,7 @@ internal sealed class AppUpdater : IDisposable
             handOff?.Invoke();
             Change("installing", "正在安装并重启 Cage lite"); quit();
         }
-        catch (Exception error) { Change("failed", error is OperationCanceledException ? "安装准备超时，原应用已保留" : error.Message, true); reconnect(); }
+        catch (Exception error) { Change("failed", error is OperationCanceledException ? UpdateInstaller.UpdateFailure("安装准备超时", $"仍在用 {Version}") : error.Message, true); reconnect(); }
         finally
         {
             if (!committed && helper != null)

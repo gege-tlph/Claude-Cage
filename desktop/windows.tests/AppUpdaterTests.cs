@@ -88,7 +88,7 @@ internal static class AppUpdaterTests
                 Check(state["latestVersion"] as string == "99.0.0", "manual update lost release version");
                 Check(state.GetValueOrDefault("officialUpgrade") as bool? != true, "manual update must not advertise officialUpgrade");
                 Check(!phases.Contains("available") && !phases.Contains("downloading"), "unsigned build exposed automatic installation");
-                Check((state["message"] as string)?.Contains("官方发布页") == true, "manual update omitted release guidance");
+                Check((state["message"] as string)?.Contains("从发布页下载安装包") == true, "manual update omitted release guidance");
             }
             var untrusted = await Exercise("install", "available", () => throw new CryptographicException("untrusted"), "check");
             Check(untrusted["phase"] as string == "manual", "unverifiable signer allowed a download");
