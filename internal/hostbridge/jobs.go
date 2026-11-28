@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -43,7 +44,7 @@ type job struct {
 type jobBuffer struct {
 	mu      sync.Mutex
 	summary cappedBuffer
-	ring    []byte
+	ring    tailBytes
 	ringMax int
 	total   int
 }
@@ -60,14 +61,7 @@ func (b *jobBuffer) Write(p []byte) (int, error) {
 	defer b.mu.Unlock()
 	_, _ = b.summary.Write(p)
 	b.total += len(p)
-	if len(p) >= b.ringMax {
-		b.ring = append(b.ring[:0], p[len(p)-b.ringMax:]...)
-		return len(p), nil
-	}
-	b.ring = append(b.ring, p...)
-	if over := len(b.ring) - b.ringMax; over > 0 {
-		b.ring = append(b.ring[:0], b.ring[over:]...)
-	}
+	b.ring.write(p, b.ringMax)
 	return len(p), nil
 }
 
@@ -90,22 +84,36 @@ func (b *jobBuffer) snapshot() (output string, truncated bool, nextOffset int) {
 }
 
 // readFrom returns up to maxChunk bytes starting at byte offset (clamped to the
-// retained ring window if older bytes were evicted).
+// retained ring window if older bytes were evicted). A chunk does not start or
+// end inside a UTF-8 character, so pages read one after another join up whole;
+// nextOffset counts the bytes actually returned.
 func (b *jobBuffer) readFrom(offset, maxChunk int) (chunk string, nextOffset, skipped int, truncated bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	base := b.total - len(b.ring)
+	ring := b.ring.bytes(b.ringMax)
+	base := b.total - len(ring)
 	if offset < base {
 		skipped = base - offset
 		offset = base
+		// The oldest kept byte may be the middle of a character.
+		for i := 0; i < utf8.UTFMax-1 && offset < b.total && !utf8.RuneStart(ring[offset-base]); i++ {
+			offset++
+			skipped++
+		}
 	}
 	if offset >= b.total {
 		return "", b.total, skipped, skipped > 0
 	}
-	start := offset - base
-	avail := b.ring[start:]
+	avail := ring[offset-base:]
 	if maxChunk > 0 && len(avail) > maxChunk {
-		avail = avail[:maxChunk]
+		end := maxChunk
+		for i := 0; i < utf8.UTFMax-1 && end > 1 && !utf8.RuneStart(avail[end]); i++ {
+			end--
+		}
+		if !utf8.RuneStart(avail[end]) {
+			end = maxChunk // not UTF-8 here: cut where asked
+		}
+		avail = avail[:end]
 		truncated = true
 	}
 	return readableOutput(avail), offset + len(avail), skipped, truncated || skipped > 0

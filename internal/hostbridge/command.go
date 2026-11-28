@@ -254,7 +254,7 @@ type cappedBuffer struct {
 	limit   int
 	mu      sync.Mutex
 	head    bytes.Buffer
-	tail    []byte
+	tail    tailBytes
 	dropped bool
 }
 
@@ -268,12 +268,41 @@ func (b *cappedBuffer) Write(p []byte) (int, error) {
 		b.head.Write(p[:n])
 		p = p[n:]
 	}
-	b.tail = append(b.tail, p...)
-	if over := len(b.tail) - tailLimit; over > 0 {
-		b.tail = append(b.tail[:0], b.tail[over:]...)
+	if b.tail.write(p, tailLimit) {
 		b.dropped = true
 	}
 	return written, nil
+}
+
+// tailBytes keeps the last bytes written to it. It holds up to twice what it
+// keeps and moves the kept part to the front only when that fills, so a long
+// stream of small writes copies each byte about once rather than on every
+// write.
+type tailBytes struct {
+	buf []byte
+}
+
+// write appends p and reports whether bytes before the last limit were let go.
+func (t *tailBytes) write(p []byte, limit int) (dropped bool) {
+	dropped = len(t.buf)+len(p) > limit
+	if len(p) >= limit {
+		t.buf = append(t.buf[:0], p[len(p)-limit:]...)
+		return dropped
+	}
+	if len(t.buf)+len(p) > 2*limit {
+		keep := limit - len(p)
+		t.buf = append(t.buf[:0], t.buf[len(t.buf)-keep:]...)
+	}
+	t.buf = append(t.buf, p...)
+	return dropped
+}
+
+// bytes is the last limit bytes written (fewer before that many came).
+func (t *tailBytes) bytes(limit int) []byte {
+	if over := len(t.buf) - limit; over > 0 {
+		return t.buf[over:]
+	}
+	return t.buf
 }
 
 func (b *cappedBuffer) truncated() bool {
@@ -285,8 +314,9 @@ func (b *cappedBuffer) truncated() bool {
 func (b *cappedBuffer) String() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	tail := b.tail.bytes(b.limit - b.limit/4)
 	if !b.dropped {
-		return readableOutput(b.head.Bytes()) + readableOutput(b.tail)
+		return readableOutput(b.head.Bytes()) + readableOutput(tail)
 	}
-	return readableOutput(b.head.Bytes()) + "\n[... output truncated ...]\n" + readableOutput(b.tail)
+	return readableOutput(b.head.Bytes()) + "\n[... output truncated ...]\n" + readableOutput(tail)
 }
