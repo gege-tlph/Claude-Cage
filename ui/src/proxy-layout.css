@@ -35,4 +35,7 @@
 /* 高级 on 网络与代理: IP 变化规则, 局域网直连 and 加密 DNS, folded. */
 .settings-advanced-body { display: grid; gap: 12px; }
 .settings-advanced-body > .settings-disclosure-card { margin: 0; }
+/* 「IP 变化规则」 opens 「高级」: no divider or gap above it (the old page put
+   it after another section). */
+.settings-page .settings-content .settings-advanced-body > .network-exit-policy { margin-top: 0; padding-top: 0; border-top: 0; }
 @media (prefers-reduced-motion: reduce) { .proxy-route-editor .proxy-route-hop { transition: none; } }

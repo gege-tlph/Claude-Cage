@@ -433,7 +433,7 @@
 .settings-page .settings-disclosure-card[open] > summary {
   border-bottom: 1px solid var(--line-subtle);
 }
-.settings-page .settings-disclosure-card[open] .settings-disclosure-chevron {
+.settings-page .settings-disclosure-card[open] > summary > .settings-disclosure-chevron {
   transform: rotate(180deg);
 }
 .settings-page .settings-disclosure-body {
