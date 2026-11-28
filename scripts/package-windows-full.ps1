@@ -11,6 +11,9 @@ param(
     # The data directory written by `cage-offline-data assemble -out`.
     [Parameter(Mandatory)][string]$OfflineData,
     [string]$OutputDirectory,
+    # owner/name of the repository the release is published in, for the
+    # written offer of the packages' sources.
+    [string]$Repository = $env:GITHUB_REPOSITORY,
     [switch]$Sign
 )
 . (Join-Path $PSScriptRoot 'windows-common.ps1')
@@ -127,7 +130,31 @@ try {
     if (-not (Test-Path -LiteralPath $packages -PathType Leaf)) { throw "The package list written by cage-offline-data assemble is missing: $packages" }
     $listing = Join-Path $OutputDirectory "Cage-$version-full-packages.tsv"
     Copy-Item -LiteralPath $packages -Destination $listing -Force
-    $sums = foreach ($file in @($artifact, $listing)) { (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() + '  ' + [IO.Path]::GetFileName($file) }
+    # Where the sources are, and the written offer for them.
+    $issues = if ($Repository -match '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { "https://github.com/$Repository/issues" } else { "the project's GitHub Issues" }
+    $notice = Join-Path $OutputDirectory "Cage-$version-full-sources.txt"
+    [IO.File]::WriteAllText($notice, (@(
+        "Cage lite $version full package: sources of the bundled Debian and NodeSource packages",
+        "Cage lite $version 完整包：所带 Debian 与 NodeSource 软件包的源码",
+        '',
+        "The full package's installer carries, unmodified, the binary packages built from the source packages listed in",
+        "Cage-$version-full-packages.tsv (source package, version, origin). They are installed into the Linux environment as",
+        'the normal package would download them.',
+        "完整包的安装程序原样带有由 Cage-$version-full-packages.tsv 所列源码包（源码包名、版本、来源）构建的二进制软件包，",
+        '在 Linux 环境里像普通包下载它们一样安装。',
+        '',
+        'Debian: the source of every version stays available at snapshot.debian.org:',
+        'Debian：每个版本的源码都保存在 snapshot.debian.org：',
+        '  https://snapshot.debian.org/package/<source>/<version>/',
+        'NodeSource (nodejs): built from the Node.js release of the same version, https://nodejs.org/dist/',
+        'NodeSource（nodejs）：由同版本的 Node.js 发布构建，https://nodejs.org/dist/',
+        '',
+        'Written offer: for at least three years from the release date, the Cage lite maintainers provide the complete',
+        'corresponding source code of any of these packages on request, for no more than the cost of physically performing',
+        "the distribution. Ask at $issues.",
+        "书面承诺：自发布之日起至少三年内，Cage lite 维护者应要求提供上述任一软件包的完整对应源码，收费不超过实际分发的成本。请在 $issues 提出。"
+    ) -join "`n") + "`n", [Text.UTF8Encoding]::new($false))
+    $sums = foreach ($file in @($artifact, $listing, $notice)) { (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() + '  ' + [IO.Path]::GetFileName($file) }
     [IO.File]::WriteAllLines((Join-Path $OutputDirectory 'SHA256SUMS'), $sums)
     Write-Host "Full package: $artifact ($([math]::Round((Get-Item -LiteralPath $artifact).Length / 1MB)) MiB)"
     if (-not $Sign) { Write-Warning 'Unsigned full package: for tests only.' }
