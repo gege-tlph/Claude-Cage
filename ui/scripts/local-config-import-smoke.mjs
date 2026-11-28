@@ -43,8 +43,9 @@ for (const platform of ["darwin", "windows", "linux"]) {
     const local = page.getByRole("region", { name: "导入本机代理配置", exact: true });
     if (platform === "linux") {
       await local.getByText(/还没有找到可导入的配置/).waitFor();
-      assert.ok(await page.getByRole("button", { name: "添加来源", exact: true }).isVisible());
-      await local.getByRole("button", { name: "重新检测", exact: true }).click();
+      // Without a local config, sources are still added on the 订阅 tab.
+      assert.ok(await page.getByRole("tab", { name: "订阅", exact: true }).isVisible());
+      await local.getByRole("button", { name: "重新扫描", exact: true }).click();
     }
     const button = local.getByRole("button", { name: "导入此配置", exact: true });
     await button.waitFor();
@@ -52,7 +53,7 @@ for (const platform of ["darwin", "windows", "linux"]) {
     await page.getByRole("alert").filter({ hasText: "这份配置已经更新" }).waitFor();
     assert.equal(imports, 1, "double click must submit only one job");
     assert.equal(proxy.sources.length, 0);
-    await local.getByRole("button", { name: "重新检测", exact: true }).click();
+    await local.getByRole("button", { name: "重新扫描", exact: true }).click();
     stale = false;
     await button.click();
     // After an import the page goes to 节点 (外部导入 stays one tab away).
@@ -60,11 +61,11 @@ for (const platform of ["darwin", "windows", "linux"]) {
     assert.equal(await page.getByRole("tab", { name: "节点", exact: true }).getAttribute("aria-selected"), "true");
     assert.equal(imports, 2);
     assert.equal(applies, 0, "import must leave exit selection explicit");
-    assert.ok(await page.getByRole("button", { name: "开始安装", exact: true }).isDisabled());
+    assert.ok(await page.getByRole("button", { name: "下一步：安装", exact: true }).isDisabled());
     await page.getByRole("button", { name: "选择节点 独立出口", exact: true }).click();
     await page.getByRole("button", { name: "应用代理", exact: true }).click();
-    await page.getByRole("button", { name: "开始安装", exact: true }).waitFor({ state: "visible" });
-    await page.waitForFunction(() => [...document.querySelectorAll("button")].some(button => button.textContent === "开始安装" && !button.disabled));
+    await page.getByRole("button", { name: "下一步：安装", exact: true }).waitFor({ state: "visible" });
+    await page.waitForFunction(() => [...document.querySelectorAll("button")].some(button => button.textContent === "下一步：安装" && !button.disabled));
     assert.equal(applies, 1);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     if (process.env.CAGE_LOCAL_CONFIG_EVIDENCE) await page.screenshot({ path: `${process.env.CAGE_LOCAL_CONFIG_EVIDENCE}/${platform}.png`, fullPage: true });
