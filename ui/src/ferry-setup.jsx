@@ -276,7 +276,7 @@ export function FerrySetup({ account, act, rememberLogin, onBack, onManual, onDo
             <input autoFocus type="url" inputMode="url" autoComplete="url" spellCheck={false} placeholder="https://" aria-invalid={!serverValid} {...field("server")} />
           </label>
           <button className="primary account-submit" disabled={!serverValid}>{tr("完成")}</button>
-          {form.server !== FERRY_SERVER && <button type="button" className="text-button ferry-link" onClick={() => setForm({ ...form, server: FERRY_SERVER })}>{tr("恢复默认")}</button>}
+          {form.server !== FERRY_SERVER && <button type="button" className="text-button ferry-link" onClick={() => setForm({ ...form, server: FERRY_SERVER })}>{tr("恢复默认地址")}</button>}
         </fieldset>
       </form>
     ),

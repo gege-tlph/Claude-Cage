@@ -241,7 +241,7 @@ export function EnvironmentDeviceReset({ status, onConfirm, onOpenProxy }) {
 
       {info?.supported && (
         <>
-          <div className="device-reset-current" aria-label={tr("当前客机身份摘要")}>
+          <div className="device-reset-current" aria-label={tr("当前环境身份摘要")}>
             <div><span>{tr("主机名")}</span><strong>{info.current?.hostname || "—"}</strong></div>
             <div><span>{tr("网卡 MAC")}</span><strong>{info.current?.mac_suffix || "—"}</strong></div>
             <div><span>{tr("机器 UUID")}</span><strong>{info.current?.uuid_prefix ? `${info.current.uuid_prefix}…` : "—"}</strong></div>
@@ -381,7 +381,7 @@ export function EnvironmentDeviceReset({ status, onConfirm, onOpenProxy }) {
                     onValueChange={(value) => updateCustomField("graphics_backend", value)}
                     disabled={busy || customProfile.webgl === "disabled"}
                   >
-                    <option value="auto">{tr("自动使用客机可用设备")}</option>
+                    <option value="auto">{tr("自动使用环境可用设备")}</option>
                     <option value="vulkan" disabled={customProfile.gpu_backend === "virgl"}>
                       {tr("ANGLE / Vulkan（需要驱动支持，VirGL 不适用）")}
                     </option>
@@ -411,7 +411,7 @@ export function EnvironmentDeviceReset({ status, onConfirm, onOpenProxy }) {
                     value={customProfile.webgl || "native"}
                     onValueChange={(value) => updateCustomField("webgl", value)}
                   >
-                    <option value="native">{tr("使用客机原生图形能力")}</option>
+                    <option value="native">{tr("使用环境原生图形能力")}</option>
                     <option value="disabled">{tr("关闭网页 3D 图形能力")}</option>
                   </InlineSelect>
                 </label>

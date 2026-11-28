@@ -63,7 +63,7 @@ export function GuestProfileOptions({ value, onChange, disabled, system }) {
     catch (error) { setError(error.message); }
     finally { setGenerating(false); }
   }
-  return <details className="guest-profile-options"><summary>{tr("客机设备配置")}</summary>
+  return <details className="guest-profile-options"><summary>{tr("环境设备配置")}</summary>
     {error && <p role="alert"><SafetyMessage message={error} /></p>}
     {loaded && !editable && null}
     {loaded && (editable || saved) && <fieldset disabled={locked}>
@@ -71,9 +71,9 @@ export function GuestProfileOptions({ value, onChange, disabled, system }) {
       {dimensions.filter(([key]) => !native || key === "browser").map(([key, label]) => <label key={key}>{tr(label)}<span className="guest-profile-size">{["width", "height"].map((axis, i) => <React.Fragment key={axis}>{i > 0 && " × "}<input type="number" min={i ? 600 : 800} max={i ? 2160 : 3840} placeholder={i ? tr("高（随机）") : tr("宽（随机）")} value={options[`${key}_${axis}`] || ""} onChange={event => set(`${key}_${axis}`, event.target.value === "" ? 0 : Number(event.target.value))} /></React.Fragment>)}</span></label>)}
       {!native && <label>{tr("音频设备（自动选择真实型号）")}<output>{options.audio_description || tr("创建时从 {0} 个型号中随机选择", (capabilities?.audio_models?.length || 12))}</output></label>}
       <label>{tr("浏览器身份")}<output>{tr("跟随实际安装的浏览器，保持 UA 与 Client Hints 一致")}</output></label>
-      <label>{tr("图形渲染后端")}<InlineSelect inline aria-label={tr("图形渲染后端")} value={options.graphics_backend || "auto"} onValueChange={value => set("graphics_backend", value)} disabled={locked || options.webgl === "disabled"}><option value="auto">{tr("自动使用客机可用设备")}</option>{system === "macos" && <option value="metal">ANGLE / Metal</option>}{system === "windows-11" && <option value="d3d11">ANGLE / D3D11</option>}{!native && <option value="vulkan" disabled={options.gpu_backend === "virgl"}>{tr("ANGLE / Vulkan（需要驱动支持，VirGL 不适用）")}</option>}<option value="opengl">ANGLE / OpenGL</option><option value="software">{tr("SwiftShader 软件兼容模式")}</option></InlineSelect></label>
+      <label>{tr("图形渲染后端")}<InlineSelect inline aria-label={tr("图形渲染后端")} value={options.graphics_backend || "auto"} onValueChange={value => set("graphics_backend", value)} disabled={locked || options.webgl === "disabled"}><option value="auto">{tr("自动使用环境可用设备")}</option>{system === "macos" && <option value="metal">ANGLE / Metal</option>}{system === "windows-11" && <option value="d3d11">ANGLE / D3D11</option>}{!native && <option value="vulkan" disabled={options.gpu_backend === "virgl"}>{tr("ANGLE / Vulkan（需要驱动支持，VirGL 不适用）")}</option>}<option value="opengl">ANGLE / OpenGL</option><option value="software">{tr("SwiftShader 软件兼容模式")}</option></InlineSelect></label>
       {!native && capabilities?.host_os === "linux" && !capabilities.container && <label>{tr("虚拟 GPU")}<InlineSelect inline aria-label={tr("虚拟 GPU")} value={options.gpu_backend || "default"} onValueChange={value => set("gpu_backend", value)}><option value="default">{tr("使用现有虚拟设备")}</option><option value="virgl">{tr("QEMU VirGL + DRI3（实验性，需要宿主 GPU）")}</option></InlineSelect></label>}
-      <label>WebGL<InlineSelect inline aria-label="WebGL" value={options.webgl || "native"} onValueChange={value => set("webgl", value)}><option value="native">{tr("使用客机原生图形能力")}</option><option value="disabled">{tr("关闭网页 3D 图形能力")}</option></InlineSelect></label>
+      <label>WebGL<InlineSelect inline aria-label="WebGL" value={options.webgl || "native"} onValueChange={value => set("webgl", value)}><option value="native">{tr("使用环境原生图形能力")}</option><option value="disabled">{tr("关闭网页 3D 图形能力")}</option></InlineSelect></label>
       <label>{tr("Canvas 图像读取")}<InlineSelect inline aria-label={tr("Canvas 图像读取")} value={options.canvas || "native"} onValueChange={value => set("canvas", value)}><option value="native">{tr("允许网页读取 Canvas 图像")}</option><option value="blocked">{tr("阻止网页读取 Canvas 图像")}</option></InlineSelect></label>
       <button type="button" onClick={randomize}>{generating ? tr("正在生成…") : tr("重新随机生成名称和尺寸")}</button>
     </fieldset>}

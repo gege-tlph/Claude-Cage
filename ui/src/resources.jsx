@@ -134,7 +134,7 @@ export function ResourceSettings({ status, onConfirm, onDirtyChange }) {
       </fieldset>
       <div className="resource-actions">
         <span className="resource-mode">{draft.automatic || atDefaults ? tr("默认配置") : tr("自定义配置")}{dirty ? " " + tr("· 未保存") : ""}</span>
-        <button className="text-button" type="button" disabled={busy || draft.automatic} onClick={reset}>{tr("恢复默认")}</button>
+        <button className="text-button" type="button" disabled={busy || draft.automatic} onClick={reset}>{tr("恢复默认资源")}</button>
         <button type="submit" disabled={busy || !dirty}>{starting ? tr("正在保存…") : tr("保存资源配置")}</button>
       </div>
       {saved && <p role="status" className="field-help resource-save-note">{tr("已保存")}</p>}
