@@ -90,7 +90,13 @@ jobs:
           for _ in $(seq 1 20); do grep -q listening "$RUNNER_TEMP/exit-proxy.log" && break; sleep 0.5; done
           curl -fsS -o /dev/null --socks5-hostname 10.200.0.2:1080 https://deb.debian.org/debian/dists/trixie/InRelease
       - name: Install online and collect the data
-        # A short profile path: Lima's sockets live under it.
+        # A short profile path: Lima's sockets live under it. The host's own
+        # downloads (the Debian image) read HTTPS_PROXY before the desktop's
+        # proxy settings, which a runner cannot report; they use the exit too.
+        env:
+          HTTP_PROXY: socks5://10.200.0.2:1080
+          HTTPS_PROXY: socks5://10.200.0.2:1080
+          NO_PROXY: localhost,127.0.0.1
         run: |
           bash scripts/build-offline-data.sh "$RUNNER_TEMP/app/cage" "$RUNNER_TEMP/cage-offline-data" 10.200.0.2:1080 \
             /tmp/cfp "$RUNNER_TEMP/data/offline"
