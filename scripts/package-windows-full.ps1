@@ -3,7 +3,7 @@
 # unchanged, plus the installation data a first setup downloads (offline\,
 # from cmd/cage-offline-data). The two installers run the same signed
 # binaries; only offline\ is new. In-app updates keep using the normal
-# installer, so cage-lite-release.json never names this one.
+# installer: they pick it by its exact name (internal/appupdate/catalog).
 [CmdletBinding()]
 param(
     # The normal installer of this VERSION (Cage-<version>-windows-amd64-setup*.exe).
@@ -12,8 +12,9 @@ param(
     [Parameter(Mandatory)][string]$OfflineData,
     [string]$OutputDirectory,
     # owner/name of the repository the release is published in, for the
-    # written offer of the packages' sources.
-    [string]$Repository = $env:GITHUB_REPOSITORY,
+    # written offer of the packages' sources. Not $Repository: PowerShell
+    # names ignore case, and $repository below is the checkout folder.
+    [string]$ReleaseRepository = $env:GITHUB_REPOSITORY,
     [switch]$Sign
 )
 . (Join-Path $PSScriptRoot 'windows-common.ps1')
@@ -131,7 +132,7 @@ try {
     $listing = Join-Path $OutputDirectory "Cage-$version-full-packages.tsv"
     Copy-Item -LiteralPath $packages -Destination $listing -Force
     # Where the sources are, and the written offer for them.
-    $issues = if ($Repository -match '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { "https://github.com/$Repository/issues" } else { "the project's GitHub Issues" }
+    $issues = if ($ReleaseRepository -match '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') { "https://github.com/$ReleaseRepository/issues" } else { "the project's GitHub Issues" }
     $notice = Join-Path $OutputDirectory "Cage-$version-full-sources.txt"
     [IO.File]::WriteAllText($notice, (@(
         "Cage lite $version full package: sources of the bundled Debian and NodeSource packages",
