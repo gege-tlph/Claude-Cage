@@ -6,6 +6,7 @@ import { FerryMark, FerrySetup, RELAY_SOURCE } from "./ferry-setup.jsx";
 import { exitRegion, pickRelay } from "./relay-pick.mjs";
 import { useTranslation } from "./interface-language.mjs";
 import { localizeBackendMessage } from "./backend-message.mjs";
+import { hopsFromProxy, isGroup } from "./relay-group.mjs";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // The subscription's Subscription-Userinfo expire is past: Ferry still serves
@@ -36,6 +37,7 @@ async function proxyJob(action, input, tr) {
 // The card also says whether the route ends at a Ferry exit: when it does not
 // (the user changed it), 恢复 builds the Ferry chain again from the nodes
 // already imported; when the relay is not in the exit's region, 重新选择前置.
+// An auto 前置 (#1063) before the exit picks its own node: no region to match.
 export function FerryImport({ proxy, busy, onChanged }) {
   const tr = useTranslation();
   const { account } = useAccount();
@@ -52,11 +54,13 @@ export function FerryImport({ proxy, busy, onChanged }) {
   const relaySource = sources.find((source) => source.name === RELAY_SOURCE && source.remote) || null;
   const ferrySource = sources.find((source) => source.id && source.id === known?.source) || sources.find((source) => source.name === "Ferry" && source.remote) || null;
   const exits = known?.exits || [];
-  const route = proxy?.route || [];
+  // proxy.route names an auto 前置 by its core group: read the saved hops.
+  const route = hopsFromProxy(proxy) || proxy?.route || [];
+  const autoRelay = route.length > 1 && isGroup(route[route.length - 2]);
   const exitNode = ferrySource?.nodes.find((node) => node.id === proxy?.selected) || null;
   const regionOf = (node) => exitRegion(exits.find((exit) => exit.name === node.name) || { name: node.name });
-  const relayNode = route.length > 1 ? relaySource?.nodes.find((node) => node.id === route[route.length - 2]) : null;
-  const sameRegion = !exitNode || !regionOf(exitNode) || (relayNode && exitRegion({ name: relayNode.name }) === regionOf(exitNode));
+  const relayNode = route.length > 1 && !autoRelay ? relaySource?.nodes.find((node) => node.id === route[route.length - 2]) : null;
+  const sameRegion = !exitNode || !regionOf(exitNode) || autoRelay || (relayNode && exitRegion({ name: relayNode.name }) === regionOf(exitNode));
   const expired = Boolean(ferrySource && usageExpired(ferrySource.usage));
   const canRestore = Boolean(relaySource && ferrySource && !expired && (!exitNode || !sameRegion));
 

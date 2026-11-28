@@ -763,7 +763,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, onTool, o
                     {tr("链式代理")}
                   </button>
                 </div>
-                {route.length === 2 && Boolean(route[1]) && (
+                {route.length === 2 && Boolean(route[1]) && !isGroup(route[0]) && (
                   <button
                     type="button"
                     className="proxy-route-add"
