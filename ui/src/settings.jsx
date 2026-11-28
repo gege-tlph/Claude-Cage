@@ -28,6 +28,9 @@ import { api } from "./api";
 import { ActionButton, useAction, usePhase } from "./action-button";
 import "./settings.css";
 import { SafetyMessage } from "./safety-message";
+import { FailureCard } from "./failure-card";
+import { failureOf } from "./failure-text.mjs";
+import { reapplyNode, recheckNetwork } from "./failure-flows.mjs";
 import { AppearanceSettings } from "./appearance-settings";
 import { NotificationSettings } from "./notification-settings";
 import { ProxySettings } from "./proxy-settings";
@@ -86,11 +89,27 @@ export function SettingsPanel({
     [probing, setProbing] = useState(false),
     [probeFailed, setProbeFailed] = useState(false),
     [error, setError] = useState(""),
+    [failure, setFailure] = useState(null),
     [staticDraftOffer, setStaticDraftOffer] = useState(false),
     [jobId, setJobId] = useState(""),
     [submitting, setSubmitting] = useState(false);
   const savePhase = usePhase();
   const [saveBusyLabel, setSaveBusyLabel] = useState("");
+  // 加密 DNS, opened by a failure's 「加密 DNS」 button (failure-flows.mjs).
+  const dnsSection = useRef(null);
+  const openDNS = () => {
+    setSection("network");
+    setTimeout(() => {
+      if (!dnsSection.current) return;
+      dnsSection.current.open = true;
+      dnsSection.current.scrollIntoView({ block: "nearest" });
+    }, 0);
+  };
+  useEffect(() => {
+    const show = (event) => { if (event.detail === "dns") openDNS(); };
+    window.addEventListener("cage-settings-section", show);
+    return () => window.removeEventListener("cage-settings-section", show);
+  }, []);
   const changed =
     JSON.stringify({
       ...draft,
@@ -129,6 +148,7 @@ export function SettingsPanel({
     setDraft((p) => ({ ...p, [key]: value }));
     if (["dns_url", "dns_fallback_urls", "dns_public_fallback"].includes(key)) setProbe(null);
     setError("");
+    setFailure(null);
   };
   const close = async () => {
     if (submitting) return;
@@ -154,6 +174,7 @@ export function SettingsPanel({
         if (status.job.settings_saved) onSaved();
         setStaticDraftOffer(status.job.recovery === "static-ip-draft-available");
         setError(status.job.error || status.job.message);
+        setFailure(status.job.failure || failureOf(status.job.error));
       } else {
         setStaticDraftOffer(false);
         onSaved();
@@ -164,12 +185,15 @@ export function SettingsPanel({
       }
     }
   }, [status.job, jobId]);
-  const check = async () => {
+  // check probes the exit with the draft as it is, unsaved.
+  const check = () => probeWith(draft);
+  const probeWith = async (value) => {
     setProbing(true);
     setProbeFailed(false);
     setError("");
+    setFailure(null);
     try {
-      const result = await api("/settings/probe", draft);
+      const result = await api("/settings/probe", value);
       setProbe(result);
       if (draft.auto_timezone)
         setDraft((previous) => ({ ...previous, timezone: result.timezone }));
@@ -182,11 +206,28 @@ export function SettingsPanel({
       return true;
     } catch (e) {
       setError(e.message);
+      setFailure(failureOf(e));
       setProbeFailed(true);
       return false;
     } finally {
       setProbing(false);
     }
+  };
+  // The failure card's tools on this page. A probe failure is tried again
+  // with the draft (the probe takes it unsaved); the rest run as on the
+  // workbench, carrying the flow through.
+  const settingsTool = async (name) => {
+    if (name === "split-retry") {
+      const next = { ...draft, tls_client_hello_split: true };
+      setDraft(next);
+      if (!(await probeWith(next))) throw new Error("probe");
+      return;
+    }
+    if (name === "settings:dns") return openDNS();
+    if (name === "settings:network") return setSection("network");
+    if (name === "settings:project" || name === "settings:resources") return setSection("project");
+    if (name === "reapply") return reapplyNode(api);
+    if (name === "recheck") return recheckNetwork(api);
   };
   const exitProbe = useAction(check), zoneProbe = useAction(check), languageProbe = useAction(check);
   const save = async ({ saveStaticDraft = false } = {}) => {
@@ -224,6 +265,7 @@ export function SettingsPanel({
     } catch (e) {
       savePhase.finish(false);
       setError(e.message);
+      setFailure(failureOf(e));
     } finally {
       setSubmitting(false);
     }
@@ -387,7 +429,7 @@ export function SettingsPanel({
                     </label>
                   </div>
                 </details>
-                <details className="settings-disclosure-card">
+                <details className="settings-disclosure-card" ref={dnsSection}>
                   <summary>
                     <SlidersHorizontal size={15} />
                     <span>{tr("加密 DNS")}</span>
@@ -808,9 +850,10 @@ export function SettingsPanel({
               </>
             )}
           </fieldset>
+          {error && failure && <FailureCard compact failure={failure} hide={section === "network" ? ["settings:network"] : []} onTool={settingsTool} />}
           {error && (
-            <div role="alert" className="error-message">
-              <SafetyMessage message={error} />
+            <div role={failure ? undefined : "alert"} className={failure ? "settings-failure-actions" : "error-message"}>
+              {!failure && <SafetyMessage message={error} />}
               {probeFailed && (draft.auto_timezone || draft.auto_language) && (
                 <button
                   className="text-button"

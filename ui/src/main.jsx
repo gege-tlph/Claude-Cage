@@ -79,6 +79,7 @@ import { needsProxySetup } from "./onboarding-state.mjs";
 import { statusExitText } from "./status-exit.mjs";
 import { StatusActivity, StatusBarHost, operationLogOpen } from "./status-activity";
 import { FailureCard } from "./failure-card";
+import { desktopFlow, enableClientHelloSplit, openSettingsSection, reapplyNode, recheckNetwork, refreshSource } from "./failure-flows.mjs";
 import { accountName, setPrivacyMasked, usePrivacyMask } from "./privacy-mask.mjs";
 import { NetworkLatency } from "./network-latency";
 import { NetworkSpeed } from "./network-speed";
@@ -924,7 +925,16 @@ function App() {
       return startEnvironment(startOptions());
     }
     if (name === "settings:network") return openSettings("network");
+    if (name === "settings:dns") { openSettings("network"); return openSettingsSection("dns"); }
     if (name === "settings:project" || name === "settings:resources") return openSettings("project");
+    if (name === "reapply") return reapplyNode(api);
+    if (name === "recheck") return recheckNetwork(api);
+    if (name === "refresh" || name === "refresh-host") return refreshSource(api, status.job?.failure?.target, name === "refresh-host");
+    if (name === "split-retry") return enableClientHelloSplit(api, () => startEnvironment(startOptions()));
+    if (name === "open-desktop") return desktopFlow(api, "start");
+    if (name === "reopen-desktop") return desktopFlow(api, "stop", "start");
+    if (name === "install-desktop") return desktopFlow(api, "install", "start");
+    if (name === "update-desktop") return desktopFlow(api, "update", "start");
   };
   const cancelAutomaticExit = () => {
     quitAfterStop.current = null;

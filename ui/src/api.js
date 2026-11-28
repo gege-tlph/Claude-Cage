@@ -18,6 +18,14 @@ async function responseError(response, path, method = "GET") {
     if (Number.isInteger(value?.code)) { error.code = value.code; error.detail = typeof value.message === "string" ? value.message : ""; }
   } catch { /* Most errors are plain text. */ }
   error.recovery = response.headers.get("X-Cage-Recovery") || "";
+  // A failure in three parts (internal/workbench job_failure.go).
+  const failure = response.headers.get("X-Cage-Failure");
+  if (failure) {
+    try {
+      const binary = atob(failure.replace(/-/g, "+").replace(/_/g, "/"));
+      error.failure = JSON.parse(new TextDecoder().decode(Uint8Array.from(binary, (c) => c.charCodeAt(0))));
+    } catch { /* The joined text in the body still reads. */ }
+  }
   return error;
 }
 async function renewSession() {

@@ -1091,3 +1091,7 @@
     padding: 6px 10px;
   }
 }
+
+/* Actions that belong to a failure shown as a card above them. */
+.settings-failure-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.settings-failure-actions:empty { display: none; }

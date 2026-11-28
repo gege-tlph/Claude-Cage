@@ -33,3 +33,9 @@
 @media (forced-colors: active) {
   .failure-card { border-color: CanvasText; background: Canvas; }
 }
+
+/* In place, inside a settings page: smaller, the same three lines. */
+.failure-card.compact { grid-template-columns: 18px minmax(0, 1fr); gap: 4px 10px; margin-top: 12px; padding: 12px 14px; border-radius: 10px; }
+.failure-card.compact .failure-card-lead { font-size: 0.9643rem; }
+.failure-card.compact .failure-card-next { font-size: 0.9286rem; }
+.failure-card.compact .failure-card-tools { margin-top: 6px; }

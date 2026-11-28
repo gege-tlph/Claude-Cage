@@ -34,6 +34,9 @@ import { activeInterfaceLanguage, translate, useTranslation } from "./interface-
 import { localizeBackendMessage } from "./backend-message.mjs";
 import { usePrivacyMask } from "./privacy-mask.mjs";
 import { isSourceFormDirty } from "./proxy-source-form.mjs";
+import { FailureCard } from "./failure-card";
+import { failureOf } from "./failure-text.mjs";
+import { enableClientHelloSplit, openSettingsSection } from "./failure-flows.mjs";
 
 const bytes = (v) => {
   const n = Math.max(0, Number(v) || 0);
@@ -75,7 +78,7 @@ const emptyManual = {
   passphrase: "",
   hostKey: "",
 };
-export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializing = false }) {
+export function ProxySettings({ status, onApplied, onConfirm, onDirty, onTool, initializing = false }) {
   const tr = useTranslation();
   const windowVisible = useWindowVisibility();
   const masked = usePrivacyMask();
@@ -90,6 +93,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
     [form, setForm] = useState(null),
     [mode, setMode] = useState("url"),
     [error, setError] = useState(""),
+    [failure, setFailure] = useState(null),
     [pending, setPending] = useState(""),
     [notice, setNotice] = useState(""),
     [delays, setDelays] = useState({}),
@@ -201,6 +205,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
     mutating.current = true;
     appliedFailure.current = null;
     setError("");
+    setFailure(null);
     setNotice("");
     setPending(action);
     try {
@@ -219,7 +224,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
         if (current.settings_saved) {
           appliedFailure.current = { message: current.error };
         }
-        throw new Error(current.error);
+        throw Object.assign(new Error(current.error), { failure: current.failure });
       }
       if (alive.current) {
         setForm(null);
@@ -244,7 +249,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
       }
       return true;
     } catch (e) {
-      if (alive.current) setError(e.message);
+      if (alive.current) { setError(e.message); setFailure(failureOf(e)); }
       return false;
     } finally {
       mutating.current = false;
@@ -508,6 +513,19 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
       </button>
     </div>
   );
+  // The failure card's tools in place: each redoes the action on this page
+  // and carries it through (the job checks the network after a node).
+  const proxyTool = async (name) => {
+    if (name === "reapply" && !(await mutate("route", { node_ids: savedRoute, port: proxy.port }))) throw new Error("reapply");
+    if ((name === "refresh" || name === "refresh-host") && failure?.target && !(await mutate("refresh", { id: failure.target, host_download: name === "refresh-host" }))) throw new Error("refresh");
+    if (name === "refresh-host" && !failure?.target && form) { setForm({ ...form, host_download: true }); return submit(); }
+    if (name === "split-retry") { await enableClientHelloSplit(api); return reload(); }
+    if (name === "settings:dns") return openSettingsSection("dns");
+    return onTool?.(name);
+  };
+  const failureBlock = (className) => error && (failure
+    ? <FailureCard compact failure={failure} hide={["settings:network"]} onTool={proxyTool} />
+    : <div role="alert" className={className}><SafetyMessage message={error} /></div>);
   const openImport = (importMode) => {
     setTab("sources");
     setForm({ ...emptyForm });
@@ -819,11 +837,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                   <SafetyMessage message={proxy.route_error} />
                 </p>
               )}
-              {error && (
-                <div role="alert" className="error-message">
-                  <SafetyMessage message={error} />
-                </div>
-              )}
+              {failureBlock("error-message")}
             </section>
           )}
           {allNodes.length > 0 && (
@@ -1005,9 +1019,9 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
                   {Number.isFinite(new Date(s.updated_at).getTime()) && tr("更新于 {0}", new Date(s.updated_at).toLocaleString(activeInterfaceLanguage()))}
                   {usageLabel(s.usage) && ` · ${usageLabel(s.usage)}`}
                 </small>
-                {s.error && (
-                  <span className="proxy-source-error">{localizeBackendMessage(s.error, tr)}</span>
-                )}
+                {s.error && (failureOf(s.error)
+                  ? <FailureCard compact failure={failureOf(s.error)} />
+                  : <span className="proxy-source-error">{localizeBackendMessage(s.error, tr)}</span>)}
                 {s.skipped?.length > 0 && (
                   <details className="proxy-source-skipped">
                     <summary>
@@ -1552,11 +1566,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, initializ
               : tr("正在处理…")}
         </p>
       )}
-      {error && !(tab === "nodes" && allNodes.length > 0) && (
-        <div role="alert" className="error-message">
-          <SafetyMessage message={error} />
-        </div>
-      )}
+      {!(tab === "nodes" && allNodes.length > 0) && failureBlock("error-message")}
       {notice && (
         <p role="status" className="proxy-notice">
           <Check size={14} />
