@@ -364,13 +364,14 @@ func (s *Server) runCage(args ...string) error {
 		}
 		// CLI failures can include the original QEMU stderr before a generic
 		// "Failed to start base VM" footer. Surface that reason in job.error.
-		for _, line := range strings.Split(s.jobs.snapshot().Log, "\n") {
+		output := s.jobs.snapshot().Log
+		for _, line := range strings.Split(output, "\n") {
 			if _, reason, ok := strings.Cut(line, "Error: QEMU 启动失败："); ok {
 				return fmt.Errorf("%s失败：虚拟机未能启动。QEMU 启动失败：%s。请查看操作日志；仍无法启动时，在设置中导出诊断包。", action, reason)
 			}
 		}
 		diagnostics.Log("error", "environment-operation", fmt.Sprintf("operation=%s error=%v context=%v", args[0], err, ctx.Err()))
-		return executionFailure(action, errors.Join(ctx.Err(), err), s.jobs.snapshot().Log)
+		return executionFailure(action, errors.Join(ctx.Err(), err), output)
 	}
 	if args[0] == "stop" || args[0] == "down" {
 		s.noteForcedShutdown(s.jobs.snapshot().Log)

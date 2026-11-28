@@ -380,7 +380,9 @@ func (s *Server) failureFacts() failureFacts {
 	limaHome, _ := s.commandLimaHome()
 	facts := failureFacts{dir: limaHome, orphaned: s.vmOrphaned}
 	if a, err := cage.LoadResourceAllocation(s.configPath); err == nil {
-		if memoryGiB, _, err := a.Limits(); err == nil {
+		// The budget the start asked for: automatic memory follows what the
+		// computer had free (#1115).
+		if memoryGiB, _, err := a.Limits(host.WindowsAvailableMemory()); err == nil {
 			facts.memoryGiB = memoryGiB
 		}
 	}

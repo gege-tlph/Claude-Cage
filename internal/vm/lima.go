@@ -788,7 +788,7 @@ func (l *Lima) Start(ctx context.Context, name string, log io.Writer) error {
 		if loadErr != nil {
 			return loadErr
 		}
-		settings.MemoryGiB, settings.CPUs, err = allocation.Limits()
+		settings.MemoryGiB, settings.CPUs, err = allocation.StartLimits()
 		if err != nil {
 			return err
 		}

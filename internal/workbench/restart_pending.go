@@ -70,8 +70,8 @@ func (s *Server) restartPendingLocked(running bool, now appliedSettings) []strin
 		pending = append(pending, "project_file_cache")
 	}
 	if in.resourcesKnown && now.resourcesKnown {
-		inMemory, inCPUs, inErr := in.Resources.Limits()
-		memory, cpus, err := now.Resources.Limits()
+		inMemory, inCPUs, inErr := in.Resources.Limits(0)
+		memory, cpus, err := now.Resources.Limits(0)
 		if inErr == nil && err == nil {
 			if inMemory != memory {
 				pending = append(pending, "memory")

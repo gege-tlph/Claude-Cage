@@ -22,7 +22,9 @@ export function ResourceSettings({ status, onConfirm, onDirtyChange }) {
   const [draft, setDraft] = useState(null);
   const [saved, setSaved] = useState(false);
   useEffect(() => {
-    if (data && data.runtime !== "container") setDraft((current) => current || allocationFrom(data));
+    if (data && data.runtime !== "container") {
+      setDraft((current) => !current || (current.automatic && data.automatic) ? allocationFrom(data) : current);
+    }
   }, [data]);
   const save = async (event) => {
     event.preventDefault();
