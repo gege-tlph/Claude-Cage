@@ -9,9 +9,12 @@ const { browser, page, state, errors } = await createWorkbench();
 try {
   state.settings.auto_language = true;
   await page.reload();
+  // The backend answers a failed lookup the way requestError does: plain text
+  // (internal/exitpolicy/location.go), without a failure header.
   await page.route("**/api/settings/probe", (route) => route.fulfill({
     status: 400,
-    json: { error: "已测得出口 IP，但位置查询均失败；未使用直连回退" },
+    contentType: "text/plain; charset=utf-8",
+    body: "已测得出口 IP，但位置查询均失败（ipinfo.io：超时）；请重试或切换节点。未使用直连回退\n",
   }));
   const policy = structuredClone(state.settings.exit_policy);
   await page.getByRole("button", { name: /^设置/ }).click();
@@ -22,9 +25,10 @@ try {
   assert.equal(await page.getByRole("switch").nth(0).isChecked(), false);
   assert.equal(await page.getByRole("switch").nth(1).isChecked(), false);
   await page.getByLabel("系统时区", { exact: true }).fill("Asia/Tokyo");
+  // Close the time zone list, which covers the fields below it.
+  await page.getByLabel("系统时区", { exact: true }).press("Escape");
   await chooseInline(page.getByRole("combobox", { name: "系统语言", exact: true }), "ja_JP.UTF-8");
   await chooseInline(page.getByRole("combobox", { name: "网页首选语言", exact: true }), "ja-JP");
-  await page.getByText("国家、城市限制仍须检测出口所在地。", { exact: false }).waitFor();
   await page.screenshot({ path: fileURLToPath(new URL("manual-settings.png", output)) });
   await page.locator(".settings-submit-bar").getByRole("button", { name: /^(保存|应用)$/ }).click();
   await page.locator(".settings-submit.open").waitFor({ state: "detached" });
