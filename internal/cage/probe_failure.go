@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sylvinus/agent-vm/internal/managedproxy"
 	"github.com/sylvinus/agent-vm/internal/usererror"
 )
 
@@ -100,6 +101,24 @@ func probeMixed(failures []probeFailure, cause error) *usererror.Failure {
 	}
 	return usererror.Because(fmt.Sprintf("原因是 %d 个出口检测服务都没有返回出口（%s）", n, detail),
 		"换一个节点", cause, usererror.ToolSettingsNetwork, usererror.ToolReapply, usererror.ToolDiagnostics)
+}
+
+// P6: the core logged a failed REALITY handshake with a node while the probe
+// ran (#809). The tunnel never came up, so the services' timeouts follow from
+// it and ClientHello splitting would not help. The hop is named only when the
+// probe went through the applied route and the core's records agree.
+func probeReality(hop string, cause error) *usererror.Failure {
+	reason := "原因是代理节点的 REALITY 认证没有通过（代理核心日志：REALITY authentication failed）"
+	switch hop {
+	case managedproxy.RealityHopSingle:
+		reason = "原因是所选节点的 REALITY 认证没有通过（代理核心日志：REALITY authentication failed）"
+	case managedproxy.RealityHopRelay:
+		reason = "原因是代理链前置节点的 REALITY 认证没有通过（代理核心日志：REALITY authentication failed）"
+	case managedproxy.RealityHopExit:
+		reason = "原因是代理链出口节点的 REALITY 认证没有通过（代理核心日志：REALITY authentication failed）"
+	}
+	return usererror.Because(reason, "核对节点的 public-key、short-id 和 servername 后重新导入", cause,
+		usererror.ToolSettingsNetwork, usererror.ToolDiagnostics)
 }
 
 // splitAlreadyOn: with ClientHello splitting on already, a TLS failure is

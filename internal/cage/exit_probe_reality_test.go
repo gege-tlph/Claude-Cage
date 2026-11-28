@@ -59,12 +59,12 @@ func TestExitProbeReportsCoreRealityAuthFailure(t *testing.T) {
 		want     string
 		unwanted []string
 	}{
-		{"relay on applied route", true, []string{managedproxy.RealityHopRelay}, "代理链中的中转节点", []string{"最终出口节点"}},
-		{"exit on applied route", true, []string{managedproxy.RealityHopExit}, "代理链中的最终出口节点", []string{"中转节点"}},
-		{"single node", true, []string{managedproxy.RealityHopSingle}, "所选代理节点", []string{"中转节点", "最终出口节点"}},
-		{"conflicting hops", true, []string{managedproxy.RealityHopRelay, managedproxy.RealityHopExit}, "代理核心与代理节点握手", []string{"中转节点", "最终出口节点"}},
-		{"unconfirmed hop", true, nil, "代理核心与代理节点握手", []string{"中转节点", "最终出口节点"}},
-		{"other route", false, []string{managedproxy.RealityHopRelay}, "代理核心与代理节点握手", []string{"中转节点", "最终出口节点"}},
+		{"relay on applied route", true, []string{managedproxy.RealityHopRelay}, "原因是代理链前置节点的", []string{"出口节点"}},
+		{"exit on applied route", true, []string{managedproxy.RealityHopExit}, "原因是代理链出口节点的", []string{"前置节点"}},
+		{"single node", true, []string{managedproxy.RealityHopSingle}, "原因是所选节点的", []string{"前置节点", "出口节点"}},
+		{"conflicting hops", true, []string{managedproxy.RealityHopRelay, managedproxy.RealityHopExit}, "原因是代理节点的", []string{"前置节点", "出口节点"}},
+		{"unconfirmed hop", true, nil, "原因是代理节点的", []string{"前置节点", "出口节点"}},
+		{"other route", false, []string{managedproxy.RealityHopRelay}, "原因是代理节点的", []string{"前置节点", "出口节点"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			store := useDiagnosticStore(t)
@@ -89,12 +89,12 @@ func TestExitProbeReportsCoreRealityAuthFailure(t *testing.T) {
 				t.Fatalf("expected ErrRealityAuthFailed only, got ip=%q err=%v", ip, err)
 			}
 			message := err.Error()
-			for _, want := range []string{"代理节点 REALITY 认证失败", tc.want, "public-key", "short-id", "servername", "不是目标网站的 TLS 问题", "不会有帮助", "外网保持关闭", "备用检测服务"} {
+			for _, want := range []string{"REALITY 认证没有通过", tc.want, "public-key", "short-id", "servername"} {
 				if !strings.Contains(message, want) {
 					t.Fatalf("missing %q: %s", want, message)
 				}
 			}
-			for _, unwanted := range append([]string{"TLS 握手超时", "client-fingerprint", "可尝试在", "203.0.113.5"}, tc.unwanted...) {
+			for _, unwanted := range append([]string{"TLS", "client-fingerprint", "外网保持关闭", "203.0.113.5"}, tc.unwanted...) {
 				if strings.Contains(message, unwanted) {
 					t.Fatalf("unexpected %q: %s", unwanted, message)
 				}
@@ -119,7 +119,7 @@ func TestExitProbeIgnoresRealityFailureBeforeTheProbe(t *testing.T) {
 		_ = store.Record("warn", "exit-probe", "error=REALITY authentication failed")
 	})
 	ip, err := probeExitIPServices(context.WithValue(context.Background(), selectedRouteProbe{}, true), &http.Client{Timeout: 150 * time.Millisecond}, services, time.Minute, "")
-	if ip != "" || errors.Is(err, ErrRealityAuthFailed) || !errors.Is(err, ErrTLSHandshakeFailed) || !strings.Contains(err.Error(), "TLS 握手超时") {
+	if ip != "" || errors.Is(err, ErrRealityAuthFailed) || !errors.Is(err, ErrTLSHandshakeFailed) || !strings.Contains(err.Error(), "TLS 握手都超时") {
 		t.Fatalf("an earlier or non-core REALITY record must not change the classification: ip=%q err=%v", ip, err)
 	}
 }

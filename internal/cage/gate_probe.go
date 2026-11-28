@@ -215,7 +215,7 @@ func probeExitIPServices(ctx context.Context, client *http.Client, services []ex
 		if selected, _ := ctx.Value(selectedRouteProbe{}).(bool); !selected {
 			hop = ""
 		}
-		return "", realityAuthError([]string{summarizeProbeFailures(failures)}, hop)
+		return "", probeReality(hop, ErrRealityAuthFailed)
 	}
 	if allSchemeMismatch {
 		// A plain HTTP answer proves the node is reachable, so the
@@ -288,24 +288,6 @@ func coreRealityAuthFailure(since time.Time) (failed bool, hop string) {
 		}
 	}
 	return failed, hop
-}
-
-func realityAuthError(reported []string, hop string) error {
-	node := "代理节点"
-	switch hop {
-	case managedproxy.RealityHopSingle:
-		node = "所选代理节点"
-	case managedproxy.RealityHopRelay:
-		node = "代理链中的中转节点"
-	case managedproxy.RealityHopExit:
-		node = "代理链中的最终出口节点"
-	}
-	reason := "代理核心与" + node + "握手时 REALITY 认证未通过（核心日志：REALITY authentication failed），隧道未建立，检测请求没有到达目标网站"
-	if len(reported) > 0 {
-		reason += "；" + strings.Join(reported, "；")
-	}
-	next := "常见原因是" + node + "的 public-key、short-id 或 servername 与服务端不一致，或代理核心版本与服务端不兼容；这不是目标网站的 TLS 问题，开启“TLS ClientHello 分段传输兼容模式”不会有帮助。请核对该节点的 REALITY 参数后重新导入并应用，或切换代理节点；外网保持关闭。"
-	return usererror.New("代理节点 REALITY 认证", reason, next, ErrRealityAuthFailed)
 }
 
 // proxyReaches reports whether one GET to endpoint returned HTTP 204 through
