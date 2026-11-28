@@ -1,15 +1,20 @@
 package main
 
 import (
+	"fmt"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"golang.org/x/sys/windows/registry"
 )
 
 // The real HKCU\Environment stays untouched: the test edits a scratch key.
+// The key name is unique per run, so test runs in several worktrees at once
+// do not delete each other's key.
 func TestUserPathRegistryKeepsTypeAndOtherEntries(t *testing.T) {
-	scratch := `Software\CageLiteTest\` + strings.ReplaceAll(t.Name(), "/", "_")
+	scratch := fmt.Sprintf(`Software\CageLiteTest\%s_%d_%d`, strings.ReplaceAll(t.Name(), "/", "_"), os.Getpid(), time.Now().UnixNano())
 	old := userEnvironmentKey
 	userEnvironmentKey = scratch
 	t.Cleanup(func() {
