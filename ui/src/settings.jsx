@@ -33,6 +33,7 @@ import { failureOf } from "./failure-text.mjs";
 import { reapplyNode, recheckNetwork } from "./failure-flows.mjs";
 import { SettingsSubmitBar } from "./settings-submit-bar";
 import { RouteText } from "./route-text";
+import { useSidebarEdge } from "./sidebar-edge.mjs";
 import { pendingSummary } from "./settings-pending.mjs";
 import { AppearanceSettings } from "./appearance-settings";
 import { NotificationSettings } from "./notification-settings";
@@ -107,6 +108,8 @@ export function SettingsPanel({
   const savePhase = usePhase();
   // 加密 DNS, opened by a failure's 「加密 DNS」 button (failure-flows.mjs).
   const dnsSection = useRef(null), advancedSection = useRef(null);
+  const sidebar = useRef(null);
+  useSidebarEdge(sidebar);
   const openDNS = () => {
     setSection("network");
     setTimeout(() => {
@@ -376,7 +379,7 @@ export function SettingsPanel({
   }, []);
   return (
     <section className="settings-page" aria-label={tr("设置")}>
-      <aside className="settings-sidebar">
+      <aside ref={sidebar} className="settings-sidebar">
         <button
           id="settings-back"
           className="back-to-workspace"

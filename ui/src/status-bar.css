@@ -1,12 +1,13 @@
 /* The global status bar's message, its 操作日志 icon and window
    (status-activity.jsx, operation-log.jsx). */
 
-/* Settings stop above the status bar instead of covering it; the bar then
-   spans the window's bottom edge (StatusBarHost). */
-.settings-page { bottom: var(--status-bar-height, 0px); }
+/* While settings are open the status bar sits at the window's bottom
+   (StatusBarHost), after the settings sidebar, which runs down to the
+   bottom, and under the submit bar (user, 2026-11-28; sidebar-edge.mjs). */
+.settings-page .settings-main { margin-bottom: var(--status-bar-height, 0px); }
 .status-bar-slot, .status-bar-host { display: contents; }
 .status-bar-slot.is-empty { display: block; flex: none; height: var(--status-bar-height, 0px); }
-.status-bar-host.is-overlay { display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; }
+.status-bar-host.is-overlay { display: block; position: fixed; left: var(--settings-sidebar-edge, 0px); right: 0; bottom: 0; z-index: 20; }
 
 /* First run: the page scrolls above a status bar with only the message and
    the log icon. */
