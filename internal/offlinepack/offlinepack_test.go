@@ -34,7 +34,7 @@ func writeData(t *testing.T, files map[string]string, image string) (string, *Ma
 		}
 	}
 	write(m.Image.Path, image)
-	for _, p := range []string{"apt/sources.list", "apt/debian/pool/main/a/a.deb", "tools/abc/gh.deb"} {
+	for _, p := range []string{"apt/sources.list", "apt/archives/a_1_amd64.deb", "tools/abc/gh.deb"} {
 		content, ok := files[p]
 		if !ok {
 			continue
@@ -48,7 +48,7 @@ func writeData(t *testing.T, files map[string]string, image string) (string, *Ma
 	return dir, m
 }
 
-var sample = map[string]string{"apt/sources.list": "deb file:/x trixie main\n", "apt/debian/pool/main/a/a.deb": "deb-bytes", "tools/abc/gh.deb": "gh"}
+var sample = map[string]string{"apt/sources.list": "deb file:/x trixie main\n", "apt/archives/a_1_amd64.deb": "deb-bytes", "tools/abc/gh.deb": "gh"}
 
 func TestFindUsesOnlyThisVersionsData(t *testing.T) {
 	dir, _ := writeData(t, sample, "image")

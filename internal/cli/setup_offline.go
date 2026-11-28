@@ -155,8 +155,9 @@ func (l *lockedWriter) Write(p []byte) (int, error) {
 	return l.w.Write(p)
 }
 
-// finishInstall ends every Cage setup: the copied data and APT's offline
-// configuration go, and the disk is marked as installed.
+// finishInstall ends every Cage setup: APT's offline configuration goes, the
+// copied indexes become the system sources' lists, and the disk is marked
+// as installed.
 func finishInstall(ctx context.Context, b vm.Backend, name string, w io.Writer) error {
 	if os.Getenv(cage.ConfigEnv) == "" {
 		return nil

@@ -394,7 +394,10 @@ func assemble(collected, imageEntry, version, toolVersions, out string, log io.W
 		byPrefix[r.prefix] = r.repo
 	}
 
-	// The archives, at the paths the indexes give them.
+	// The archives, under the names APT gave them in its download cache: the
+	// guest puts them back there, so apt-get finds each one already
+	// downloaded, checks it against the signed index and does not fetch it.
+	// Only archives an index lists are taken.
 	archives, err := os.ReadDir(filepath.Join(work, "archives"))
 	if err != nil {
 		return err
@@ -413,7 +416,10 @@ func assemble(collected, imageEntry, version, toolVersions, out string, log io.W
 			missing = append(missing, e.Name())
 			continue
 		}
-		if err := copyFile(p, filepath.Join(out, "apt", entry.rel.repo, filepath.FromSlash(entry.filename))); err != nil {
+		if !strings.HasSuffix(e.Name(), ".deb") || strings.ContainsAny(e.Name(), "/\\:") {
+			return fmt.Errorf("unexpected archive name %s", e.Name())
+		}
+		if err := copyFile(p, filepath.Join(out, "apt", "archives", e.Name())); err != nil {
 			return err
 		}
 		aptBytes += size
@@ -469,6 +475,20 @@ func assemble(collected, imageEntry, version, toolVersions, out string, log io.W
 		return err
 	}
 	if err := os.WriteFile(filepath.Join(out, "apt", "security.list"), []byte(security.String()), 0o644); err != nil {
+		return err
+	}
+	// Each local repository's indexes are its source's own signed files; at
+	// the end of the installation they become that source's APT lists again,
+	// as an online installation leaves them.
+	var listNames []string
+	for prefix, repo := range byPrefix {
+		if prefix == "" || strings.ContainsAny(prefix, "/\\\t\n") {
+			return fmt.Errorf("unexpected list name prefix %q", prefix)
+		}
+		listNames = append(listNames, repo+"\t"+prefix)
+	}
+	sort.Strings(listNames)
+	if err := os.WriteFile(filepath.Join(out, "apt", "lists.map"), []byte(strings.Join(listNames, "\n")+"\n"), 0o644); err != nil {
 		return err
 	}
 	if _, err := os.Stat(keyFile); err == nil {

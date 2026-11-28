@@ -107,8 +107,8 @@ func TestAssembleBuildsSignedLocalRepositories(t *testing.T) {
 	if err := offlinepack.Verify(out, m, nil); err != nil {
 		t.Fatal(err)
 	}
-	for _, p := range []string{"apt/debian/pool/main/a/a_1_amd64.deb", "apt/debian/dists/trixie/InRelease", "apt/debian/dists/trixie/main/binary-amd64/Packages",
-		"apt/debian-security/pool/updates/main/a/apt/apt_3.0.4_amd64.deb", "tools/" + sum("gh") + "/gh.deb", "schemas/code-server-machine-settings.json"} {
+	for _, p := range []string{"apt/archives/a_1_amd64.deb", "apt/debian/dists/trixie/InRelease", "apt/debian/dists/trixie/main/binary-amd64/Packages",
+		"apt/archives/apt_3.0.4.deb", "tools/" + sum("gh") + "/gh.deb", "schemas/code-server-machine-settings.json"} {
 		if _, err := os.Stat(filepath.Join(out, filepath.FromSlash(p))); err != nil {
 			t.Errorf("missing %s", p)
 		}
@@ -117,6 +117,13 @@ func TestAssembleBuildsSignedLocalRepositories(t *testing.T) {
 	want := "deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg check-valid-until=no check-date=no by-hash=no] file:/var/cache/cage-offline/apt/debian trixie main\n"
 	if !strings.Contains(string(sources), want) || !strings.Contains(string(sources), "apt/debian trixie-backports main\n") || strings.Contains(string(sources), "trusted=yes") {
 		t.Fatalf("sources.list:\n%s", sources)
+	}
+	if _, err := os.Stat(filepath.Join(out, "apt", "debian", "pool")); err == nil {
+		t.Fatal("archives belong in apt/archives, not in a pool")
+	}
+	lists, _ := os.ReadFile(filepath.Join(out, "apt", "lists.map"))
+	if string(lists) != "debian\tdeb.debian.org_debian\ndebian-security\tdeb.debian.org_debian-security\n" {
+		t.Fatalf("lists.map:\n%s", lists)
 	}
 	security, _ := os.ReadFile(filepath.Join(out, "apt", "security.list"))
 	if !strings.Contains(string(security), "apt/debian-security trixie-security main") || strings.Count(string(security), "\n") != 1 {
