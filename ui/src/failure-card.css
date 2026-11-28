@@ -39,3 +39,7 @@
 .failure-card.compact .failure-card-lead { font-size: 0.9643rem; }
 .failure-card.compact .failure-card-next { font-size: 0.9286rem; }
 .failure-card.compact .failure-card-tools { margin-top: 6px; }
+
+/* The update button's short notice holds the card itself: no second frame. */
+.app-update-error.card { padding: 0; border: 0; background: transparent; box-shadow: none; }
+.app-update-error.card .failure-card { margin: 0; box-shadow: var(--shadow-md); }

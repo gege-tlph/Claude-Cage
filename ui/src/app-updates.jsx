@@ -6,6 +6,8 @@ import { Modal } from "./modal";
 import { stopAndExit } from "./quit";
 import { activeInterfaceLanguage, useTranslation } from "./interface-language.mjs";
 import { localizeBackendMessage } from "./backend-message.mjs";
+import { FailureCard } from "./failure-card";
+import { updateFailure, updateFailureLine } from "./update-failure.mjs";
 
 const activePhases = new Set(["checking", "downloading", "downloaded", "verifying", "installing"]);
 const checkInterval = 6 * 60 * 60 * 1000;
@@ -152,7 +154,9 @@ export function AppUpdateDialog({ updates, onStatus }) {
       <p>{tr("环境会停止，终端任务会结束。")}</p>
       {state.officialUpgrade && <p>{tr("将切换为官方签名版，本地源码改动不保留。")}</p>}
       {stopping && <p role="status"><LoaderCircle size={16} className="spin" />{" " + tr("正在停止环境…")}</p>}
-      {error && <p className="error-message" role="alert">{localizeBackendMessage(error, tr)}</p>}
+      {error && (updateFailure(error, "failed")
+        ? <FailureCard compact failure={{ ...updateFailure(error, "failed"), tools: ["diagnostics"] }} />
+        : <p className="error-message" role="alert">{localizeBackendMessage(error, tr)}</p>)}
     </div>
   </Modal>;
 }
@@ -191,7 +195,7 @@ export function AppUpdateButton({ updates }) {
     : state.phase === "checking" ? tr("正在准备更新")
     : coolingDown ? tr("等待重试更新") : failed ? tr("重试更新") : manual ? tr("查看新版本") : state.phase === "ready" ? tr("安装已下载的更新") : tr("下载更新");
   const hint = coolingDown ? tr("{0}，可于 {1} 后重试", state.message ? localizeBackendMessage(state.message, tr) : tr("更新源请求受限"), new Date(state.retryAt).toLocaleString(activeInterfaceLanguage()))
-    : failed ? tr("{0}，点击重试", state.message ? localizeBackendMessage(state.message, tr) : tr("更新未完成"))
+    : failed ? tr("{0}，点击重试", state.message ? localizeBackendMessage(updateFailureLine(state.message), tr) : tr("更新未完成"))
     : busy ? label
     : manual ? tr("新版本 {0} 已发布。{1}点击打开发布页面。", state.latestVersion, state.message ? localizeBackendMessage(state.message, tr) + " " : "")
     : state.officialUpgrade ? tr("更新至 {0}。当前为本地未签名构建，更新后将切换为官方签名发行版（配置、账户、项目和虚拟机磁盘会保留，本地源码改动不会保留）。", state.latestVersion)
@@ -223,7 +227,9 @@ export function AppUpdateButton({ updates }) {
           </>
         ) : failed ? <RefreshCw size={20} /> : <ArrowDownToLine size={20} />}
       </button>}
-      {(failure || startupFailure) && <div className="app-update-error" role="alert">{localizeBackendMessage(failure || startupFailure, tr)}</div>}
+      {(failure || startupFailure) && (updateFailure(failure || startupFailure, "failed")
+        ? <div className="app-update-error card"><FailureCard compact failure={{ ...updateFailure(failure || startupFailure, "failed"), tools: [] }} /></div>
+        : <div className="app-update-error" role="alert">{localizeBackendMessage(failure || startupFailure, tr)}</div>)}
     </>
   );
 }

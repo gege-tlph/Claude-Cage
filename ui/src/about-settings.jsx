@@ -4,6 +4,8 @@ import { api, native, nativeAvailable } from "./api";
 import "./about-settings.css";
 import { activeInterfaceLanguage, useTranslation } from "./interface-language.mjs";
 import { localizeBackendMessage } from "./backend-message.mjs";
+import { FailureCard } from "./failure-card";
+import { updateFailure } from "./update-failure.mjs";
 
 const repository = "https://github.com/gege-tlph/Claude-Cage";
 const releaseMessages = {
@@ -57,9 +59,14 @@ function ReleaseResult({ item, updates, onError }) {
   return <section className="about-result" aria-label={tr("发行版更新")}>
     <h4>{tr("发行版更新")}</h4>
     {!item ? <p className="footnote">{tr("尚未检查")}</p> : <>
-      <p className={item.error ? "error-message" : "about-result-status"}>
-        {item.error ? localizeBackendMessage(item.error, tr) : tr(releaseMessages[item.status])}
-      </p>
+      {item.error && updates && updateFailure(item.error, updates.state.phase)
+        ? <FailureCard compact failure={updateFailure(item.error, updates.state.phase)} onTool={async (name) => {
+          if (name === "retry-update") return updates.run("install");
+          if (name === "releases") return native("appReference", { kind: "releases" });
+        }} />
+        : <p className={item.error ? "error-message" : "about-result-status"}>
+          {item.error ? localizeBackendMessage(item.error, tr) : tr(releaseMessages[item.status])}
+        </p>}
       {item.retryAt && <p className="footnote">{tr("可于") + " "}{new Date(item.retryAt).toLocaleString(activeInterfaceLanguage())}{" " + tr("后重试")}</p>}
       {item.version && <p className="about-result-detail">{item.version} · {item.prerelease ? tr("预发行版") : tr("正式版")}</p>}
       {updates && <UpdaterAction updates={updates} />}
