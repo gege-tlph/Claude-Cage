@@ -36,6 +36,9 @@ func installFailure(stage string, cause error, output string, facts failureFacts
 		stage = "准备环境"
 	}
 	stage = spaced(stage)
+	if f := offlineDataFailure(stage, cause, output); f != nil {
+		return f
+	}
 	if f := imageFailure(stage, cause, output); f != nil {
 		return f
 	}

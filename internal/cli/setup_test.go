@@ -331,7 +331,8 @@ func TestCageCustomSetupUsesBashRegardlessOfGuestLoginShell(t *testing.T) {
 	if result := te.setupBase([]string{"setup", "--preinstall=none"}); result != 0 {
 		t.Fatalf("%d: %s", result, te.out())
 	}
-	if len(commands) != 2 || commands[1] != "bash -l" {
+	// The third is the end of the installation (setup_offline.go).
+	if len(commands) != 3 || commands[1] != "bash -l" || commands[2] != "bash -s" {
 		t.Fatalf("Cage script ran in the guest login shell: %v", commands)
 	}
 }

@@ -20,6 +20,9 @@ type SetupProgress struct {
 // continues through the existing redacted operation log.
 func parseSetupProgress(line string) *SetupProgress {
 	line = strings.TrimSpace(line)
+	if p := offlineSetupProgress(line); p != nil {
+		return p
+	}
 	if strings.HasPrefix(line, "CAGE_GUEST_BYTES ") {
 		fields := strings.Fields(line)
 		if len(fields) != 5 {

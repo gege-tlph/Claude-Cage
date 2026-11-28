@@ -6345,5 +6345,16 @@
   "当前 {0}": "In use: {0}",
   "自选 {0} 个": "{0} chosen",
   "最低延迟": "Lowest latency",
-  "故障转移": "Failover"
+  "故障转移": "Failover",
+  "正在校验安装文件": "Verifying installation files",
+  "正在复制安装文件": "Copying installation files",
+  "校验安装文件": "verifying installation files",
+  "复制安装文件": "copying installation files",
+  "原因是{0}时完整包里的安装文件与清单不符": "the full package's installation files didn't match their manifest while {0}",
+  "原因是{0}时读不出完整包的安装文件清单": "the full package's installation file manifest couldn't be read while {0}",
+  "原因是{0}时完整包里的 Debian 镜像不是这个版本使用的镜像": "the full package's Debian image isn't the one this version uses while {0}",
+  "原因是{0}时完整包里的软件包与清单不符": "the full package's software packages didn't match their manifest while {0}",
+  "原因是{0}时完整包里的工具安装包与清单不符": "the full package's tool installers didn't match their manifest while {0}",
+  "原因是{0}时完整包里的 Debian 镜像校验不符": "the full package's Debian image failed its checksum while {0}",
+  "重新运行完整包的安装程序后继续安装": "Run the full package's installer again, then continue the install"
 }
