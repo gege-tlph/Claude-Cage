@@ -21,7 +21,10 @@ func rawCLIConsole(in, out *os.File) (func(), error) {
 	return func() { restoreCLIDisplay(out); _ = term.Restore(fd, state) }, nil
 }
 
-func pumpCLIInput(ctx context.Context, r io.Reader, send func([]byte) error) error {
+// pumpCLIInput sends what r gives until it ends. rawConsole says the input is
+// a console in raw mode; a raw Unix terminal hands Ctrl+Z over as a byte, so
+// nothing differs here.
+func pumpCLIInput(ctx context.Context, r io.Reader, rawConsole bool, send func([]byte) error) error {
 	f, ok := r.(*os.File)
 	if !ok {
 		return copyCLIInput(ctx, r.Read, send)

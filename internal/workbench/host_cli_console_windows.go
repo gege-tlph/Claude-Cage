@@ -33,7 +33,11 @@ func rawCLIConsole(in, out *os.File) (func(), error) {
 
 var cancelConsoleRead = windows.NewLazySystemDLL("kernel32.dll").NewProc("CancelSynchronousIo")
 
-func pumpCLIInput(ctx context.Context, r io.Reader, send func([]byte) error) error {
+// pumpCLIInput sends what r gives until it ends. rawConsole says the input is
+// the console in raw mode, where Go reads Ctrl+Z (0x1A) as the end of input
+// (internal/poll readConsole). An interactive terminal has no end of input,
+// so there it goes on to the terminal as the byte it is.
+func pumpCLIInput(ctx context.Context, r io.Reader, rawConsole bool, send func([]byte) error) error {
 	f, ok := r.(*os.File)
 	if !ok {
 		return copyCLIInput(ctx, r.Read, send)
@@ -66,9 +70,24 @@ func pumpCLIInput(ctx context.Context, r io.Reader, send func([]byte) error) err
 			}
 		}
 	}()
-	err = copyCLIInput(ctx, f.Read, send)
+	read := f.Read
+	if rawConsole {
+		read = func(buf []byte) (int, error) { return consoleCtrlZ(buf, f.Read) }
+	}
+	err = copyCLIInput(ctx, read, send)
 	close(done)
 	<-finished
 	_ = f.SetReadDeadline(time.Time{})
 	return err
+}
+
+// consoleCtrlZ reads the raw console, giving back the Ctrl+Z that Go reports
+// as an empty read at the end of input.
+func consoleCtrlZ(buf []byte, read func([]byte) (int, error)) (int, error) {
+	n, err := read(buf)
+	if n == 0 && err == io.EOF && len(buf) > 0 {
+		buf[0] = 0x1A
+		return 1, nil
+	}
+	return n, err
 }

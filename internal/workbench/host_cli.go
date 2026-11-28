@@ -557,9 +557,8 @@ func serveHostCLITerminal(ctx context.Context, c *hostCLIConn, t *terminalSessio
 						return
 					}
 				}
-				if e.Type == "eof" {
-					return
-				}
+				// An interactive terminal ends when its program exits; an
+				// "eof" from an older client does not cut it off (B10).
 			}
 		}
 	}()

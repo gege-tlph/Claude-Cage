@@ -704,9 +704,10 @@ func cliExchange(ctx context.Context, controller *controllerClient, in hostCLIRe
 			}
 			inputDone = make(chan struct{})
 			pipe := e.Type == "ready"
+			rawConsole := e.Type == "terminal" && restore != nil
 			go func() {
 				defer close(inputDone)
-				err := pumpCLIInput(ctx, stdin, func(data []byte) error {
+				err := pumpCLIInput(ctx, stdin, rawConsole, func(data []byte) error {
 					if err := c.send(websocket.BinaryMessage, data); err != nil || !pipe {
 						return err
 					}
