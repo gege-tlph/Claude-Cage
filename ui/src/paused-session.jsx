@@ -25,7 +25,7 @@ export function PausedSession({ id, request, onContinued, disabled }) {
   }
   return <div className="paused-session">
     <strong role="status">{tr("Claude 已暂停")}</strong>
-    <button type="button" disabled={disabled || busy} onClick={resume}>{busy ? tr("正在恢复…") : tr("继续对话")}</button>
+    <button type="button" disabled={disabled || busy} onClick={resume}>{busy ? tr("正在继续…") : tr("继续对话")}</button>
     {error && <span role="alert">{tr(error)}</span>}
   </div>;
 }

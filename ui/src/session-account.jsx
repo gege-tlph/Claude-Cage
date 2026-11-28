@@ -61,7 +61,7 @@ export function SessionAccount({ id, request, onChanged, compact = false, defaul
         ?<p>{tr("原账号：")}{session.account_label || session.account_id}</p>
         :<p>{tr("当前账号：")}{session.account_label || session.account_id}</p>}
       {session.account_failure && <p role="status">{failures[session.account_failure] || tr("本轮发生错误，原会话已保留")}</p>}
-      {sessionPaused && <p role="status">{tr("Claude 已暂停，原会话仍占用此账号，请先继续对话")}</p>}
+      {sessionPaused && <p role="status">{tr("Claude 已暂停")}</p>}
       {sw && <p role="status">{sw.phase==="completed"?tr("已接续至"):tr("接续目标：")}{sw.target_label}{sw.error && ` · ${sw.error}`}</p>}
       <label>{tr("此会话切换授权")}<InlineSelect aria-label={tr("此会话切换授权")} disabled={busy || switching} value={view.switch_policy} onValueChange={policy=>change({action:"policy",policy})}>
         <option value="ask">{tr("每次询问")}</option><option value="allow">{tr("额度耗尽后自动接续")}</option><option value="wait">{tr("始终等待原账号")}</option>

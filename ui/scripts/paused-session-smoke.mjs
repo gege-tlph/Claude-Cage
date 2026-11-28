@@ -92,7 +92,7 @@ try {
     await phone.screenshot({path:path.join(process.env.CAGE_TEST_CAPTURE,"mobile-paused.png")});
   }
   await phone.getByRole("button",{name:/会话绑定/}).click();
-  await phone.getByText("Claude 已暂停，原会话仍占用此账号，请先继续对话").waitFor();
+  await phone.locator(".session-account-options").getByText("Claude 已暂停", {exact:true}).waitFor();
   await phone.getByRole("checkbox",{name:"允许将此会话历史交给所选账号"}).check();
   assert.equal(await phone.getByRole("button",{name:"切换并恢复历史"}).isDisabled(), true);
   await phone.getByRole("button",{name:/会话绑定/}).click();
@@ -101,7 +101,7 @@ try {
     await page.getByRole("alert").filter({hasText:"原终端正在处理其他任务"}).waitFor();
   await Promise.all([mobileButton.click(), desktopButton.click()]);
   for (const page of [phone, desktop]) {
-    const pending = page.getByRole("button",{name:"正在恢复…"});
+    const pending = page.getByRole("button",{name:"正在继续…"});
     await pending.waitFor();
     assert.equal(await pending.isDisabled(), true);
     await pending.evaluate(button => button.click());

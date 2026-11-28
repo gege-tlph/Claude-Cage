@@ -6330,6 +6330,7 @@
   "Claude 已暂停": "Claude paused",
   "原终端正在处理其他任务或会话已变化，请检查原终端。": "The original terminal is busy with another task or the session changed. Check the original terminal.",
   "无法在原终端恢复，请检查终端状态。": "Can't resume in the original terminal. Check the terminal's state.",
+  "正在继续…": "Resuming…",
   "继续对话": "Continue conversation",
   "本机终端输入中": "Typing in the local terminal",
   "已暂停": "Paused",
