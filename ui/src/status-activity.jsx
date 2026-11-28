@@ -115,6 +115,13 @@ export function StatusActivity({ job, toast, toastTone, running, ready, remote, 
     setCut(Boolean(element && element.scrollWidth > element.clientWidth + 1));
   };
 
+  // A failure card's 操作日志 button opens the window here.
+  useEffect(() => {
+    const show = () => setOpen(true);
+    window.addEventListener("cage-open-operation-log", show);
+    return () => window.removeEventListener("cage-open-operation-log", show);
+  }, []);
+
   const close = useCallback((returnFocus) => {
     setOpen(false);
     if (returnFocus) iconRef.current?.focus();
@@ -144,7 +151,7 @@ export function StatusActivity({ job, toast, toastTone, running, ready, remote, 
       onClick={() => setOpen(!open)}
     >
       <LogIcon />
-      {dot && <span className="status-log-dot" aria-hidden="true" />}
+      {dot && <span className={`status-log-dot${job?.failure?.level === "warn" ? " is-warn" : ""}`} aria-hidden="true" />}
     </button>
     <span className="status-announcer" role="status" aria-live="polite">{spoken}</span>
     {open && <OperationLog job={job} exportAlways={exportAlways} anchor={anchor} onClose={close} />}

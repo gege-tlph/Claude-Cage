@@ -20,6 +20,8 @@
 .status-message-text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; animation: status-message-in 150ms ease-out; }
 @keyframes status-message-in { from { opacity: 0; transform: translateY(4px); } }
 .status-bar button.status-message.is-fail { color: var(--danger); }
+.status-bar button.status-message.is-warn { color: var(--status-orange-ink); }
+.status-log-dot.is-warn { background: var(--status-orange); }
 /* While a job runs, a light sweeps over its stage. */
 .status-message.is-busy .status-message-text {
   color: transparent;
@@ -89,6 +91,8 @@
 .operation-log-job time { flex: none; padding-top: 1px; color: var(--muted); font-family: var(--code-font-family, ui-monospace, monospace); font-size: 0.8571rem; font-variant-numeric: tabular-nums; }
 .operation-log-name > span { color: var(--strong); font-weight: 600; }
 .operation-log-failed > span { color: var(--danger); }
+.operation-log-failed.is-warn > span { color: var(--status-orange-ink); }
+.operation-log-failed.is-info > span { color: var(--ink); }
 .operation-log-canceled > span { color: var(--muted); }
 .operation-log-raw { padding: 0; background: var(--chrome); }
 .operation-log-raw pre { margin: 0; padding: 10px 44px 12px 14px; font: 0.8214rem/1.6 var(--code-font-family, ui-monospace, monospace); color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }

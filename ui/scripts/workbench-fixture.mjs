@@ -233,7 +233,9 @@ export async function createWorkbench({
           { time: at(12), level: "warn", source: "exit-probe", message: "browser exit probe attempt 1 failed: context deadline exceeded" },
           { time: at(4), level: "error", source: "task/start", message: "did not receive an event with the \"running\" status (timeout 3m0s)" },
         ];
-        result = { ...result, events: events.filter((event) => levels.indexOf(event.level) >= levels.indexOf(level)) };
+        // The job's own output is recorded as task events, as the store does.
+        const output = (job.log || "").split("\n").filter(Boolean).map((line) => ({ time: at(1), level: "info", source: "task/" + (job.kind || "job"), message: line }));
+        result = { ...result, events: [...events, ...output].filter((event) => levels.indexOf(event.level) >= levels.indexOf(level)) };
       }
     }
     else if (path === "/projects/refresh") {

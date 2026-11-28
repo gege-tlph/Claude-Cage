@@ -1,0 +1,35 @@
+/* A failure in three lines (failure-card.jsx): the level's circle, what failed
+   and why, the suggestion, then tool buttons. The level tints the card:
+   严重 red, 警告 orange, 提示 blue. */
+.failure-card {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 6px 12px;
+  margin-top: 20px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  text-align: left;
+  animation: failure-card-in 200ms ease-out;
+}
+@keyframes failure-card-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } }
+.failure-card[data-level="error"] { border-color: color-mix(in srgb, var(--status-red) 32%, var(--line)); background: color-mix(in srgb, var(--status-red) 5%, var(--paper)); }
+.failure-card[data-level="warn"] { border-color: color-mix(in srgb, var(--status-orange) 42%, var(--line)); background: color-mix(in srgb, var(--status-orange) 7%, var(--paper)); }
+.failure-card[data-level="info"] { border-color: color-mix(in srgb, var(--status-blue) 30%, var(--line)); background: color-mix(in srgb, var(--status-blue) 5%, var(--paper)); }
+.failure-card-icon { margin-top: 2px; }
+.failure-card-lead { margin: 0; font-size: 1.0714rem; line-height: 1.55; color: var(--ink); overflow-wrap: anywhere; }
+.failure-card-lead b { color: var(--strong); font-weight: 650; }
+.failure-card-raw { font-family: var(--code-font-family, ui-monospace, monospace); font-size: 0.8929rem; color: var(--muted); }
+.failure-nowrap { white-space: nowrap; }
+.failure-card-next { grid-column: 2; margin: 0; font-size: 0.9643rem; line-height: 1.55; color: var(--ink); }
+.failure-card-next > span { color: var(--muted); }
+.failure-card-tools { grid-column: 2; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.failure-card button.failure-tool { min-height: 32px; height: 32px; padding: 0 12px; border-radius: 8px; font-size: 0.9286rem; font-weight: 600; gap: 0; }
+.failure-tool-icon { display: inline-flex; margin-right: 7px; }
+
+@media (prefers-reduced-motion: reduce) { .failure-card { animation: none; } }
+:root[data-reduced-motion="true"] .failure-card { animation: none; }
+@media (forced-colors: active) {
+  .failure-card { border-color: CanvasText; background: Canvas; }
+}

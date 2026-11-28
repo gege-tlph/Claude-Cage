@@ -150,7 +150,7 @@ export function OperationLog({ job, exportAlways = false, anchor, onClose }) {
           {entries.length ? logGroups(entries).map((group, index) => (
             <ol key={`${group.job}:${index}`} className="operation-log-job">
               {group.entries.map((entry, line) => (
-                <li key={line} className={line === 0 ? "operation-log-name" : entry.state ? `operation-log-${entry.state}` : undefined}>
+                <li key={line} className={line === 0 ? "operation-log-name" : entry.state ? `operation-log-${entry.state}${entry.level ? ` is-${entry.level}` : ""}` : undefined}>
                   <time dateTime={entry.time}>{logTime(entry.time)}</time>
                   <span>{localizeBackendMessage(entry.message, tr)}</span>
                 </li>

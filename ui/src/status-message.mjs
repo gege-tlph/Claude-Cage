@@ -4,8 +4,9 @@
 
 // statusMessage picks the status bar's message: a notification first, then
 // the running job's short stage, then a failed job's short result, then the
-// resting text. tone is "busy" (the light sweep), "fail" (red) or "". A
-// failure's sentence goes to the log, not here. raw is the backend text the
+// resting text. tone is "busy" (the light sweep), "fail" (red), "warn"
+// (orange, a failure whose level is 警告) or "". A failure's sentence goes to
+// the log, not here. raw is the backend text the
 // message stands for, for the safety checklist link.
 export function statusMessage({ toast = "", toastTone = "", job, running = false, ready = false, remote = false } = {}) {
   if (toast) return { text: toast, tone: toastTone === "error" ? "fail" : "", raw: toast };
@@ -13,7 +14,10 @@ export function statusMessage({ toast = "", toastTone = "", job, running = false
     const text = job.stage || job.message || "";
     return { text, tone: text ? "busy" : "", raw: "" };
   }
-  if (job?.error && !job.canceled) return { text: job.stage || "失败", tone: "fail", raw: job.error };
+  if (job?.error && !job.canceled) {
+    const level = job.failure?.level;
+    return { text: job.stage || "失败", tone: level === "warn" ? "warn" : level === "info" ? "" : "fail", raw: job.error };
+  }
   if (running) return { text: ready ? (remote ? "文件保存在云端" : "") : "环境运行中 · 浏览器待恢复", tone: "", raw: "" };
   return { text: "", tone: "", raw: "" };
 }
@@ -21,7 +25,7 @@ export function statusMessage({ toast = "", toastTone = "", job, running = false
 // unreadFailure is the failed job the log icon marks with a red dot until
 // the log has been opened after it ended.
 export function unreadFailure(job, seen) {
-  return Boolean(job?.id && !job.running && job.error && !job.canceled && job.id !== seen);
+  return Boolean(job?.id && !job.running && job.error && !job.canceled && job.failure?.level !== "info" && job.id !== seen);
 }
 
 // announcement is what a screen reader hears when the job changes: only the

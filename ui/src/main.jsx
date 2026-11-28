@@ -78,6 +78,7 @@ import { networkState, isGuestLocalURL } from "./safety-state.mjs";
 import { needsProxySetup } from "./onboarding-state.mjs";
 import { statusExitText } from "./status-exit.mjs";
 import { StatusActivity, StatusBarHost, operationLogOpen } from "./status-activity";
+import { FailureCard } from "./failure-card";
 import { accountName, setPrivacyMasked, usePrivacyMask } from "./privacy-mask.mjs";
 import { NetworkLatency } from "./network-latency";
 import { NetworkSpeed } from "./network-speed";
@@ -897,6 +898,13 @@ function App() {
       })
     )
       await action("/stop");
+  };
+  // The tool buttons of a failure card (failure-card.jsx).
+  const failureTool = async (name) => {
+    if (name === "start" || name === "continue-install") return startEnvironment();
+    if (name === "stop") return stop();
+    if (name === "settings:network") return openSettings("network");
+    if (name === "settings:project" || name === "settings:resources") return openSettings("project");
   };
   const cancelAutomaticExit = () => {
     quitAfterStop.current = null;
@@ -2275,7 +2283,8 @@ function App() {
                       )}
                     </div>
                   )}
-                  {failureCard && (() => {
+                  {failureCard && status.job.failure && <FailureCard failure={status.job.failure} onTool={failureTool} />}
+                  {failureCard && !status.job.failure && (() => {
                     const heading = status.job.message ? localizeBackendMessage(status.job.message, tr) : tr("本次操作未完成");
                     return <div className="start-error" role="alert">
                       <strong>{heading}</strong>

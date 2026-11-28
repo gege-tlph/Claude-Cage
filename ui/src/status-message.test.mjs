@@ -11,6 +11,9 @@ test("the status bar shows a notification, then the stage, then a failure, then 
   assert.equal(statusMessage({ job: { running: true, message: "正在准备…" } }).text, "正在准备…");
   assert.deepEqual(statusMessage({ job: { id: "a", error: "x", stage: "启动环境失败" } }), { text: "启动环境失败", tone: "fail", raw: "x" });
   assert.equal(statusMessage({ job: { id: "a", error: "x" } }).text, "失败");
+  // The level of a failure picks the color: 警告 orange, 提示 plain.
+  assert.equal(statusMessage({ job: { id: "a", error: "x", stage: "更新订阅失败", failure: { level: "warn" } } }).tone, "warn");
+  assert.equal(statusMessage({ job: { id: "a", error: "x", failure: { level: "info" } } }).tone, "");
   // A canceled job is not a failure.
   assert.equal(statusMessage({ job: { id: "a", error: "x", canceled: true, stage: "已取消" }, running: true, ready: true }).text, "");
   assert.equal(statusMessage({ job: { id: "a" }, running: true, ready: false }).text, "环境运行中 · 浏览器待恢复");
@@ -25,6 +28,8 @@ test("the red dot marks a failed job until the log is opened after it", () => {
   assert.equal(unreadFailure({ ...failed, running: true }, ""), false);
   assert.equal(unreadFailure({ ...failed, canceled: true }, ""), false);
   assert.equal(unreadFailure({ id: "a" }, ""), false);
+  assert.equal(unreadFailure({ ...failed, failure: { level: "warn" } }, ""), true);
+  assert.equal(unreadFailure({ ...failed, failure: { level: "info" } }, ""), false);
 });
 
 test("a screen reader hears the start, the end and a failure only", () => {

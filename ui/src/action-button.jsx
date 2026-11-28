@@ -42,8 +42,11 @@ export function useAction(action) {
 // environment). At rest it has no icon; busy shows the spinning arc with
 // busyLabel; the result shows 完成 or 失败 on the button only, then the label
 // comes back. The width follows the text. Busy buttons keep their colour.
+// With icon (a tool button), the icon shows at rest and turns into the
+// spinner while the action runs.
 export function ActionButton({
   phase = "idle",
+  icon,
   children,
   busyLabel,
   doneLabel,
@@ -71,8 +74,8 @@ export function ActionButton({
     : textPhase === "done" ? doneLabel || tr("完成")
       : textPhase === "fail" ? failLabel || tr("失败")
         : children;
-  const withIcon = phase !== "idle";
-  const icon = phase === "idle" ? "idle" : phase;
+  const withIcon = Boolean(icon) || phase !== "idle";
+  const state = phase === "idle" ? "idle" : phase;
   const width = useRef(0), hadIcon = useRef(withIcon);
   useLayoutEffect(() => {
     const el = ref.current;
@@ -107,7 +110,10 @@ export function ActionButton({
       disabled={disabled || working}
       onClick={working ? undefined : onClick}
     >
-      <span className="action-button-slot"><StatusIcon state={icon} /></span>
+      <span className="action-button-slot">
+        {icon && <span className={`action-button-icon${phase === "idle" ? "" : " is-hidden"}`} aria-hidden="true">{icon}</span>}
+        <StatusIcon state={state} className={icon && phase === "idle" ? "is-hidden" : ""} />
+      </span>
       <span className="action-button-label" key={text}>{text}</span>
     </button>
   );

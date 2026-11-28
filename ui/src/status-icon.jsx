@@ -4,10 +4,13 @@ import "./status-motion.css";
 
 // StatusIcon is the one circle every state uses: idle (empty ring), selected
 // (blue dot, 待应用), busy (spinning arc), done (green ring and check), fail
-// (red ring and !). From busy, done and fail first close the arc while it
-// spins, then draw the mark with a slight pop.
+// (red ring and !), warn (orange ring and !), info (blue ring and i). From
+// busy, a finished state first closes the arc while it spins, then draws the
+// mark with a slight pop.
+const FINISHED = ["done", "fail", "warn", "info"];
+
 export function StatusIcon({ state = "idle", size = 16, className = "", label }) {
-  const finished = state === "done" || state === "fail";
+  const finished = FINISHED.includes(state);
   const [closing, setClosing] = useState(false);
   const [closed, setClosed] = useState(finished);
   const [pop, setPop] = useState(false);
@@ -50,6 +53,8 @@ export function StatusIcon({ state = "idle", size = 16, className = "", label })
         <path className="status-icon-mark status-icon-check" pathLength="1" d="M6.1 10.3 8.8 12.9 14 7.4" />
         <path className="status-icon-mark status-icon-bang" pathLength="1" d="M10 5.6v5.1" />
         <circle className="status-icon-bang-dot" cx="10" cy="14.2" r="1.15" />
+        <path className="status-icon-mark status-icon-info" pathLength="1" d="M10 9.1v5.3" />
+        <circle className="status-icon-info-dot" cx="10" cy="5.9" r="1.15" />
       </svg>
     </span>
   );

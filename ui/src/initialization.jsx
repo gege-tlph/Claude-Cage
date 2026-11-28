@@ -12,6 +12,7 @@ import { SetupProgress } from "./setup-progress";
 import { DiagnosticSettings } from "./diagnostics.jsx";
 import { InitializationDetails } from "./initialization-checks";
 import { StatusActivity } from "./status-activity";
+import { FailureCard } from "./failure-card";
 import { Modal } from "./modal";
 import { SafetyMessage } from "./safety-message";
 import { needsEnvironmentRestart, needsProxySetup } from "./onboarding-state.mjs";
@@ -309,7 +310,9 @@ function Initialization({ initial, onComplete }) {
               // Installed and connected: the network check is this card's state (no second block).
               ? <div className="initialization-operation" role="status"><p>{status.safety?.error || job.error || status.network_error || tr("网络与隔离未检查")}</p><button className="primary" disabled={Boolean(connectionError)} onClick={checkNetwork}>{tr("网络与隔离检查")}</button></div>
               : mirrors ? null : <div className="initialization-operation" role="status"><p>{busy && <LoaderCircle size={18} className="spin" />}{measuring ? tr("正在测量软件源速度…") : stopped ? tr("安装已停止") : installMessage || (status.vm_running ? tr("环境已启动") : resumable ? tr("安装未完成") : tr("未开始"))}</p>{!busy && !job.error && !mirrors && !needsRestart && <button className="primary" disabled={Boolean(connectionError)} onClick={install}>{status.ready ? tr("重新启动并检查") : resumable ? tr("继续安装") : tr("开始安装")}</button>}{busy && !measuring && <button onClick={stop} disabled={submitting}>{tr("停止安装")}</button>}</div>}
-            {job.error && !progress && !checkPending && <div className="initialization-notice" role="alert"><SafetyMessage message={job.error} />{!networkPending && !needsRestart && <button className="primary" disabled={busy || Boolean(connectionError)} onClick={install}>{tr("继续安装")}</button>}</div>}
+            {job.error && !progress && !checkPending && job.failure && <FailureCard failure={job.failure} hide={["settings:network", "settings:project", "settings:resources"]}
+              onTool={(name) => (name === "stop" ? stop() : needsRestart ? restart() : install())} />}
+            {job.error && !progress && !checkPending && !job.failure && <div className="initialization-notice" role="alert"><SafetyMessage message={job.error} />{!networkPending && !needsRestart && <button className="primary" disabled={busy || Boolean(connectionError)} onClick={install}>{tr("继续安装")}</button>}</div>}
             </>}
             <div className="initialization-recovery">{canReselect && <button disabled={busy} onClick={() => setStep("system")}>{tr("查看或撤销原安装选择")}</button>}<button onClick={() => setStep("proxy")} disabled={busy}>{tr("网络代理")}</button>{!progress && checks.length > 0 && <button onClick={() => setDetails(true)}>{tr("检查结果")}</button>}</div>
           </>}

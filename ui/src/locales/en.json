@@ -5801,8 +5801,8 @@
   "原因是虚拟机启动即退出": "the VM exited right after starting",
   "原因是虚拟机启动后，SSH 连接超时": "the SSH connection timed out after the VM started",
   "原因是虚拟机启动后，SSH 连接超时（{0}）": "the SSH connection timed out after the VM started ({0})",
-  "原因是虚拟机启动后，{0}未就绪": "{0} wasn't ready after the VM started",
-  "原因是虚拟机启动后，{0}未就绪（{1}）": "{0} wasn't ready after the VM started ({1})",
+  "原因是虚拟机启动后，{0}未就绪": "{0} didn't become ready after the VM started",
+  "原因是虚拟机启动后，{0}未就绪（{1}）": "{0} didn't become ready after the VM started ({1})",
   "原因是虚拟机没有按时进入运行状态": "the VM didn't reach the running state in time",
   "原因是连接 Linux 容器超时": "connecting to the Linux container timed out",
   "原因是首次启动没有新进展": "the first start made no progress",
@@ -5811,7 +5811,7 @@
   "取消 LIMA_HOME 后重新打开 Cage lite": "Unset LIMA_HOME, then reopen Cage lite",
   "在固件中开启 CPU 虚拟化，在「启用或关闭 Windows 功能」中启用 Windows Hypervisor Platform，然后重启电脑": "Turn on CPU virtualization in the firmware, turn on Windows Hypervisor Platform in “Turn Windows features on or off”, then restart the computer",
   "在安全软件中允许 Cage lite，并检查环境目录的权限": "Allow Cage lite in your security software and check the environment folder's permissions",
-  "在环境与恢复中把环境目录迁到更短的路径": "Move the environment folder to a shorter path in Environment & recovery",
+  "在环境与恢复中把环境目录迁到更短的路径": "Move the environment folder to a shorter path in Environment and recovery",
   "容器组件": "the container components",
   "开机脚本": "the boot scripts",
   "把该目录移到不含空格的路径后{0}": "Move that folder to a path without spaces, then {0}",
@@ -5829,5 +5829,8 @@
   "重试停止，不要手动删除环境目录": "Stop again; don't delete the environment folder by hand",
   "重试启动": "Start again",
   "（最后一条错误：{0}）": " (last error: {0})",
-  "{0}：{1}": "{0}: {1}"
+  "{0}：{1}": "{0}: {1}",
+  "，": ", ",
+  "导出中": "Exporting",
+  "{0} 分": "{0} min"
 }
