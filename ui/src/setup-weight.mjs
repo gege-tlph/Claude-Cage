@@ -5,8 +5,10 @@
 const STEPS = [
   [/^正在准备 /, 2],
   [/^正在下载 .*(系统)?镜像$/, 24],
-  [/^正在校验 /, 3],
+  // The image, or the full package's installation files.
+  [/^正在校验/, 3],
   [/^正在启动 Linux 基础环境/, 7],
+  [/^正在复制安装文件/, 4],
   [/^正在安装 Linux 基础软件包/, 12],
   [/ mise$/, 2],
   [/^正在安装 Python/, 5],

@@ -6,9 +6,12 @@ test("labels map to the install's steps", () => {
   assert.equal(stepOf("正在准备 Debian 13 镜像"), 0);
   assert.equal(stepOf("正在下载 Debian 13 镜像"), 1);
   assert.equal(stepOf("正在下载 Debian 13 系统镜像"), 1);
-  assert.equal(stepOf("正在安装 Chromium 浏览器"), 7);
-  assert.equal(stepOf("正在下载网页编辑器 code-server"), 11);
-  assert.equal(stepOf("正在启动浏览器和编辑器"), 13);
+  assert.equal(stepOf("正在校验安装文件"), 2);
+  assert.equal(stepOf("正在校验 Debian 镜像"), 2);
+  assert.equal(stepOf("正在复制安装文件"), 4);
+  assert.equal(stepOf("正在安装 Chromium 浏览器"), 8);
+  assert.equal(stepOf("正在下载网页编辑器 code-server"), 12);
+  assert.equal(stepOf("正在启动浏览器和编辑器"), 14);
   assert.equal(stepOf("something else"), -1);
 });
 
