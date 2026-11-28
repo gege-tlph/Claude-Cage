@@ -79,7 +79,7 @@ import { needsProxySetup } from "./onboarding-state.mjs";
 import { statusExitText } from "./status-exit.mjs";
 import { StatusActivity, StatusBarHost, operationLogOpen } from "./status-activity";
 import { FailureCard } from "./failure-card";
-import { desktopFlow, enableClientHelloSplit, enableInstallTLS12, openSettingsSection, reapplyNode, recheckNetwork, refreshSource } from "./failure-flows.mjs";
+import { TOOL_CANCELED, desktopFlow, enableClientHelloSplit, enableInstallTLS12, openSettingsSection, reapplyNode, recheckNetwork, refreshSource } from "./failure-flows.mjs";
 import { accountName, setPrivacyMasked, usePrivacyMask } from "./privacy-mask.mjs";
 import { NetworkLatency } from "./network-latency";
 import { NetworkSpeed } from "./network-speed";
@@ -893,13 +893,14 @@ function App() {
   };
   const stop = async () => {
     if (
-      await confirm({
+      !(await confirm({
         title: setupProgress ? "停止安装环境？" : "停止当前环境？",
         body: setupProgress ? "当前安装任务会停止。下次启动环境时可以继续安装。" : "请先保存文件。当前终端会话会结束，浏览器登录和项目文件会保留。",
         confirm: setupProgress ? "停止安装" : "停止环境",
-      })
+      }))
     )
-      await action("/stop");
+      return TOOL_CANCELED;
+    await action("/stop");
   };
   // Starting as the main button does: with the chosen system while it is not
   // yet installed.
@@ -911,14 +912,15 @@ function App() {
     if (name === "start" || name === "continue-install") return startEnvironment(startOptions());
     if (name === "stop") return stop();
     if (name === "restart") {
-      if (!(await confirm({ title: "重启环境？", body: "请先保存文件。当前终端会话会结束，浏览器登录和项目文件会保留。", confirm: "重启环境" }))) return;
+      if (!(await confirm({ title: "重启环境？", body: "请先保存文件。当前终端会话会结束，浏览器登录和项目文件会保留。", confirm: "重启环境" }))) return TOOL_CANCELED;
       const stopping = await action("/stop");
-      if (!stopping?.id) return;
+      // action has shown why; the button shows 失败.
+      if (!stopping?.id) throw new Error("stop");
       for (;;) {
         const current = await api("/status");
         if (current.job?.id !== stopping.id || !current.job.running) {
           // A failed or canceled stop shows its own card; nothing to start.
-          if (current.job?.id === stopping.id && (current.job.error || current.job.canceled)) return;
+          if (current.job?.id === stopping.id && (current.job.error || current.job.canceled)) throw new Error(current.job.error || "stop");
           break;
         }
         await new Promise((resolve) => setTimeout(resolve, 800));

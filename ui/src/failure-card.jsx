@@ -7,6 +7,7 @@ import { isRemoteClient } from "./client-context.mjs";
 import { localizeBackendMessage } from "./backend-message.mjs";
 import { useTranslation } from "./interface-language.mjs";
 import { SafetyChecklistContext } from "./safety-message";
+import { TOOL_CANCELED } from "./failure-flows.mjs";
 import "./failure-card.css";
 
 // The levels and their circle: 严重 red !, 警告 orange !, 提示 blue i.
@@ -67,7 +68,7 @@ function ToolButton({ name, primary, onTool, labels }) {
       if (name === "diagnostics") {
         // A canceled save dialog is no result.
         if (!(await exportDiagnostics())) return phase.reset();
-      } else await onTool(name);
+      } else if ((await onTool(name)) === TOOL_CANCELED) return phase.reset();
       phase.finish(true);
     } catch {
       phase.finish(false);

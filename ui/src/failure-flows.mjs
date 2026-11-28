@@ -3,6 +3,10 @@
 // a node is applied again and the network checked, a subscription updated
 // and its node reapplied (the backend does both in one job).
 
+// TOOL_CANCELED is what a tool returns when the user called it off (a
+// confirmation answered no): its button goes back to rest, no 完成.
+export const TOOL_CANCELED = "canceled";
+
 // waitForJob polls until job id has ended; the job, or null when another
 // one replaced it.
 export async function waitForJob(api, id, interval = 800) {

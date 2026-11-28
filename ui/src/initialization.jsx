@@ -13,7 +13,7 @@ import { DiagnosticSettings } from "./diagnostics.jsx";
 import { InitializationDetails } from "./initialization-checks";
 import { StatusActivity } from "./status-activity";
 import { FailureCard } from "./failure-card";
-import { enableClientHelloSplit, enableInstallTLS12, reapplyNode } from "./failure-flows.mjs";
+import { TOOL_CANCELED, enableClientHelloSplit, enableInstallTLS12, reapplyNode } from "./failure-flows.mjs";
 import { Modal } from "./modal";
 import { SafetyMessage } from "./safety-message";
 import { needsEnvironmentRestart, needsProxySetup } from "./onboarding-state.mjs";
@@ -186,7 +186,7 @@ function Initialization({ initial, onComplete }) {
     });
   }
   async function stop() {
-    if (!await confirm({ title: "停止当前安装？", body: "安装进度、已下载文件和虚拟磁盘会保留。你可以在此界面继续安装。", confirm: "停止安装" })) return;
+    if (!await confirm({ title: "停止当前安装？", body: "安装进度、已下载文件和虚拟磁盘会保留。你可以在此界面继续安装。", confirm: "停止安装" })) return TOOL_CANCELED;
     await run(async () => { const accepted = await setupApi("/stop", {}); setStatus(current => ({ ...current, job: { ...accepted, running: true } })); });
   }
   async function waitForJob(accepted, kind) {
@@ -206,9 +206,9 @@ function Initialization({ initial, onComplete }) {
   // A changed exit or environment configuration only takes effect after a full
   // stop. Confirm first, then start only after the accepted stop has finished.
   async function restart() {
+    const running = status.vm_running;
+    if (!await confirm({ title: running ? tr("重启环境并检查？") : tr("启动环境并检查？"), body: tr("当前终端会话会结束。检查通过前外网保持关闭。"), confirm: running ? tr("重启并检查") : tr("启动并检查") })) return TOOL_CANCELED;
     await run(async () => {
-      const running = status.vm_running;
-      if (!await confirm({ title: running ? tr("重启环境并检查？") : tr("启动环境并检查？"), body: tr("当前终端会话会结束。检查通过前外网保持关闭。"), confirm: running ? tr("重启并检查") : tr("启动并检查") })) return;
       const current = await setupApi("/status");
       if (!alive.current) return;
       if (current.job?.running) throw new Error(tr("其他操作仍在进行，请等待完成后重试。"));
