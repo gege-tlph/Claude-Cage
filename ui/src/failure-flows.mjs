@@ -72,6 +72,15 @@ export async function enableInstallTLS12(api, carryOn) {
   return carryOn?.();
 }
 
+// restartEnvironment stops the environment, waits for the stop to end, then
+// starts it: one step for a setting that applies at start (a new exit's time
+// zone). The start runs on in the status bar.
+export async function restartEnvironment(api) {
+  const stopping = await api("/stop", {});
+  if (stopping?.id) ended(await waitForJob(api, stopping.id));
+  return api("/start", {});
+}
+
 // openSettingsSection asks the settings page to show one section (加密 DNS).
 export function openSettingsSection(section) {
   setTimeout(() => window.dispatchEvent(new CustomEvent("cage-settings-section", { detail: section })), 0);

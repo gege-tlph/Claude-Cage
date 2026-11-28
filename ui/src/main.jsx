@@ -551,6 +551,7 @@ function App() {
     restartSeen.current = restartPending;
     if (added.length && !status.job?.running) askRestart(restartPending);
   }, [restartKey, Boolean(status)]);
+  const [settingsCarryOn, setSettingsCarryOn] = useState("");
   const openSettings = (section = "keyboard") => {
     setSafetyOpen(false);
     setSettingsSection(section);
@@ -924,6 +925,9 @@ function App() {
       }
       return startEnvironment(startOptions());
     }
+    // A failed start goes on from settings: its submit button becomes
+    // 保存并启动环境 (settings.jsx carryOn).
+    if (name.startsWith("settings:")) setSettingsCarryOn(["start", "setup"].includes(status.job?.kind) && !status.vm_running ? "start" : "");
     if (name === "settings:network") return openSettings("network");
     if (name === "settings:dns") { openSettings("network"); return openSettingsSection("dns"); }
     if (name === "settings:project" || name === "settings:resources") return openSettings("project");
@@ -2003,7 +2007,7 @@ function App() {
             </div>
           )}
           {shouldShowBrowserError({ browserError, browserVisible, managementPage, running, connectionError }) && <div className="connection-banner" role="status">
-            <span>{tr("客机浏览器暂时无法连接。")}{browserError}</span>
+            <span>{tr("环境里的浏览器暂时无法连接。")}{browserError}</span>
             <button onClick={() => refreshStatus.current?.()}>{tr("重试")}</button>
           </div>}
           {connectionError && (
@@ -2297,7 +2301,7 @@ function App() {
                   )}
                   {status.abandoned_guests?.length > 0 && (
                     <div className="start-error" role="status">
-                      <strong>{status.abandoned_guests.map(name => ({ macos: "macOS", windows: "Windows", ubuntu: "Ubuntu" })[name] || name).join(" / ")}{" " + tr("客机已不再支持")}</strong>
+                      <strong>{status.abandoned_guests.map(name => ({ macos: "macOS", windows: "Windows", ubuntu: "Ubuntu" })[name] || name).join(" / ")}{" " + tr("环境已不再支持")}</strong>
                       {status.abandoned_environment && !running && status.local_vm_storage && !isRemoteClient() && (
                         <button
                           className="text-button"
@@ -2424,10 +2428,12 @@ function App() {
           workspace={workspace}
           initialSection={settingsSection}
           sectionRequest={settingsRequest}
-          onClose={() => setSettingsOpen(false)}
+          onClose={() => { setSettingsOpen(false); setSettingsCarryOn(""); }}
           onSaved={refreshSettings}
           onConfirm={confirm}
           appUpdates={appUpdates}
+          carryOn={settingsCarryOn}
+          onCarryOn={() => startEnvironment(startOptions())}
         />
       )}
       {projectDialog && (

@@ -136,26 +136,20 @@ export function ExitPolicyFields({
                   )}
                 </div>
               )}
-              <p className="field-help">
-                {policy.scope === "city"
-                  ? tr("城市同时匹配所属国家和州／省。名称以定位结果为准，建议使用检测结果填写。")
-                  : policy.scope === "region"
-                    ? tr("州／省同时匹配所属国家，包括日本的都道府县。名称以检测结果为准。")
-                    : tr("建议先检测出口，再使用检测到的国家／地区填写。")}
-              </p>
             </>
           )}
         </>
       )}
       <div className="probe-line">
-        <button disabled={busy} onClick={onProbe}>
+        {/* The page's own 「检测出口」 probes; without onProbe there is no second button. */}
+        {onProbe && <button disabled={busy} onClick={onProbe}>
           {probing ? (
             <LoaderCircle size={15} className="spin" />
           ) : (
             <Globe2 size={15} />
           )}
-          {tr("检测当前出口")}
-        </button>
+          {tr("检测出口")}
+        </button>}
         <button
           disabled={
             busy ||

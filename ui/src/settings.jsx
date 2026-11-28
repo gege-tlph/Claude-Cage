@@ -31,6 +31,8 @@ import { SafetyMessage } from "./safety-message";
 import { FailureCard } from "./failure-card";
 import { failureOf } from "./failure-text.mjs";
 import { reapplyNode, recheckNetwork } from "./failure-flows.mjs";
+import { SettingsSubmitBar } from "./settings-submit-bar";
+import { pendingSummary } from "./settings-pending.mjs";
 import { AppearanceSettings } from "./appearance-settings";
 import { NotificationSettings } from "./notification-settings";
 import { ProxySettings } from "./proxy-settings";
@@ -76,6 +78,10 @@ export function SettingsPanel({
   initialSection = "keyboard",
   sectionRequest = 0,
   appUpdates,
+  // carryOn: the flow a failure card sent the user here from ("start"): the
+  // submit button carries it on (保存并启动环境) through onCarryOn.
+  carryOn = "",
+  onCarryOn,
 }) {
   const tr = useTranslation();
   const activeWorkspace = workspace || status?.workspace || current.workspace || status?.projects?.[0] || "";
@@ -93,14 +99,18 @@ export function SettingsPanel({
     [staticDraftOffer, setStaticDraftOffer] = useState(false),
     [jobId, setJobId] = useState(""),
     [submitting, setSubmitting] = useState(false);
+  // 「有未应用的修改」 in place of the submit bar, after asking to leave.
+  const [leaving, setLeaving] = useState(false);
+  // A node or chain chosen on 网络与代理 and not yet applied (ProxySettings).
+  const [proxyPending, setProxyPending] = useState(null);
   const savePhase = usePhase();
-  const [saveBusyLabel, setSaveBusyLabel] = useState("");
   // 加密 DNS, opened by a failure's 「加密 DNS」 button (failure-flows.mjs).
-  const dnsSection = useRef(null);
+  const dnsSection = useRef(null), advancedSection = useRef(null);
   const openDNS = () => {
     setSection("network");
     setTimeout(() => {
       if (!dnsSection.current) return;
+      if (advancedSection.current) advancedSection.current.open = true;
       dnsSection.current.open = true;
       dnsSection.current.scrollIntoView({ block: "nearest" });
     }, 0);
@@ -156,8 +166,13 @@ export function SettingsPanel({
       onClose();
       return;
     }
+    // Settings that only apply through the submit bar ask in the bar itself.
+    if (changed || proxyPending) {
+      setLeaving(true);
+      return;
+    }
     if (
-      (!changed && !accountDirty && !proxyDirty && !resourceDirty) ||
+      (!accountDirty && !proxyDirty && !resourceDirty) ||
       (await onConfirm({
         title: "放弃尚未保存的修改？",
         body: "当前环境不会改变。关闭后会丢弃这次表单修改。",
@@ -165,6 +180,12 @@ export function SettingsPanel({
       }))
     )
       onClose();
+  };
+  // carryOnAfter starts the environment when a failed start sent the user
+  // here and it is still stopped; the settings page then closes.
+  const carryOnAfter = async () => {
+    if (carryOn === "start" && onCarryOn && !(await api("/status")).vm_running) await onCarryOn();
+    onClose();
   };
   useEffect(() => {
     if (jobId && status.job?.id === jobId && !status.job.running) {
@@ -178,9 +199,9 @@ export function SettingsPanel({
       } else {
         setStaticDraftOffer(false);
         onSaved();
-        // 完成 shows on the save button before the page closes; a restore has
-        // no button result to wait for.
-        const leave = () => { if (!proxyDirty) onClose(); };
+        // 完成 shows on the button; the page stays, unless a failed flow
+        // sent the user here (carryOn), which goes on and closes it.
+        const leave = () => { if (carryOn) void carryOnAfter(); };
         if (!savePhase.finish(true, leave)) leave();
       }
     }
@@ -254,7 +275,6 @@ export function SettingsPanel({
     setError("");
     setStaticDraftOffer(false);
     setSubmitting(true);
-    setSaveBusyLabel(environmentChanged && status.vm_running ? tr("应用中") : tr("保存中"));
     savePhase.start();
     try {
       const payload = { ...draft };
@@ -269,6 +289,42 @@ export function SettingsPanel({
     } finally {
       setSubmitting(false);
     }
+  };
+  // The submit bar (settings-submit-bar.jsx): what is pending, and a button
+  // named for what it does with the environment as it is.
+  const running = Boolean(status.vm_running);
+  const restartNeeded = running && (environmentChanged || Boolean(proxyPending?.restart));
+  const carrying = carryOn === "start" && !running;
+  const submitLabel = carrying ? tr("保存并启动环境") : restartNeeded ? tr("应用并重启") : running ? tr("应用") : tr("保存");
+  const submitBusy = carrying ? tr("启动中") : restartNeeded ? tr("应用中") : tr("保存中");
+  const submitSummary = pendingSummary(draft, current, proxyPending, tr);
+  // The node or chain first (it may restart the environment), then the
+  // settings; a failed start then carries on (carryOnAfter).
+  const applyAll = async () => {
+    if (busy) return;
+    setLeaving(false);
+    if (proxyPending) {
+      if (!changed) savePhase.start();
+      const ok = await proxyPending.apply();
+      if (!ok) {
+        if (!changed) savePhase.finish(false);
+        return;
+      }
+      if (!changed) {
+        const leave = () => { if (carryOn) void carryOnAfter(); };
+        if (!savePhase.finish(true, leave)) leave();
+        return;
+      }
+    }
+    if (changed) await save();
+  };
+  const undoAll = () => {
+    setLeaving(false);
+    setDraft({ ...current });
+    setProbe(null);
+    setError("");
+    setFailure(null);
+    proxyPending?.undo();
   };
   const zones = useMemo(
     () => [
@@ -323,10 +379,11 @@ export function SettingsPanel({
         <button
           id="settings-back"
           className="back-to-workspace"
+          aria-label={tr("返回工作台")}
+          title={tr("返回工作台")}
           onClick={close}
         >
-          <ArrowLeft size={17} />
-          {tr("返回工作台")}
+          <ArrowLeft size={18} />
         </button>
         <h2>{tr("设置")}</h2>
         <nav aria-label={tr("设置分组")}>
@@ -364,6 +421,35 @@ export function SettingsPanel({
               <>
                 <ProxySettings
                   onDirty={setProxyDirty}
+                  onPending={setProxyPending}
+                  autoTimezone={Boolean(current.auto_timezone)}
+                  renderExit={(nodeName) => (
+                    <div className="settings-card settings-exit-card">
+                      <div className="settings-row">
+                        <div className="settings-row-copy">
+                          <strong>{nodeName || tr("当前出口")}</strong>
+                          <small className="settings-exit-meta">
+                            {currentLoc ? (
+                              <>
+                                {masked ? <span>{tr("IP 已隐藏")}</span> : <>
+                                  <span>{`${currentLoc.country} · ${currentLoc.city}`}</span>
+                                  <code>{currentLoc.ip}</code>
+                                  <span>{currentLoc.timezone}</span>
+                                </>}
+                                <span>{new Date(currentLoc.checked_at).toLocaleTimeString(document.documentElement.lang, { hour: "2-digit", minute: "2-digit" })}</span>
+                                {probe && <span className="settings-ok-pill"><Check size={12} />{tr("验证通过")}</span>}
+                              </>
+                            ) : tr("尚未检查")}
+                          </small>
+                        </div>
+                        <div className="settings-row-control">
+                          <ActionButton phase={exitProbe.phase} busyLabel={tr("检测中")} disabled={busy} onClick={exitProbe.run}>
+                            {tr("检测出口")}
+                          </ActionButton>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   status={status}
                   onConfirm={onConfirm}
                   onApplied={async () => {
@@ -376,141 +462,126 @@ export function SettingsPanel({
                     await onSaved();
                   }}
                 />
-                <div className="settings-card settings-exit-card">
-                  <div className="settings-row">
-                    <div className="settings-row-copy">
-                      <strong>{currentLoc && !masked ? `${currentLoc.country} · ${currentLoc.city}` : tr("当前出口")}</strong>
-                      <small className="settings-exit-meta">
-                        {currentLoc ? (
-                          <>
-                            {masked ? <span>{tr("IP 已隐藏")}</span> : <>
-                              <code>{currentLoc.ip}</code>
-                              <span>{currentLoc.timezone}</span>
-                            </>}
-                            <span>{new Date(currentLoc.checked_at).toLocaleTimeString(document.documentElement.lang, { hour: "2-digit", minute: "2-digit" })}</span>
-                            {probe && <span className="settings-ok-pill"><Check size={12} />{tr("验证通过")}</span>}
-                          </>
-                        ) : tr("尚未检查")}
-                      </small>
-                    </div>
-                    <div className="settings-row-control">
-                      <ActionButton phase={exitProbe.phase} busyLabel={tr("检测中")} disabled={busy} onClick={exitProbe.run}>
-                        {tr("验证出口")}
-                      </ActionButton>
-                    </div>
-                  </div>
-                </div>
-                <section className="network-exit-policy" aria-label={tr("IP 变化规则")}>
-                  <ExitPolicyFields
-                    value={draft.exit_policy}
-                    onChange={(value) => update("exit_policy", value)}
-                    observation={probe}
-                    onProbe={check}
-                    busy={busy}
-                    probing={probing}
-                  />
-                </section>
-                <details className="settings-disclosure-card">
+                <details className="settings-disclosure-card settings-advanced" ref={advancedSection}>
                   <summary>
                     <SlidersHorizontal size={15} />
-                    <span>{tr("局域网直连")}</span>
-                    <small>{draft.direct_lan || tr("未开启")}</small>
+                    <span>{tr("高级")}</span>
+                    <small>{tr("IP 变化规则、局域网直连、加密 DNS")}</small>
                     <ChevronDown size={15} className="settings-disclosure-chevron" />
                   </summary>
-                  <div className="settings-disclosure-body">
-                    <label>
-                      {tr("局域网网段")}
-                      <input
-                        value={draft.direct_lan ?? ""}
-                        onChange={(e) => update("direct_lan", e.target.value)}
-                        spellCheck="false"
-                        placeholder="192.168.1.0/24"
+                  <div className="settings-disclosure-body settings-advanced-body">
+                    <section className="network-exit-policy" aria-label={tr("IP 变化规则")}>
+                      <ExitPolicyFields
+                        value={draft.exit_policy}
+                        onChange={(value) => update("exit_policy", value)}
+                        observation={probe}
+                            busy={busy}
+                        probing={probing}
                       />
-                    </label>
-                  </div>
-                </details>
-                <details className="settings-disclosure-card" ref={dnsSection}>
-                  <summary>
-                    <SlidersHorizontal size={15} />
-                    <span>{tr("加密 DNS")}</span>
-                    <small>{draft.dns_url ? draft.dns_url.replace(/^https?:\/\//, "").split("/")[0] : ""}</small>
-                    <ChevronDown size={15} className="settings-disclosure-chevron" />
-                  </summary>
-                  <div className="settings-disclosure-body">
-                    <label>
-                      {tr("加密 DNS")}
-                      <input
-                        value={draft.dns_url}
-                        onChange={(e) => update("dns_url", e.target.value)}
-                        spellCheck="false"
-                      />
-                    </label>
-                    <label>
-                      {tr("备用加密 DNS")}
-                      <textarea
-                        rows={2}
-                        value={(draft.dns_fallback_urls ?? []).join("\n")}
-                        onChange={(e) => update("dns_fallback_urls", e.target.value.split(/\r?\n/))}
-                        spellCheck="false"
-                        placeholder="https://…/dns-query"
-                      />
-                    </label>
-                    <label>
-                      {tr("节点域名解析（每行一个数字 IP 的 DoH，留空使用默认）")}
-                      <textarea
-                        rows={2}
-                        value={(draft.dns_bootstrap_urls ?? []).join("\n")}
-                        onChange={(e) => update("dns_bootstrap_urls", e.target.value.split(/\r?\n/))}
-                        spellCheck="false"
-                        placeholder="https://223.5.5.5/dns-query"
-                      />
-                    </label>
-                    <div className="settings-card settings-card--nested">
-                      <label className="settings-row settings-switch-row" title={tr("业务 DNS、联网检查与内置核心使用同一组端点，均经所选节点发出，按顺序尝试。默认只使用上面的加密 DNS；开启公共 DNS 备用后，查询可能发给第二家服务商。")}>
-                        <span className="settings-row-copy">
-                          <strong>{tr("以上端点都不可用时改用 Google 公共 DNS（8.8.8.8）")}</strong>
-                        </span>
-                        <input
-                          role="switch"
-                          type="checkbox"
-                          checked={Boolean(draft.dns_public_fallback)}
-                          onChange={(e) => update("dns_public_fallback", e.target.checked)}
-                        />
-                      </label>
-                      <label className="settings-row settings-switch-row" title={tr("默认关闭。仅当所选代理出口会中断 curl 的 TLS 1.3 握手、导致安装或工具下载失败时开启；不影响正常浏览与对话连接。")}>
-                        <span className="settings-row-copy">
-                          <strong>{tr("安装与工具下载兼容模式（限制 curl 最高使用 TLS 1.2）")}</strong>
-                        </span>
-                        <input
-                          role="switch"
-                          type="checkbox"
-                          checked={Boolean(draft.install_tls12_compat)}
-                          onChange={(e) => update("install_tls12_compat", e.target.checked)}
-                        />
-                      </label>
-                      <label className="settings-row settings-switch-row" title={tr("默认关闭。仅当所选代理链路在 TLS 握手阶段返回 EOF 或间歇性提示“出口待确认”时开启：保留完整后量子加密握手与代理隔离，仅对超过 1000 字节的 TLS ClientHello 分段发送。")}>
-                        <span className="settings-row-copy">
-                          <strong>{tr("TLS ClientHello 分段传输兼容模式")}</strong>
-                        </span>
-                        <input
-                          role="switch"
-                          type="checkbox"
-                          checked={Boolean(draft.tls_client_hello_split)}
-                          onChange={(e) => update("tls_client_hello_split", e.target.checked)}
-                        />
-                      </label>
-                      <label className="settings-row settings-switch-row" title={tr("默认关闭。开启后，仅当默认的五家位置服务都失败时，经所选节点把已测得的出口 IP 发给 ipinfo.io 查询国家或地区；其结果只用于国家级判断，不用于绑定或核对州、省和城市。")}>
-                        <span className="settings-row-copy">
-                          <strong>{tr("出口位置查询备用服务 ipinfo.io")}</strong>
-                        </span>
-                        <input
-                          role="switch"
-                          type="checkbox"
-                          checked={Boolean(draft.location_ipinfo_fallback)}
-                          onChange={(e) => update("location_ipinfo_fallback", e.target.checked)}
-                        />
-                      </label>
-                    </div>
+                    </section>
+                    <details className="settings-disclosure-card">
+                      <summary>
+                        <SlidersHorizontal size={15} />
+                        <span>{tr("局域网直连")}</span>
+                        <small>{draft.direct_lan || tr("未开启")}</small>
+                        <ChevronDown size={15} className="settings-disclosure-chevron" />
+                      </summary>
+                      <div className="settings-disclosure-body">
+                        <label>
+                          {tr("局域网网段")}
+                          <input
+                            value={draft.direct_lan ?? ""}
+                            onChange={(e) => update("direct_lan", e.target.value)}
+                            spellCheck="false"
+                            placeholder="192.168.1.0/24"
+                          />
+                        </label>
+                      </div>
+                    </details>
+                    <details className="settings-disclosure-card" ref={dnsSection}>
+                      <summary>
+                        <SlidersHorizontal size={15} />
+                        <span>{tr("加密 DNS")}</span>
+                        <small>{draft.dns_url ? draft.dns_url.replace(/^https?:\/\//, "").split("/")[0] : ""}</small>
+                        <ChevronDown size={15} className="settings-disclosure-chevron" />
+                      </summary>
+                      <div className="settings-disclosure-body">
+                        <label>
+                          {tr("加密 DNS")}
+                          <input
+                            value={draft.dns_url}
+                            onChange={(e) => update("dns_url", e.target.value)}
+                            spellCheck="false"
+                          />
+                        </label>
+                        <label>
+                          {tr("备用加密 DNS")}
+                          <textarea
+                            rows={2}
+                            value={(draft.dns_fallback_urls ?? []).join("\n")}
+                            onChange={(e) => update("dns_fallback_urls", e.target.value.split(/\r?\n/))}
+                            spellCheck="false"
+                            placeholder="https://…/dns-query"
+                          />
+                        </label>
+                        <label>
+                          {tr("节点域名解析（每行一个数字 IP 的 DoH，留空使用默认）")}
+                          <textarea
+                            rows={2}
+                            value={(draft.dns_bootstrap_urls ?? []).join("\n")}
+                            onChange={(e) => update("dns_bootstrap_urls", e.target.value.split(/\r?\n/))}
+                            spellCheck="false"
+                            placeholder="https://223.5.5.5/dns-query"
+                          />
+                        </label>
+                        <div className="settings-card settings-card--nested">
+                          <label className="settings-row settings-switch-row" title={tr("业务 DNS、联网检查与内置核心使用同一组端点，均经所选节点发出，按顺序尝试。默认只使用上面的加密 DNS；开启公共 DNS 备用后，查询可能发给第二家服务商。")}>
+                            <span className="settings-row-copy">
+                              <strong>{tr("以上端点都不可用时改用 Google 公共 DNS（8.8.8.8）")}</strong>
+                            </span>
+                            <input
+                              role="switch"
+                              type="checkbox"
+                              checked={Boolean(draft.dns_public_fallback)}
+                              onChange={(e) => update("dns_public_fallback", e.target.checked)}
+                            />
+                          </label>
+                          <label className="settings-row settings-switch-row" title={tr("默认关闭。仅当所选代理出口会中断 curl 的 TLS 1.3 握手、导致安装或工具下载失败时开启；不影响正常浏览与对话连接。")}>
+                            <span className="settings-row-copy">
+                              <strong>{tr("安装与工具下载兼容模式（限制 curl 最高使用 TLS 1.2）")}</strong>
+                            </span>
+                            <input
+                              role="switch"
+                              type="checkbox"
+                              checked={Boolean(draft.install_tls12_compat)}
+                              onChange={(e) => update("install_tls12_compat", e.target.checked)}
+                            />
+                          </label>
+                          <label className="settings-row settings-switch-row" title={tr("默认关闭。仅当所选代理链路在 TLS 握手阶段返回 EOF 或间歇性提示“出口待确认”时开启：保留完整后量子加密握手与代理隔离，仅对超过 1000 字节的 TLS ClientHello 分段发送。")}>
+                            <span className="settings-row-copy">
+                              <strong>{tr("TLS ClientHello 分段传输兼容模式")}</strong>
+                            </span>
+                            <input
+                              role="switch"
+                              type="checkbox"
+                              checked={Boolean(draft.tls_client_hello_split)}
+                              onChange={(e) => update("tls_client_hello_split", e.target.checked)}
+                            />
+                          </label>
+                          <label className="settings-row settings-switch-row" title={tr("默认关闭。开启后，仅当默认的五家位置服务都失败时，经所选节点把已测得的出口 IP 发给 ipinfo.io 查询国家或地区；其结果只用于国家级判断，不用于绑定或核对州、省和城市。")}>
+                            <span className="settings-row-copy">
+                              <strong>{tr("出口位置查询备用服务 ipinfo.io")}</strong>
+                            </span>
+                            <input
+                              role="switch"
+                              type="checkbox"
+                              checked={Boolean(draft.location_ipinfo_fallback)}
+                              onChange={(e) => update("location_ipinfo_fallback", e.target.checked)}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </details>
                   </div>
                 </details>
               </>
@@ -844,7 +915,7 @@ export function SettingsPanel({
                     }}
                   >
                     <RotateCcw size={14} />
-                    {tr("恢复上一份配置")}
+                    {tr("恢复上次保存前的设置")}
                   </button>
                 )}
               </>
@@ -886,36 +957,20 @@ export function SettingsPanel({
             </div>
           )}
         </div>
-        {(!["appearance", "notifications", "browser", "account", "vault", "mobile", "archived-sessions", "project", "about"].includes(section) || changed || savePhase.phase !== "idle") && (
-          <footer className="settings-footer">
-            {" "}
-            <>
-              <span className="save-note">
-                {status.job?.running
-                  ? status.job.message
-                  : proxyDirty
-                    ? tr("代理修改待应用，请点击「应用代理」")
-                    : changed
-                    ? environmentChanged && status.vm_running
-                      ? tr("网络和系统设置需要重启")
-                      : tr("有尚未保存的修改")
-                    : tr("没有未保存的修改")}
-              </span>
-              <button onClick={close}>{tr("返回工作台")}</button>
-              <ActionButton
-                className="primary"
-                phase={savePhase.phase}
-                busyLabel={saveBusyLabel}
-                disabled={!changed || busy}
-                onClick={() => save()}
-              >
-                {environmentChanged && status.vm_running
-                  ? tr("保存并重启")
-                  : tr("保存设置")}
-              </ActionButton>
-            </>
-          </footer>
-        )}
+        <SettingsSubmitBar
+          open={Boolean(changed || proxyPending)}
+          summary={submitSummary}
+          label={submitLabel}
+          busyLabel={submitBusy}
+          phase={savePhase.phase}
+          disabled={busy || Boolean(proxyPending && !proxyPending.ready)}
+          disabledReason={busy ? tr("另一个操作仍在进行") : proxyPending && !proxyPending.ready ? tr("链式代理还有待选择的节点") : ""}
+          onApply={applyAll}
+          onUndo={undoAll}
+          leaving={leaving}
+          onDiscard={() => { setLeaving(false); onClose(); }}
+          onKeepEditing={() => setLeaving(false)}
+        />
       </div>
     </section>
   );

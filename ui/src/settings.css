@@ -31,12 +31,15 @@
   width: max(var(--sidebar-width), 248px);
   padding: 20px 14px;
 }
+/* Leaving settings: an icon-only ← at the top left (agreed 2026-11-28). */
 .settings-page .back-to-workspace {
   align-self: flex-start;
+  justify-content: center;
+  width: 34px;
   min-height: 34px;
-  padding: 6px 10px;
+  padding: 0;
+  margin-left: -2px;
   border-radius: 8px;
-  font-size: var(--s-sm);
   color: var(--muted);
 }
 .settings-page .back-to-workspace:hover:not(:disabled) {
