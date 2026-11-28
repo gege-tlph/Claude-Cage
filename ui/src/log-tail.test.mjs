@@ -21,6 +21,12 @@ test("a scrolled-up view keeps its first line while new lines arrive", () => {
   assert.equal(tailStart(after, first), 1195);
 });
 
+test("a first line that aged out keeps the view at the oldest remaining line", () => {
+  const timed = Array.from({ length: 500 }, (_, i) => ({ time: new Date(Date.UTC(2026, 10, 28, 0, 0, i)).toISOString(), source: "proxy", message: `line ${i}` }));
+  assert.equal(tailStart(timed.slice(2), eventKey(timed[0])), 0);
+  assert.equal(tailStart(timed.slice(2), eventKey(timed[100])), 98);
+});
+
 test("a first line that has left the log falls back to the newest lines", () => {
   assert.equal(tailStart(events(3000), eventKey({ time: "gone", source: "x", message: "y" })), 3000 - LOG_TAIL);
 });
