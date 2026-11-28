@@ -49,7 +49,7 @@ try {
   await settings().focus();
   await settings().press("Enter");
   // Each field has its own visible label, including the full fixed ID.
-  for (const [label, expected] of [["Cage 编号", "#03"], ["Cage ID", id], ["Claude 邮箱", original.email]]) {
+  for (const [label, expected] of [["Cage lite 编号", "#03"], ["Cage ID", id], ["Claude 邮箱", original.email]]) {
     assert.equal(await valueFor(label).textContent(), expected);
   }
   assert.equal(await name().inputValue(), "sarah");

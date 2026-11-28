@@ -367,7 +367,7 @@ function ProfileCard({ proxySources, desktopNetwork, profile, environment, usage
     {configOpen && (
       <div className="claude-profile-config">
         <dl className="claude-account-details">
-          {!!profile.number && <div><dt>{tr("Cage 编号")}</dt><dd><bdi>{accountNumber(profile.number)}</bdi></dd></div>}
+          {!!profile.number && <div><dt>{tr("Cage lite 编号")}</dt><dd><bdi>{accountNumber(profile.number)}</bdi></dd></div>}
           <div><dt>{tr("Cage ID")}</dt><dd><code dir="ltr">{profile.id}</code></dd></div>
           <div><dt>{tr("Claude 邮箱")}</dt><dd>{profile.email ? <bdi>{profile.email}</bdi> : "—"}</dd></div>
         </dl>

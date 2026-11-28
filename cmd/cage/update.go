@@ -32,16 +32,16 @@ func parseHostUpdateArgs(args []string) (hostUpdateOptions, error) {
 }
 
 func runHostUpdate(ctx context.Context, config string, opts hostUpdateOptions, stdin, stdout, stderr *os.File) error {
-	fmt.Fprintln(stderr, "正在检查 Cage 应用更新…")
+	fmt.Fprintln(stderr, "正在检查 Cage lite 应用更新…")
 	release, err := appupdate.Check(ctx, config)
 	if err != nil {
 		return err
 	}
 	if release.Phase == "current" {
-		fmt.Fprintf(stdout, "Cage %s 已是当前更新通道的最新版本。\n", release.CurrentVersion)
+		fmt.Fprintf(stdout, "Cage lite %s 已是当前更新通道的最新版本。\n", release.CurrentVersion)
 		return nil
 	}
-	fmt.Fprintf(stdout, "Cage %s 可升级到 %s。\n", release.CurrentVersion, release.LatestVersion)
+	fmt.Fprintf(stdout, "Cage lite %s 可升级到 %s。\n", release.CurrentVersion, release.LatestVersion)
 	if opts.check {
 		return nil
 	}

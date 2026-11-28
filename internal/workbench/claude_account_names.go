@@ -98,7 +98,7 @@ func (list claudeAccountList) byCLIName(name string) (string, error) {
 		id = a.ID
 	}
 	if id == "" {
-		return "", errors.New("找不到这个 Cage 账号名称。运行 cage account list 查看名称，或使用 cage claude 传入提示词和 Claude 子命令。")
+		return "", errors.New("找不到这个账号命令名。运行 cage account list 查看名称，或使用 cage claude 传入提示词和 Claude 子命令。")
 	}
 	return id, nil
 }

@@ -44,7 +44,7 @@ console.log("Printed and OSC 8 authorization links open the guest login tab on c
 // focus again after the user has moved on.
 const { browser, page, state, errors } = await createWorkbench();
 try {
-  await page.getByRole("button", { name: "启动 Cage 环境", exact: true }).click();
+  await page.getByRole("button", { name: "启动环境", exact: true }).click();
   const settings = page.getByRole("button", { name: "设置", exact: true });
   const groups = page.getByRole("navigation", { name: "设置分组" });
   await settings.click();

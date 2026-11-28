@@ -29,7 +29,7 @@ func FetchLinuxPackage(ctx context.Context, config string, state State, report f
 	defer lock.Close()
 	if err := unix.Flock(int(lock.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
 		if errors.Is(err, unix.EWOULDBLOCK) {
-			return state, errors.New("同一配置的 Cage 更新正在下载，请稍后重试。")
+			return state, errors.New("同一配置的 Cage lite 更新正在下载，请稍后重试。")
 		}
 		return state, err
 	}

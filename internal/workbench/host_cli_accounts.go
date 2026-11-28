@@ -121,7 +121,7 @@ func (s *Server) cliAccountCommand(ctx context.Context, c *hostCLIConn, in hostC
 		if err := s.renameHostCLIAccount(ctx, in.Account, in.Name); err != nil {
 			return err
 		}
-		return c.event(hostCLIEvent{Type: "exit", Message: "Cage 账号名称已保存。"})
+		return c.event(hostCLIEvent{Type: "exit", Message: "账号命令名已保存。"})
 	}
 	list, err := s.cliAccountRoster()
 	if err != nil {

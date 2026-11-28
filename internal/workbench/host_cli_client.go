@@ -31,7 +31,7 @@ type hostCLIStatus struct {
 	Job           Job   `json:"job"`
 }
 
-const cliServiceRunning = "Cage 后台服务正在运行。"
+const cliServiceRunning = "Cage lite 后台服务正在运行。"
 const cliStatusPath = "/api/status?view=runtime"
 
 func cliCall(ctx context.Context, c *controllerClient, method, path string, in, out any) error {
@@ -135,7 +135,7 @@ func launchHostCLIDesktop(config string, windowOnly bool) error {
 		}
 	}
 	if _, err = os.Stat(command); err != nil {
-		return errors.New("无法找到随 Cage 安装的桌面窗口")
+		return errors.New("无法找到随 Cage lite 安装的桌面窗口")
 	}
 	return startDetached(windowVisible, func() *exec.Cmd {
 		cmd := exec.Command(command, args...)
@@ -170,7 +170,7 @@ func showHostCLIDesktop(ctx context.Context, config string, workload *controller
 				return err
 			}
 			if view.Mode == "remote" || view.Candidate != nil && view.Candidate.Mode != "local" {
-				return errors.New("Cage 窗口正在使用远程环境。请切换到本机环境后重试此命令。")
+				return errors.New("Cage lite 窗口正在使用远程环境。请切换到本机环境后重试此命令。")
 			}
 			if view.Mode == "local" && view.State.State == "connected" {
 				// A hidden window may still point at the controller replaced by
@@ -191,7 +191,7 @@ func showHostCLIDesktop(ctx context.Context, config string, workload *controller
 					return nil
 				}
 				if code != http.StatusConflict && code != http.StatusBadGateway && code != http.StatusServiceUnavailable {
-					return fmt.Errorf("无法确认 Cage 窗口的本机连接（HTTP %d）", code)
+					return fmt.Errorf("无法确认 Cage lite 窗口的本机连接（HTTP %d）", code)
 				}
 			}
 			input := switchRequest{Mode: "local", ConnectionID: view.ConnectionID}
@@ -205,7 +205,7 @@ func showHostCLIDesktop(ctx context.Context, config string, workload *controller
 					input.LocalAction = "auto"
 					path = "commit"
 				case "failed":
-					return fmt.Errorf("无法连接 Cage 本机窗口：%s", view.Candidate.Connection.Message)
+					return fmt.Errorf("无法连接 Cage lite 本机窗口：%s", view.Candidate.Connection.Message)
 				}
 			}
 			if path != "" {
@@ -215,14 +215,14 @@ func showHostCLIDesktop(ctx context.Context, config string, workload *controller
 				}
 				// A concurrent window may have advanced the same generation.
 				if code != http.StatusOK && code != http.StatusAccepted && code != http.StatusConflict {
-					return fmt.Errorf("无法打开 Cage 本机环境（HTTP %d）：%s", code, reason)
+					return fmt.Errorf("无法打开 Cage lite 本机环境（HTTP %d）：%s", code, reason)
 				}
 			}
 		}
 		select {
 		case <-ctx.Done():
 			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-				return errors.New("Cage 本机窗口未就绪。请在 Cage 中打开本机环境后重试。")
+				return errors.New("Cage lite 本机窗口未就绪。请在 Cage lite 中打开本机环境后重试。")
 			}
 			return ctx.Err()
 		case <-tick.C:
@@ -236,9 +236,9 @@ func cliWorkbenchAccessHint(ctx context.Context, c *controllerClient) (string, e
 		return "", err
 	}
 	if account.Exists {
-		return "Cage 本机工作台已锁定，请在 Cage 窗口解锁。", nil
+		return "Cage lite 本机工作台已锁定，请在 Cage lite 窗口解锁。", nil
 	}
-	return "请在 Cage 窗口完成本机工作台的首次设置。", nil
+	return "请在 Cage lite 窗口完成本机工作台的首次设置。", nil
 }
 
 // Resume only a trust grant the user already enabled. The same service that
@@ -289,7 +289,7 @@ func cliWaitAccess(ctx context.Context, c *controllerClient, config string, inte
 			if !init.Required {
 				return status, nil
 			}
-			hint = "请在 Cage 窗口完成本机环境的首次配置。"
+			hint = "请在 Cage lite 窗口完成本机环境的首次配置。"
 		}
 		if !interactive {
 			return status, errors.New(hint)
@@ -353,7 +353,7 @@ func stopHostCage(ctx context.Context, config string, interactive bool, stderr i
 		return err
 	}
 	if !view.Known {
-		return errors.New("无法确认本机环境的状态，请在 Cage 工作台检查后重试")
+		return errors.New("无法确认本机环境的状态，请在工作台检查后重试")
 	}
 	if view.Busy || view.Running || view.LiveTerminals > 0 {
 		if _, err = cliWaitAccess(ctx, c, config, interactive, false, stderr); err != nil {
@@ -387,7 +387,7 @@ func HostCLI(ctx context.Context, config, action string, args []string, in, out,
 			return 1, err
 		}
 		if action == "stop" {
-			fmt.Fprintln(out, "Cage 环境和后台服务已停止。")
+			fmt.Fprintln(out, "环境和后台服务已停止。")
 			return 0, nil
 		}
 		action = "start"
@@ -423,11 +423,11 @@ func HostCLI(ctx context.Context, config, action string, args []string, in, out,
 		if err != nil {
 			return 1, err
 		}
-		fmt.Fprintln(out, "Cage 后台服务未运行。")
+		fmt.Fprintln(out, "Cage lite 后台服务未运行。")
 		if running {
-			fmt.Fprintln(out, "Cage 环境正在运行。")
+			fmt.Fprintln(out, "环境正在运行。")
 		} else {
-			fmt.Fprintln(out, "Cage 环境已停止。")
+			fmt.Fprintln(out, "环境已停止。")
 		}
 		return 0, nil
 	}
@@ -456,9 +456,9 @@ func HostCLI(ctx context.Context, config, action string, args []string, in, out,
 					return 1, err
 				}
 				if local.Known && local.Running {
-					fmt.Fprintln(out, "Cage 环境正在运行。")
+					fmt.Fprintln(out, "环境正在运行。")
 				} else if local.Known {
-					fmt.Fprintln(out, "Cage 环境已停止。")
+					fmt.Fprintln(out, "环境已停止。")
 				}
 				fmt.Fprintln(out, hint)
 				return 0, nil
@@ -466,12 +466,12 @@ func HostCLI(ctx context.Context, config, action string, args []string, in, out,
 			return 1, err
 		}
 		if status.Ready && status.Running {
-			fmt.Fprintln(out, "Cage 环境已就绪。")
+			fmt.Fprintln(out, "环境已就绪。")
 			return cliExchange(ctx, c, hostCLIRequest{Action: "account-status"}, in, out, errOut, out)
 		} else if status.Running {
-			fmt.Fprintln(out, "Cage 环境正在准备。")
+			fmt.Fprintln(out, "环境正在准备。")
 		} else {
-			fmt.Fprintln(out, "Cage 环境已停止。")
+			fmt.Fprintln(out, "环境已停止。")
 		}
 		return 0, nil
 	}
@@ -523,7 +523,7 @@ func HostCLI(ctx context.Context, config, action string, args []string, in, out,
 		}
 	}
 	if !status.Ready || action == "start" && !status.Running || rebuild {
-		fmt.Fprintln(errOut, "正在启动 Cage 环境…")
+		fmt.Fprintln(errOut, "正在启动环境…")
 		operation := "start"
 		if rebuild {
 			operation = "rebuild"
@@ -535,11 +535,11 @@ func HostCLI(ctx context.Context, config, action string, args []string, in, out,
 			return 1, err
 		}
 		if !status.Ready || action == "start" && !status.Running {
-			return 1, errors.New("环境尚未就绪，请在 Cage 工作台查看启动详情")
+			return 1, errors.New("环境尚未就绪，请在工作台查看启动详情")
 		}
 	}
 	if action == "start" {
-		fmt.Fprintln(out, "Cage 后台服务和本机环境已就绪。")
+		fmt.Fprintln(out, "Cage lite 后台服务和本机环境已就绪。")
 		if status.NetworkOpen != nil && !*status.NetworkOpen {
 			fmt.Fprintln(errOut, "本机环境可用，外网尚未放行。请在工作台查看联网检查。")
 		}
@@ -547,9 +547,9 @@ func HostCLI(ctx context.Context, config, action string, args []string, in, out,
 	}
 	if status.Running && status.NetworkOpen != nil && !*status.NetworkOpen && (action == "login" || !cliGlobal(args) && !cliSubcommand(args)) {
 		if status.NetworkPaused {
-			fmt.Fprintln(errOut, "Cage 已暂停联网，可在工作台恢复。")
+			fmt.Fprintln(errOut, "Cage lite 已暂停联网，可在工作台恢复。")
 		} else {
-			fmt.Fprintln(errOut, "Cage 外网尚未放行，请在工作台查看联网检查。")
+			fmt.Fprintln(errOut, "Cage lite 外网尚未放行，请在工作台查看联网检查。")
 		}
 	}
 	var dir string
@@ -596,7 +596,7 @@ func cliExchange(ctx context.Context, controller *controllerClient, in hostCLIRe
 	if err != nil {
 		if resp != nil {
 			defer resp.Body.Close()
-			return 1, fmt.Errorf("Cage 终端连接失败（HTTP %d）", resp.StatusCode)
+			return 1, fmt.Errorf("终端连接失败（HTTP %d）", resp.StatusCode)
 		}
 		return 1, err
 	}
@@ -639,11 +639,11 @@ func cliExchange(ctx context.Context, controller *controllerClient, in hostCLIRe
 			if ctx.Err() != nil {
 				return 1, ctx.Err()
 			}
-			return 1, errors.New("Cage 终端连接已断开，或工作台已锁定")
+			return 1, errors.New("终端连接已断开，或工作台已锁定")
 		}
 		if kind == websocket.BinaryMessage {
 			if len(data) == 0 {
-				return 1, errors.New("无效的 Cage 终端数据")
+				return 1, errors.New("无效的终端数据")
 			}
 			dst := stdout
 			chunk := data[1:]
@@ -658,7 +658,7 @@ func cliExchange(ctx context.Context, controller *controllerClient, in hostCLIRe
 					chunk = display.filter(chunk, data[0] == 'h')
 				}
 			default:
-				return 1, errors.New("未知的 Cage 输出通道")
+				return 1, errors.New("未知的 Cage lite 输出通道")
 			}
 			if _, err = dst.Write(chunk); err != nil {
 				return 1, err

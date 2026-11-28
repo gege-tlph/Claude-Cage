@@ -138,7 +138,7 @@ func TestHostCLIFirstLoginWaitsForVerifiedManagedAccount(t *testing.T) {
 				}
 				return
 			}
-			if err != nil || code != 0 || !strings.Contains(stderr.String(), "在 Cage 浏览器") || !strings.Contains(stderr.String(), "Claude 账号已登录") {
+			if err != nil || code != 0 || !strings.Contains(stderr.String(), "在浏览器") || !strings.Contains(stderr.String(), "Claude 账号已登录") {
 				t.Fatalf("login: %d %v %q", code, err, stderr.String())
 			}
 			pin, err := s.cliPinnedAccount()

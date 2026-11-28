@@ -39,14 +39,14 @@ func installHostUpdate(ctx context.Context, config string, release appupdate.Sta
 		return err
 	}
 	defer archive.Close()
-	prompt := fmt.Sprintf("已校验 Cage %s 的系统安装包。安装前请保存任务、停止环境并退出工作台。是否使用 APT 升级？", pkg.LatestVersion)
+	prompt := fmt.Sprintf("已校验 Cage lite %s 的系统安装包。安装前请保存任务、停止环境并退出工作台。是否使用 APT 升级？", pkg.LatestVersion)
 	if err := confirmHostUpdate(ctx, stdin, stderr, prompt, assumeYes); err != nil {
 		return err
 	}
 	args := []string{linuxUpdateHelper, strings.Replace(pkg.LatestVersion, "-", "~", 1), pkg.SHA256}
 	if os.Geteuid() != 0 {
 		if err := unix.Access("/usr/bin/sudo", unix.X_OK); err != nil {
-			return errors.New("系统未提供 sudo。请让管理员通过 APT 安装官方 Cage .deb。")
+			return errors.New("系统未提供 sudo。请让管理员通过 APT 安装官方 Cage lite .deb。")
 		}
 		args = append([]string{"/usr/bin/sudo", "--"}, args...)
 	}
@@ -56,9 +56,9 @@ func installHostUpdate(ctx context.Context, config string, release appupdate.Sta
 func checkLinuxInstallation(ctx context.Context, executable string) error {
 	if executable != linuxPackageCLI {
 		if strings.HasSuffix(executable, "/cloud-host/bin/cage") || strings.HasSuffix(executable, "/.local/lib/cage/cage") {
-			return errors.New("此 Cage 来自云端部署。请通过原服务器部署流程更新云端服务，并保留配置目录和容器数据。")
+			return errors.New("此 Cage lite 来自云端部署。请通过原服务器部署流程更新云端服务，并保留配置目录和容器数据。")
 		}
-		return errors.New("此 Cage 来自独立二进制或源码构建。请通过原安装渠道或源码构建流程升级。")
+		return errors.New("此 Cage lite 来自独立二进制或源码构建。请通过原安装渠道或源码构建流程升级。")
 	}
 	running, err := os.Stat("/proc/self/exe")
 	if err != nil {
@@ -66,15 +66,15 @@ func checkLinuxInstallation(ctx context.Context, executable string) error {
 	}
 	dir, err := os.Lstat(filepath.Dir(linuxPackageCLI))
 	if err != nil || !dir.IsDir() || !rootOwnsLinuxUpdateFile(dir) {
-		return errors.New("Cage 系统安装目录的归属或权限异常。请通过 APT 重新安装官方 Cage .deb。")
+		return errors.New("Cage lite 系统安装目录的归属或权限异常。请通过 APT 重新安装官方 Cage lite .deb。")
 	}
 	for _, path := range []string{linuxPackageCLI, linuxUpdateHelper} {
 		info, err := os.Lstat(path)
 		if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0111 == 0 || !rootOwnsLinuxUpdateFile(info) {
-			return errors.New("Cage 系统安装文件缺失或权限异常。请通过 APT 重新安装官方 Cage .deb。")
+			return errors.New("Cage lite 系统安装文件缺失或权限异常。请通过 APT 重新安装官方 Cage lite .deb。")
 		}
 		if path == linuxPackageCLI && !os.SameFile(running, info) {
-			return errors.New("此 Cage 进程启动后系统安装已变化。请重新运行 cage update。")
+			return errors.New("此 Cage lite 进程启动后系统安装已变化。请重新运行 cage update。")
 		}
 	}
 	// Consult the system database independently of DPKG_ADMINDIR and other
@@ -94,7 +94,7 @@ func checkLinuxInstallation(ctx context.Context, executable string) error {
 	owners, err := cmd.Output()
 	expected := "claude-cage: " + linuxPackageCLI + "\nclaude-cage: " + linuxUpdateHelper + "\n"
 	if err != nil || string(owners) != expected {
-		return errors.New("dpkg 无法确认当前 Cage 和更新工具属于 claude-cage 软件包。请使用原安装渠道维护。")
+		return errors.New("dpkg 无法确认当前 Cage lite 和更新工具属于 claude-cage 软件包。请使用原安装渠道维护。")
 	}
 	return nil
 }
@@ -141,7 +141,7 @@ func openLinuxUpdate(ctx context.Context, pkg appupdate.State, expected string) 
 		return nil, ctx.Err()
 	}
 	if err != nil || string(data) != "claude-cage\t"+strings.Replace(expected, "-", "~", 1)+"\tamd64" {
-		return nil, errors.New("下载的 .deb 包名、版本或架构与本次 Cage 更新不一致。")
+		return nil, errors.New("下载的 .deb 包名、版本或架构与本次 Cage lite 更新不一致。")
 	}
 	valid = true
 	return file, nil

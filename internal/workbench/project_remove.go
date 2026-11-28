@@ -115,7 +115,7 @@ func (s *Server) checkProjectFoldersIdle(ctx context.Context, folders []string, 
 		for _, folder := range folders {
 			if slices.Contains(use.folders, folder) || slices.Contains(use.extra, folder) {
 				s.mu.Unlock()
-				return errors.New("请先结束正在使用此目录的 Cage 命令，再移除项目。")
+				return errors.New("请先结束正在使用此目录的 Cage lite 命令，再移除项目。")
 			}
 		}
 	}

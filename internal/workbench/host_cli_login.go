@@ -111,7 +111,7 @@ func (s *Server) hostCLILogin(ctx context.Context, c *hostCLIConn) error {
 			}
 			var tab struct{ ID string }
 			if json.Unmarshal(reply, &tab) != nil || tab.ID == "" {
-				return errors.New("Cage 浏览器未能打开 Claude 页面")
+				return errors.New("浏览器未能打开 Claude 页面")
 			}
 			s.requestCLIBrowser(tab.ID)
 			return c.event(hostCLIEvent{Type: "exit", Message: "Claude 账号已登录，可使用 Claude Code。"})
@@ -122,7 +122,7 @@ func (s *Server) hostCLILogin(ctx context.Context, c *hostCLIConn) error {
 		return err
 	}
 	s.requestCLIBrowser("")
-	if err := c.event(hostCLIEvent{Type: "notice", Message: "请在 Cage 浏览器中完成 Claude 账号授权。"}); err != nil {
+	if err := c.event(hostCLIEvent{Type: "notice", Message: "请在浏览器中完成 Claude 账号授权。"}); err != nil {
 		return err
 	}
 	select {

@@ -153,7 +153,7 @@ func (s *Server) hostCLI(w http.ResponseWriter, r *http.Request) {
 	case "accounts", "account-status", "use-account", "rename-account", "resolve-name":
 		err = s.cliAccountCommand(r.Context(), c, input)
 	default:
-		err = errors.New("未知的 Cage 终端操作")
+		err = errors.New("未知的终端操作")
 	}
 	if err != nil {
 		kind := "error"

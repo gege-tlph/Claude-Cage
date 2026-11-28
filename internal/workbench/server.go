@@ -1069,7 +1069,7 @@ func (s *Server) start(w http.ResponseWriter, r *http.Request) {
 	rebuild := request.ResetDiskToken != ""
 	if rebuild {
 		if !s.hasTrustedView(r) || requestConnection(r) != "local" || !equalSecret(request.ResetDiskToken, hostCLIProof(s.token)) {
-			http.Error(w, "请从本机 Cage 终端命令确认重建虚拟磁盘", http.StatusForbidden)
+			http.Error(w, "请在本机终端用 cage 命令确认重建虚拟磁盘", http.StatusForbidden)
 			return
 		}
 		if containerenv.Configured(s.profile) || request.SetAsideAbandoned || input.System != "" || input.GuestProfile != nil {
