@@ -75,6 +75,30 @@ func TestJobLogEndsReplacedJobAndKeepsAnHour(t *testing.T) {
 	}
 }
 
+// A job that ended canceled and is then replaced shows one 「已取消」.
+func TestJobLogDoesNotEndAnEndedJobAgain(t *testing.T) {
+	now := time.Date(2026, 11, 28, 10, 0, 0, 0, time.UTC)
+	l := jobLog{now: func() time.Time { return now }}
+	first := Job{ID: "a", Kind: "start", Stage: "启动环境"}
+	l.begin(Job{}, first)
+	canceled := first
+	canceled.Canceled, canceled.Message = true, "已取消"
+	l.end(canceled)
+	ended := *l.outputs[0].Ended
+	now = now.Add(time.Minute)
+	canceled.SupersededBy = "b"
+	l.begin(canceled, Job{ID: "b", Kind: "start"})
+	states := 0
+	for _, entry := range l.entries {
+		if entry.Job == "a" && entry.State == "canceled" {
+			states++
+		}
+	}
+	if states != 1 || !l.outputs[0].Ended.Equal(ended) {
+		t.Fatalf("entries %+v, ended %v", l.entries, l.outputs[0].Ended)
+	}
+}
+
 func waitFor(t *testing.T, ok func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)

@@ -93,9 +93,10 @@ func (l *jobLog) add(job Job, message, state string) {
 	l.prune(now)
 }
 
-// begin records a new job; a running job it replaced ends as canceled.
+// begin records a new job; a running job it replaced ends as canceled. One
+// that had ended already (canceled, then replaced) is not logged again.
 func (l *jobLog) begin(replaced, next Job) {
-	if replaced.ID != "" && replaced.Canceled && replaced.SupersededBy == next.ID {
+	if replaced.ID != "" && replaced.Canceled && replaced.SupersededBy == next.ID && l.running(replaced.ID) {
 		l.end(replaced)
 	}
 	l.outputs = append(l.outputs, jobLogOutput{Job: next.ID, Kind: next.Kind, Started: l.clock()})
@@ -103,6 +104,16 @@ func (l *jobLog) begin(replaced, next Job) {
 }
 
 func (l *jobLog) progress(job Job) { l.add(job, job.Message, "") }
+
+// running: the job's output has not ended in the log yet.
+func (l *jobLog) running(id string) bool {
+	for _, output := range l.outputs {
+		if output.Job == id {
+			return output.Ended == nil
+		}
+	}
+	return false
+}
 
 // end records how a job ended and keeps its output.
 func (l *jobLog) end(job Job) {
