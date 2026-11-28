@@ -836,8 +836,8 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, onTool, o
                 placeholder={tr("搜索节点、订阅或协议")}
               />
             </div>
+            {/* Floats over the list: opening it does not push the page down. */}
             <InlineSelect
-              inline
               aria-label={tr("订阅")}
               value={source}
               onValueChange={(next) => setSource(next)}
