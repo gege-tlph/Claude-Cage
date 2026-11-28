@@ -18,6 +18,7 @@ import {
   X,
   Route,
 } from "lucide-react";
+import { SquareCheck } from "lucide-react";
 import { api } from "./api";
 import { ActionButton, useAction, usePhase } from "./action-button";
 import { SafetyMessage } from "./safety-message";
@@ -40,6 +41,7 @@ import { failureOf } from "./failure-text.mjs";
 import { enableClientHelloSplit, openSettingsSection, restartEnvironment } from "./failure-flows.mjs";
 import { StatusIcon } from "./status-icon";
 import { ProxyRouteEditor } from "./proxy-route-editor";
+import { groupRange, groupValid, hopsFromProxy, isGroup, routeBody, routeKey, toggleNode } from "./relay-group.mjs";
 import { RouteText } from "./route-text";
 import { choose, toChain, toSingle } from "./proxy-route.mjs";
 
@@ -280,7 +282,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, onTool, o
     )
       return;
     routePhase.start();
-    const ok = await mutate("route", { node_ids: nodeIDs, port: Number(port) });
+    const ok = await mutate("route", { ...routeBody(nodeIDs), port: Number(port) });
     routePhase.finish(ok);
     if (ok) setActiveHop(-1);
     if (ok && followsZone() && status.vm_running) {
@@ -415,13 +417,13 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, onTool, o
     if (!nodeEdit.id || !nodeEdit.server.trim() || !Number.isInteger(port) || port < 1 || port > 65535) return;
     mutate("edit-node", { id: form.id, node_id: nodeEdit.id, server: nodeEdit.server.trim(), server_port: port });
   };
-  const savedRoute = proxy?.route?.length
+  const savedRoute = hopsFromProxy(proxy) || (proxy?.route?.length
     ? proxy.route
     : proxy?.selected
       ? [proxy.selected]
-      : [""];
+      : [""]);
   const route = routeDraft ?? savedRoute;
-  const routeChanged = JSON.stringify(route) !== JSON.stringify(savedRoute);
+  const routeChanged = routeKey(route) !== routeKey(savedRoute);
   const manualSSH = manual.type === "ssh";
   const localListener = isLocalListener(manual.server);
   const manualValid = Boolean(
@@ -461,14 +463,15 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, onTool, o
     if (!onPending) return;
     if (!proxy || !routeChanged) { onPending(null); return; }
     const nodes = proxy.sources.flatMap((s) => s.nodes);
-    const name = (id) => nodes.find((n) => n.id === id)?.name || tr("待选择");
+    const name = (id) => isGroup(id) ? tr("自动（{0}）", groupRange(id, proxy.sources, tr)) : nodes.find((n) => n.id === id)?.name || tr("待选择");
     const follows = followsZone();
     const summary = (route.length > 1 ? tr("链式代理 {0}", route.map(name).join(" → ")) : tr("出口 {0}", name(route[0])))
       + (follows ? " · " + tr("时区跟随新出口") : "");
-    const ready = route.every((id) => nodes.some((n) => n.id === id && !n.blocked_reason)) && new Set(route).size === route.length;
+    const listed = proxy.sources.flatMap((s) => s.nodes.map((n) => ({ ...n, sourceID: s.id })));
+    const ready = route.every((id, index) => isGroup(id) ? index < route.length - 1 && groupValid(id, route, listed) : nodes.some((n) => n.id === id && !n.blocked_reason)) && new Set(route).size === route.length;
     const enabling = status.vm_running && (!proxy.active || Number(port) !== proxy.port);
     onPending({ summary, ready, restart: Boolean(status.vm_running && follows) || enabling, apply: () => applyRef.current(), undo: () => editRoute({ route: savedRoute, active: -1 }) });
-  }, [onPending, proxy, routeChanged, JSON.stringify(route), autoTimezone, status.vm_running, port]);
+  }, [onPending, proxy, routeChanged, routeKey(route), autoTimezone, status.vm_running, port]);
   useEffect(() => () => onPending?.(null), [onPending]);
   // The tab to open: 节点 with nodes, else 外部导入 (local) or 订阅.
   useEffect(() => {
@@ -488,13 +491,16 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, onTool, o
     !allNodes.find((n) => n.id === id)?.relay || (index === 0 && length > 1);
   const needsMigration = allNodes.some((node) => node.blocked_reason && savedRoute.includes(node.id));
   // The current exit card's name: the exit, or the whole chain.
-  const exitLabel = savedRoute.length > 1 ? savedRoute.map((id) => allNodes.find((n) => n.id === id)?.name || "").filter(Boolean).join(" → ") : selected?.name || "";
+  const exitLabel = savedRoute.length > 1 ? savedRoute.map((id) => isGroup(id) ? tr("自动（{0}）", groupRange(id, proxy.sources, tr)) : allNodes.find((n) => n.id === id)?.name || "").filter(Boolean).join(" → ") : selected?.name || "";
   const active = proxy.active && !needsMigration;
   const routeValid =
-    route.every((id) => usableNodes.some((n) => n.id === id)) &&
-    route.every((id, index) => relayHop(id, index, route.length)) &&
+    route.every((id, index) => isGroup(id) ? index < route.length - 1 && groupValid(id, route, allNodes) : usableNodes.some((n) => n.id === id) && relayHop(id, index, route.length)) &&
     new Set(route).size === route.length;
   const routeName = (id) => allNodes.find((n) => n.id === id)?.name || tr("待选择");
+  // The group being filled from the list (自选节点), when its row is chosen.
+  const poolHop = activeHop >= 0 && isGroup(route[activeHop]) && route[activeHop].mode === "nodes" ? route[activeHop] : null;
+  // Each saved group's node in use, while the chain is as saved.
+  const groupCurrent = routeChanged ? [] : (proxy.route_hops || []).map((hop) => hop?.active_node_id ? routeName(hop.active_node_id) : "");
   const updateHop = (index, id) =>
     setRouteDraft(route.map((current, i) => (i === index ? id : current)));
   const baseNodes = allNodes.filter(
@@ -516,6 +522,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, onTool, o
   // hop being chosen (chain). The circle and the tag show its state: 当前出口
   // / 当前前置 when applied, 待应用 when chosen.
   const pickNode = (id) => {
+    if (poolHop) return setRouteDraft(route.map((hop, index) => (index === activeHop ? toggleNode(hop, id) : hop)));
     if (route.length === 1 && id === savedRoute.at(-1) && savedRoute.length === 1) return editRoute({ route: savedRoute, active: -1 });
     editRoute(choose(route, activeHop, id));
   };
@@ -532,6 +539,8 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, onTool, o
   const exitSlot = route.length === 1 || activeHop === route.length - 1 || (activeHop < 0 && !route.at(-1));
   const renderNodeRow = (n) => {
     const state = nodeState(n);
+    const inPool = poolHop ? poolHop.relay.node_ids.includes(n.id) : false;
+    const fixedHop = Boolean(poolHop) && route.includes(n.id);
     return (
       <div
         className={`proxy-node ${state.icon === "selected" ? "selected" : ""}`}
@@ -539,17 +548,18 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, onTool, o
       >
         <button
           className="proxy-node-choice"
-          disabled={busy || Boolean(n.blocked_reason) || (n.relay && exitSlot) || !proxy.core_available}
+          disabled={busy || Boolean(n.blocked_reason) || (poolHop ? fixedHop || n.relay : n.relay && exitSlot) || !proxy.core_available}
           title={
             n.blocked_reason
               ? localizeBackendMessage(n.blocked_reason, tr)
               : n.relay && exitSlot ? tr("本机中转只能作前置") : undefined
           }
           onClick={() => pickNode(n.id)}
-          aria-pressed={state.icon === "selected" || state.icon === "done"}
-          aria-label={tr("选择节点 {0}", (n.name))}
+          aria-pressed={poolHop ? inPool : state.icon === "selected" || state.icon === "done"}
+          aria-label={poolHop ? tr("中转组节点 {0}", n.name) : tr("选择节点 {0}", (n.name))}
         >
-          <StatusIcon state={state.icon} size={18} className="proxy-node-state" />
+          {poolHop ? (inPool ? <SquareCheck size={18} className="proxy-node-pool" aria-hidden="true" /> : <Square size={18} className="proxy-node-pool is-off" aria-hidden="true" />)
+            : <StatusIcon state={state.icon} size={18} className="proxy-node-state" />}
           <span>
             <strong>{n.blocked_reason ? tr("{0}（需迁移）", n.name) : n.name}</strong>
             <small>
@@ -576,7 +586,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, onTool, o
   // The failure card's tools in place: each redoes the action on this page
   // and carries it through (the job checks the network after a node).
   const proxyTool = async (name) => {
-    if (name === "reapply" && !(await mutate("route", { node_ids: savedRoute, port: proxy.port }))) throw new Error("reapply");
+    if (name === "reapply" && !(await mutate("route", { ...routeBody(savedRoute), port: proxy.port }))) throw new Error("reapply");
     if ((name === "refresh" || name === "refresh-host") && failure?.target && !(await mutate("refresh", { id: failure.target, host_download: name === "refresh-host" }))) throw new Error("refresh");
     if (name === "refresh-host" && !failure?.target && form) { setForm({ ...form, host_download: true }); return submit(); }
     if (name === "split-retry") { await enableClientHelloSplit(api); return reload(); }
@@ -740,7 +750,7 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, onTool, o
                     type="button"
                     aria-pressed={route.length === 1}
                     disabled={busy}
-                    onClick={() => editRoute(toSingle(route))}
+                    onClick={() => editRoute(toSingle(route.filter((hop) => !isGroup(hop))))}
                   >
                     {tr("单节点")}
                   </button>
@@ -773,6 +783,8 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, onTool, o
                   nameOf={routeName}
                   disabled={busy}
                   addable={route.length < usableNodes.length}
+                  sources={proxy.sources}
+                  current={groupCurrent}
                   onChange={editRoute}
                 />
               )}

@@ -6329,5 +6329,21 @@
   "Claude 已暂停": "Claude paused",
   "继续对话": "Continue conversation",
   "正在本机终端输入。关闭本机终端后可在这里继续。": "Typing in a local terminal. Close it to continue here.",
-  "已暂停": "Paused"
+  "已暂停": "Paused",
+  "自动 · {0} · {1}": "Auto · {0} · {1}",
+  "{0}方式": "{0} type",
+  "固定": "Fixed",
+  "自动": "Auto",
+  "自动（{0}）": "Auto ({0})",
+  "中转组节点 {0}": "Relay group node {0}",
+  "范围": "Range",
+  "整份订阅": "Whole subscription",
+  "中转订阅": "Relay subscription",
+  "自选节点": "Chosen nodes",
+  "已选 {0} 个": "{0} chosen",
+  "策略": "Strategy",
+  "当前 {0}": "In use: {0}",
+  "自选 {0} 个": "{0} chosen",
+  "最低延迟": "Lowest latency",
+  "故障转移": "Failover"
 }
