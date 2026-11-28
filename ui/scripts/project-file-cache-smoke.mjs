@@ -30,11 +30,11 @@ try {
       assert.ok(left.x + left.width <= right.x + 1 && Math.abs(left.y - right.y) < 2, "the refresh button is not directly left of the add button");
       await page.screenshot({path:`${screenshots}/${platform}-sidebar.png`});
       await refresh.click();
-      await page.getByText("项目文件已刷新",{exact:true}).waitFor();
+      await page.getByText("项目文件已刷新",{exact:true}).first().waitFor(); // also in the status announcer
       assert.equal(state.projectRefreshes,1);
       state.failRefresh = true;
       await refresh.click();
-      await page.getByText("项目文件未能刷新，请稍后重试",{exact:true}).waitFor();
+      await page.getByText("项目文件未能刷新，请稍后重试",{exact:true}).first().waitFor();
       assert.equal(state.projectRefreshes,1);
       assert.equal(await refresh.isEnabled(),true,"the button stays usable after a failure");
       // The setting is with the other general options and can be turned off.
