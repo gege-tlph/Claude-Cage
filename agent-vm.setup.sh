@@ -156,6 +156,12 @@ echo '$nrconf{restart} = '"'"'a'"'"';' | sudo tee /etc/needrestart/conf.d/no-pro
 # avahi-daemon, upower, Vulkan drivers), some of them running daemons. The
 # recommended packages that are used are listed by name instead.
 echo "Installing base packages..."
+# A first boot prepared for the full package leaves APT without sources until
+# its files arrive. When this installation downloads instead (a build resumed
+# without them), APT uses the system's sources.
+if [[ "${CLAUDE_CAGE:-}" == 1 && -e /etc/apt/apt.conf.d/00cage-offline && ! -s /var/cache/cage-offline/apt/sources.list ]]; then
+  sudo rm -f /etc/apt/apt.conf.d/00cage-offline
+fi
 if [[ "${CLAUDE_CAGE:-}" == 1 && ! -s /var/cache/cage-offline/apt/sources.list ]]; then
   # This runs in the guest, through its configured DNS and proxy-only route.
   # Not when the full package's repositories are copied in.
