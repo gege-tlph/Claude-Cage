@@ -18,6 +18,7 @@ import { api, writeClipboard, nativeAvailable } from "./api";
 import { runtimeSocketURL } from "./client-context.mjs";
 import { readClipboardContent, transferFiles, hasFiles, imagePayload, prepareClipboardPaste, sendImage } from "./image-transfer";
 import { terminalClipboardText } from "./terminal-clipboard.mjs";
+import { nextLiveControl, pendingControl } from "./terminal-replay.mjs";
 import {
   terminalConnectTimeoutMs, terminalHistoryPlan, terminalLiveness, terminalNoticeDelayMs,
   terminalPingMessage, terminalReconnectPlan, terminalStreamPath, terminalWatchdogMs,
@@ -353,6 +354,11 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
     // The stream is replaced on every reconnect; the terminal and its screen
     // stay. offset is the absolute position of the next byte expected.
     let ws = null, offset = null, historyRemaining = 0, historyFrame = false, exited = false;
+    // Live output right after a replay waits in liveQueue until xterm has
+    // parsed the replay (terminal-replay.mjs): afterReplay while the replay
+    // may have left a control open, liveC1Lead when live bytes ended in a
+    // UTF-8 C1 lead.
+    let afterReplay = false, liveC1Lead = false, liveQueue = null;
     let failures = 0, opened = 0, attemptStarted = 0, lastReceived = 0, probe = 0;
     let reconnectTimer = null, noticeTimer = null;
     let startupPending = Boolean(session.cli_session_id && !session.closed);
@@ -405,6 +411,31 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
       } catch { if (!disposed) onStatus("无法写入本机剪贴板"); }
       return true;
     });
+    // drainLive writes the waiting live output. It runs from a write
+    // callback, so xterm's parser has caught up: bytes that finish a control
+    // the replay left open are parsed under the replay guard, the rest after.
+    const drainLive = () => {
+      while (!disposed && liveQueue?.length) {
+        const bytes = liveQueue.shift();
+        if (!afterReplay) { terminal.write(bytes); continue; }
+        const continuation = pendingControl(terminal);
+        const boundary = continuation ? nextLiveControl(bytes, liveC1Lead) : 0;
+        afterReplay = continuation && !boundary;
+        liveC1Lead = afterReplay && bytes.at(-1) === 0xc2;
+        if (!continuation) { terminal.write(bytes); continue; }
+        if (boundary) liveQueue.unshift(bytes.subarray(boundary));
+        replaying.current = true;
+        terminal.options.disableStdin = true;
+        terminal.write(boundary ? bytes.subarray(0, boundary) : bytes, () => {
+          if (disposed) return;
+          replaying.current = false;
+          terminal.options.disableStdin = paused.current;
+          drainLive();
+        });
+        return;
+      }
+      liveQueue = null;
+    };
     const receive = (event) => {
       lastReceived = Date.now();
       probe = 0;
@@ -417,6 +448,10 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
         }
         if (state.type === "exit") exited = true;
         if (state.type === "history") {
+          // Live output still waiting belongs before the new replay.
+          for (const bytes of liveQueue || []) terminal.write(bytes);
+          liveQueue = null;
+          afterReplay = false;
           const plan = terminalHistoryPlan(offset, state);
           // The replay does not continue this screen: start it over.
           if (plan.reset && offset !== null) terminal.reset();
@@ -443,6 +478,12 @@ export function TerminalView({ session, visible, focused = true, onStatus, onCon
             terminal.options.disableStdin = paused.current;
           }
         });
+        afterReplay = true;
+        liveC1Lead = false;
+      } else if (liveQueue) liveQueue.push(bytes);
+      else if (afterReplay) {
+        liveQueue = [bytes];
+        terminal.write(new Uint8Array(0), drainLive);
       } else terminal.write(bytes);
     };
     // A stream that dropped reconnects on its own; a short gap is not shown.
