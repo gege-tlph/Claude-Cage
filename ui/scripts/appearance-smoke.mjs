@@ -13,11 +13,18 @@ const showAppearance = async () => {
   await page.getByRole("button", { name: "外观", exact: true }).click();
   await page.getByRole("heading", { name: "外观", exact: true }).waitFor();
 };
-const saved = () =>
-  page
-    .getByRole("status")
-    .filter({ hasText: /更改自动保存|已同步 Codex 外观/ })
-    .waitFor();
+// saved waits for the next appearance save to reach the fixture and the page
+// to stop showing 正在保存… or 未保存 (the page has no lasting "saved" text).
+let savesSeen = 0;
+const saved = async () => {
+  const saves = () => state.requests.filter((r) => r.path === "/appearance" && r.method === "POST").length;
+  for (let waited = 0; saves() <= savesSeen; waited += 50) {
+    if (waited > 10000) throw new Error("no appearance save was sent");
+    await page.waitForTimeout(50);
+  }
+  savesSeen = saves();
+  await page.waitForFunction(() => !/正在保存|未保存/.test(document.querySelector(".appearance-save-state")?.textContent || ""));
+};
 const shot = async (name) => {
   await page.locator(".settings-content").evaluate((el) => el.scrollTo(0, 0));
   await page.screenshot({
