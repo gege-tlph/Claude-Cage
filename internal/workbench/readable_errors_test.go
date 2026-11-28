@@ -16,8 +16,8 @@ func TestBrowserFailureExplainsOperationAndKnownCause(t *testing.T) {
 	}{
 		{400, `{"error":"Tab no longer exists"}`, "标签页已关闭"},
 		{400, `{"error":"网页已切换，请重新打开 Cookie 管理"}`, "请重新打开 Cookie 管理"},
-		{401, `{"error":"private token=do-not-display"}`, "授权"},
-		{503, `{"error":"private token=do-not-display"}`, "尚未就绪"},
+		{401, `{"error":"private token=do-not-display"}`, "环境拒绝了这次连接（HTTP 401）"},
+		{503, `{"error":"private token=do-not-display"}`, "环境里的服务没有响应（HTTP 503）"},
 		{500, `{"error":"private token=do-not-display"}`, "HTTP 500"},
 	} {
 		t.Run(fmt.Sprint(tc.status), func(t *testing.T) {
@@ -47,7 +47,7 @@ func TestBrowserFailureExplainsOperationAndKnownCause(t *testing.T) {
 
 func TestFileServiceRetainsKnownRejectionAndHidesUnknownBody(t *testing.T) {
 	known := fileServiceFailure(400, []byte("上传窗口已关闭，请重新选择文件"))
-	if !strings.Contains(known.Error(), "上传窗口已关闭") || !strings.Contains(known.Error(), "重新点击") {
+	if !strings.Contains(known.Error(), "上传窗口已关闭") || !strings.Contains(known.Error(), "重新点上传") {
 		t.Fatalf("file window reason lost: %v", known)
 	}
 	unknown := fileServiceFailure(500, []byte("unknown response token=private-file-secret"))

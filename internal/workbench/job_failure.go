@@ -43,6 +43,9 @@ func (s *Server) describeFailure(kind, initiator string, err error) error {
 		for i, tool := range f.Tools {
 			if tool == usererror.ToolReapply {
 				f.Tools[i] = usererror.ToolStart
+				if f.Next == "重新应用节点" {
+					f.Next = "重试启动"
+				}
 			}
 		}
 	}
