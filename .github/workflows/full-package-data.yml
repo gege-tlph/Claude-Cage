@@ -46,7 +46,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
           sudo apt-get -o APT::Update::Error-Mode=any update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils openssh-client openssh-sftp-server
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils ovmf openssh-client openssh-sftp-server
           test -r /dev/kvm -a -w /dev/kvm
           qemu-system-x86_64 --version
       - uses: actions/setup-go@v5
