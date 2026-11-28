@@ -289,7 +289,7 @@ try {
   await draft.getByRole("button", { name: "撤销添加" }).click();
   await confirmation.getByRole("button", { name: "撤销添加", exact: true }).click();
   await page.getByText("尚未添加账号").waitFor();
-  await page.getByText(/普通终端尚未登录 Claude 订阅/).waitFor();
+  await page.getByText("普通终端尚未登录", { exact: true }).waitFor();
   await back();
   await launchClaude(undefined, false, "login");
   await page.getByRole("tab", { name: "终端 1", exact: true }).waitFor();
