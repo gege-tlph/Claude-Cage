@@ -581,7 +581,8 @@ export function ProxySettings({ status, onApplied, onConfirm, onDirty, onTool, o
     if (name === "refresh-host" && !failure?.target && form) { setForm({ ...form, host_download: true }); return submit(); }
     if (name === "split-retry") { await enableClientHelloSplit(api); return reload(); }
     if (name === "settings:dns") return openSettingsSection("dns");
-    return onTool?.(name);
+    if (onTool) return onTool(name);
+    throw new Error(name);
   };
   const failureBlock = (className) => error && (failure
     ? <FailureCard compact failure={failure} hide={["settings:network"]} onTool={proxyTool} />

@@ -84,6 +84,9 @@ export function SettingsPanel({
   // submit button carries it on (保存并启动环境) through onCarryOn.
   carryOn = "",
   onCarryOn,
+  // onTool runs a failure card's tool this page does not run itself (启动环境,
+  // 重启环境, 更新订阅…) as the workbench does.
+  onTool,
 }) {
   const tr = useTranslation();
   const activeWorkspace = workspace || status?.workspace || current.workspace || status?.projects?.[0] || "";
@@ -254,6 +257,9 @@ export function SettingsPanel({
     if (name === "settings:project" || name === "settings:resources") return setSection("project");
     if (name === "reapply") return reapplyNode(api);
     if (name === "recheck") return recheckNetwork(api);
+    // A tool nobody runs fails on its button instead of showing 完成.
+    if (onTool) return onTool(name);
+    throw new Error(name);
   };
   const exitProbe = useAction(check), zoneProbe = useAction(check), languageProbe = useAction(check);
   const save = async ({ saveStaticDraft = false } = {}) => {
@@ -423,6 +429,7 @@ export function SettingsPanel({
             {section === "network" && (
               <>
                 <ProxySettings
+                  onTool={settingsTool}
                   onDirty={setProxyDirty}
                   onPending={setProxyPending}
                   autoTimezone={Boolean(current.auto_timezone)}

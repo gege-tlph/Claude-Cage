@@ -317,7 +317,7 @@ function Initialization({ initial, onComplete }) {
               <GuestProfileOptions value={guestProfile} onChange={setGuestProfile} disabled={busy} system={choice?.guest_system} />
             </>}
           </>}
-          {step === "proxy" && <><ProxySettings initializing status={status} onConfirm={confirm} onDirty={setProxyDirty} onApplied={async () => { setProxy(await api("/proxy")); pollNow.current?.(); }} /><InitializationDNS status={status} disabled={busy} open={Boolean(job.error)} /></>}
+          {step === "proxy" && <><ProxySettings initializing status={status} onTool={initializationTool} onConfirm={confirm} onDirty={setProxyDirty} onApplied={async () => { setProxy(await api("/proxy")); pollNow.current?.(); }} /><InitializationDNS status={status} disabled={busy} open={Boolean(job.error)} /></>}
           {step === "install" && mirrors && <section className="initialization-notice" aria-label={tr("Debian 软件源")}><h2>{tr("Debian 软件源")}</h2>
             <table className="mirror-samples"><tbody>{mirrors.samples.map(sample => <tr key={sample.id}><td>{tr(sample.name)}</td><td><code>{sample.host}</code></td><td>{sample.error ? <span className="mirror-error">{tr(sample.error)}</span> : formatSpeed(sample.bytes_per_second)}</td></tr>)}</tbody></table>
             <label className="mirror-option"><input type="radio" name="debian-mirror" value="auto" checked={mirrorChoice === "auto"} onChange={() => setMirrorChoice("auto")} />{tr("官方源优先")}{mirrors.recommended === "auto" && <em>{tr("推荐")}</em>}</label>

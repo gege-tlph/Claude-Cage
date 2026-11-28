@@ -2434,6 +2434,7 @@ function App() {
           appUpdates={appUpdates}
           carryOn={settingsCarryOn}
           onCarryOn={() => startEnvironment(startOptions())}
+          onTool={failureTool}
         />
       )}
       {projectDialog && (
