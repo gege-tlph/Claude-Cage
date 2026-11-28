@@ -66,7 +66,7 @@ func readJSON(t *testing.T, path string, value any) {
 var formatVerb = regexp.MustCompile(`%[-+# 0]*(\d+|\*)?(\.(\d+|\*))?[a-zA-Z%]`)
 
 // Calls whose Chinese arguments are matched against output or logged, not shown.
-var notShown = []string{"diagnostics.Log", "log.", "regexp.", "mux.HandleFunc", "strings.", "bytes."}
+var notShown = []string{"diagnostics.Log", "log.", "regexp.", "mux.HandleFunc", "strings.", "bytes.", "messagePrefix"}
 
 func hasHan(s string) bool {
 	for _, r := range s {
