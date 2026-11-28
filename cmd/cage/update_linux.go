@@ -19,6 +19,15 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// updateHelp and updateHint: the Linux package updates from the terminal.
+const (
+	updateHelp = `cage update [--check] [--yes]   Update the installed Cage application
+                   --check only checks for a release. --yes confirms installation.
+                   Save your work and run cage stop yourself if the environment is in use.
+`
+	updateHint = "run 'cage update' to update Cage"
+)
+
 const linuxPackageCLI = "/usr/lib/claude-cage/cage"
 const linuxUpdateHelper = "/usr/lib/claude-cage/install-update"
 

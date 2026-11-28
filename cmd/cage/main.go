@@ -54,10 +54,7 @@ cage account run SELECTOR [--] ARGS   Use an account just for this invocation
 cage account rename SELECTOR NAME     Change the local name used by cage <name>
 cage restart       Restart the local Cage service and environment using the existing disk
                    Running tasks are interrupted.
-cage update [--check] [--yes]   Update the installed Cage application
-                   --check only checks for a release. --yes confirms installation.
-                   Save your work and run cage stop yourself if the environment is in use.
-cage update-tools  Update the tools installed inside the environment
+` + updateHelp + `cage update-tools  Update the tools installed inside the environment
 cage install-cli   Install the terminal command for this user
 cage desktop       Open the unified Cage workbench (desktop launcher)
 cage agent         Discover and use the versioned, JSON-only external Agent interface
@@ -119,7 +116,7 @@ func run() int {
 	}
 	// The shared commands otherwise name agent-vm and suggest its installer.
 	cli.Command = "claude-cage"
-	cli.UpdateHint = "run 'cage update' to update Cage"
+	cli.UpdateHint = updateHint
 	// --reset deletes the environment's disk with the user's files and logins.
 	cli.StaleBaseHint = "提示：Cage lite 的基础镜像比当前环境新。当前环境的磁盘会保留，不需要重建；请在 Cage lite 的“设置 > 环境与恢复”中更新环境组件或环境工具，也可以运行 cage update-tools。"
 	args, namedAccount, err := cageArgs(os.Args[1:])
