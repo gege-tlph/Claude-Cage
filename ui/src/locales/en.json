@@ -6385,5 +6385,9 @@
   "向上拆分": "Split up",
   "向下拆分": "Split down",
   "调整终端窗格宽度": "Resize terminal width",
-  "调整终端窗格高度": "Resize terminal height"
+  "调整终端窗格高度": "Resize terminal height",
+  "VLESS encryption 暂不支持": "VLESS encryption isn't supported yet",
+  "VLESS 缺少 username（UUID）": "VLESS is missing username (UUID)",
+  "无法为桌面窗口建立本机会话": "Couldn't start a local session for the desktop window",
+  "桌面连接服务返回了无效入口": "The desktop connection service returned an invalid entry"
 }
